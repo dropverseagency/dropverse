@@ -1,0 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
+@import 'tailwindcss';
+
+:root { --bg:#071f1d; --bg2:#0a2926; --gold:#d8b45a; --gold2:#f0d98b; --text:#f7f4ec; --muted:#aebcb7; --line:rgba(216,180,90,.18); }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { margin:0; background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; }
+a { color:inherit; text-decoration:none; }
+.font-display { font-family:'Manrope',sans-serif; }
+.container { width:min(1180px,calc(100% - 40px)); margin:auto; }
+.gold-gradient { background:linear-gradient(135deg,var(--gold2),var(--gold)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.grid-bg { background-image:linear-gradient(rgba(216,180,90,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(216,180,90,.045) 1px,transparent 1px); background-size:48px 48px; }
+.glow { box-shadow:0 0 80px rgba(216,180,90,.08); }
+.card { background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.018)); border:1px solid var(--line); }
+@media(max-width:700px){ .container{width:min(100% - 28px,1180px)} }
