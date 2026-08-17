@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { ArrowRight, Check, ChevronRight, Menu, Play, Sparkles, Users, Zap, Globe, Layers, X } from 'lucide-react'
 
 const services = [
@@ -26,7 +27,7 @@ export default function Home() {
   return <main className="overflow-hidden">
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[rgba(7,31,29,0.80)] backdrop-blur-xl">
       <div className="container flex h-20 items-center justify-between">
-        <a href="#" className="font-display text-xl font-extrabold tracking-[.18em]">DROP<span className="text-[#d8b45a]">VERSE</span></a>
+        <Link href="/" className="inline-flex items-center gap-3" aria-label="DropVerse home"><Image src="/dropverse-logo.jpeg" alt="DropVerse" width={42} height={42} className="rounded-xl object-cover" priority/><span className="font-display text-xl font-extrabold tracking-[.16em]">DROP<span className="text-[#d8b45a]">VERSE</span></span></Link>
         <nav className="hidden items-center gap-8 text-sm text-[#c1cbc7] md:flex">
           <a href="#services" className="hover:text-[#f0d98b]">Services</a><a href="#how" className="hover:text-[#f0d98b]">How It Works</a><a href="#samples" className="hover:text-[#f0d98b]">Work Samples</a><a href="#about" className="hover:text-[#f0d98b]">About</a>
         </nav>
@@ -68,7 +69,7 @@ export default function Home() {
 
     <section id="start" className="relative overflow-hidden border-y border-[rgba(216,180,90,0.10)] bg-[#0a2926] py-24"><div className="absolute left-1/2 top-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[rgba(216,180,90,0.05)] blur-[100px]"/><div className="container relative text-center"><p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">Start building</p><h2 className="font-display mx-auto mt-4 max-w-3xl text-4xl font-extrabold tracking-tight sm:text-6xl">Your next sale starts with the right service.</h2><p className="mx-auto mt-6 max-w-xl text-[#95a7a1]">Join DropVerse and turn professional talent into a business.</p><Link href="/login" className="mt-9 inline-flex items-center gap-3 rounded-full bg-[#d8b45a] px-7 py-4 font-bold text-[#10221f] hover:bg-[#f0d98b]">Get Started <ArrowRight size={18}/></Link></div></section>
 
-    <footer className="py-12"><div className="container flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between"><div><div className="font-display text-xl font-extrabold tracking-[.18em]">DROP<span className="text-[#d8b45a]">VERSE</span></div><p className="mt-2 text-xs uppercase tracking-[.2em] text-[#6f827c]">Linking talent to sales</p></div><div className="flex flex-wrap gap-6 text-sm text-[#80938d]"><a href="#services">Services</a><a href="#how">How It Works</a><a href="#samples">Work Samples</a><a href="#">Privacy</a><a href="#">Terms</a></div><p className="text-xs text-[#5f726c]">© 2026 DropVerse. All rights reserved.</p></div></footer>
+    <footer className="py-12"><div className="container flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between"><div><div className="inline-flex items-center gap-3"><Image src="/dropverse-logo.jpeg" alt="DropVerse" width={42} height={42} className="rounded-xl object-cover"/><div className="font-display text-xl font-extrabold tracking-[.16em]">DROP<span className="text-[#d8b45a]">VERSE</span></div></div><p className="mt-2 text-xs uppercase tracking-[.2em] text-[#6f827c]">Linking talent to sales</p></div><div className="flex flex-wrap gap-6 text-sm text-[#80938d]"><a href="#services">Services</a><a href="#how">How It Works</a><a href="#samples">Work Samples</a><a href="#">Privacy</a><a href="#">Terms</a></div><p className="text-xs text-[#5f726c]">© 2026 DropVerse. All rights reserved.</p></div></footer>
   </main>
 }
 
