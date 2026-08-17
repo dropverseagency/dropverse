@@ -1,10 +1,11 @@
 'use client'
 
-import { FormEvent, useState } from 'react'
+import { FormEvent, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Brand from '../../components/Brand'
 import ProviderButton from '../../components/ProviderButton'
 import { createClient } from '../../lib/supabase'
+import { COUNTRIES, type Country } from '../../lib/countries'
 
 export default function LoginPage() {
   const [redirectTo] = useState(() => typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('redirect') || '/dashboard' : '/dashboard')
@@ -103,7 +104,7 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'signup' && <>
               <label className="block text-sm font-medium text-[#d9e0dc]">Full name<input name="full_name" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="text" placeholder="Your full name" required autoComplete="name" /></label>
-              <label className="block text-sm font-medium text-[#d9e0dc]">Mobile number <span className="text-xs font-normal text-[#9aaca6]">(include your country code; must work on WhatsApp or Telegram)</span><input name="phone" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="tel" placeholder="e.g. +1 555 123 4567" inputMode="tel" pattern="^\\+?[0-9\\s().-]{7,}$" required autoComplete="tel" /></label>
+              <label className="block text-sm font-medium text-[#d9e0dc]">Mobile number <span className="text-xs font-normal text-[#9aaca6]">(must work on WhatsApp or Telegram)</span><CountryPhoneField /></label>
               <label className="block text-sm font-medium text-[#d9e0dc]">Telegram username <span className="text-xs font-normal text-[#9aaca6]">(optional)</span><input name="telegram_username" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="text" placeholder="@username" autoComplete="nickname" /></label>
             </>}
             <label className="block text-sm font-medium text-[#d9e0dc]">Email address<input name="email" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="email" placeholder="you@example.com" required autoComplete="email" /></label>
@@ -118,5 +119,44 @@ export default function LoginPage() {
         </div>
       </div>
     </main>
+  )
+}
+
+function CountryPhoneField() {
+  const [country, setCountry] = useState<Country>(() => {
+    const lang = typeof navigator !== 'undefined' ? navigator.language : 'en'
+    const cc = lang.split('-').pop()?.toUpperCase() || 'US'
+    return COUNTRIES.find(c => c.iso2 === cc) || COUNTRIES.find(c => c.iso2 === 'US')!
+  })
+  const [number, setNumber] = useState('')
+
+  return (
+    <div className="mt-2 flex items-stretch gap-2">
+      <select
+        value={country.iso2}
+        onChange={e => {
+          const c = COUNTRIES.find(x => x.iso2 === e.target.value)
+          if (c) setCountry(c)
+        }}
+        className="w-[8.5rem] shrink-0 cursor-pointer rounded-xl border border-white/10 bg-white/5 px-2 py-3.5 text-sm outline-none focus:border-[rgba(216,180,90,0.50)]"
+        aria-label="Country code"
+      >
+        {COUNTRIES.map(c => (
+          <option key={`${c.iso2}-${c.dialCode}-${c.name}`} value={c.iso2} className="bg-[#122521] text-[#d9e0dc]">
+            {c.flag} {c.dialCode}
+          </option>
+        ))}
+      </select>
+      <input
+        className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]"
+        type="tel"
+        inputMode="tel"
+        placeholder="e.g. 555 123 4567"
+        required
+        value={number}
+        onChange={e => setNumber(e.target.value)}
+      />
+      <input type="hidden" name="phone" value={`${country.dialCode} ${number.trim()}`} />
+    </div>
   )
 }
