@@ -53,7 +53,7 @@ export default function LoginPage() {
     }
   }
 
-  async function handleProvider(provider: 'google' | 'azure') {
+  async function handleProvider(provider: 'google' | 'azure' | 'apple') {
     setError(null)
     setMessage(null)
     setProviderLoading(provider)
@@ -77,9 +77,12 @@ export default function LoginPage() {
           <h1 className="font-display mt-2 text-3xl font-extrabold">{mode === 'login' ? 'Sign in to DropVerse' : 'Create your account'}</h1>
           <p className="mt-3 text-sm leading-6 text-[#8fa29c]">Access services, work samples and the tools you need to build your Drop Servicing business.</p>
 
-          <div className="mt-7 grid gap-3 sm:grid-cols-2">
+          <div className="mt-7 grid gap-3 sm:grid-cols-3">
             <button type="button" onClick={() => handleProvider('google')} disabled={Boolean(providerLoading)} className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold transition hover:border-[rgba(216,180,90,0.50)] disabled:opacity-60">
               <span className="text-base font-bold text-[#d8b45a]">G</span>{providerLoading === 'google' ? 'Connecting...' : 'Google'}
+            </button>
+            <button type="button" onClick={() => handleProvider('apple')} disabled={Boolean(providerLoading)} className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold transition hover:border-[rgba(216,180,90,0.50)] disabled:opacity-60">
+              <span className="text-base font-bold text-[#d8b45a]">A</span>{providerLoading === 'apple' ? 'Connecting...' : 'Apple'}
             </button>
             <button type="button" onClick={() => handleProvider('azure')} disabled={Boolean(providerLoading)} className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold transition hover:border-[rgba(216,180,90,0.50)] disabled:opacity-60">
               <span className="text-base font-bold text-[#d8b45a]">M</span>{providerLoading === 'azure' ? 'Connecting...' : 'Microsoft'}
