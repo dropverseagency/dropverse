@@ -41,14 +41,14 @@ export default function LoginPage() {
         })
         if (signUpError) throw signUpError
         if (data.session) window.location.assign(redirectTo)
-        else setMessage('تم إنشاء الحساب. افتح رسالة التأكيد التي أرسلناها إلى بريدك الإلكتروني ثم سجّل الدخول.')
+        else setMessage('Account created. Please open the confirmation email we sent to your inbox, then sign in.')
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
         if (signInError) throw signInError
         window.location.assign(redirectTo)
       }
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'حدث خطأ أثناء تنفيذ العملية.')
+      setError(submitError instanceof Error ? submitError.message : 'Something went wrong. Please try again.')
     } finally {
       setLoading(false)
     }
