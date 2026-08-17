@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react'
 import Link from 'next/link'
 import Brand from '../../components/Brand'
+import ProviderButton from '../../components/ProviderButton'
 import { createClient } from '../../lib/supabase'
 
 export default function LoginPage() {
@@ -77,16 +78,34 @@ export default function LoginPage() {
           <h1 className="font-display mt-2 text-3xl font-extrabold">{mode === 'login' ? 'Sign in to DropVerse' : 'Create your account'}</h1>
           <p className="mt-3 text-sm leading-6 text-[#8fa29c]">Access services, work samples and the tools you need to build your Drop Servicing business.</p>
 
-          <div className="mt-7 grid gap-3 sm:grid-cols-3">
-            <button type="button" onClick={() => handleProvider('google')} disabled={Boolean(providerLoading)} className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold transition hover:border-[rgba(216,180,90,0.50)] disabled:opacity-60">
-              <svg viewBox="0 0 48 48" className="h-5 w-5" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6 19.4 6 10.7 13.1.9 21.2.9 36.8 10.7 44.9c9.8 8.1 25.7 8.1 35.5 0 5-4.1 7.5-9.5 7.5-16.9 0-1.2-.1-2.4-.3-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.6 15.1 18.9 12 24 12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6 19.4 6 10.7 13.1 9.1 14.4 7.8 14.7 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.3 35 26.8 36 24 36c-5.2 0-9.6-3.3-11.2-7.9l-6.5 5C9.8 40.1 16.4 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.6l6.2 5.2C36.8 39.3 44 34 44 24c0-1.2-.1-2.4-.3-3.5z"/></svg>{providerLoading === 'google' ? 'Connecting...' : 'Google'}
-            </button>
-            <button type="button" onClick={() => handleProvider('apple')} disabled={Boolean(providerLoading)} className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold transition hover:border-[rgba(216,180,90,0.50)] disabled:opacity-60">
-              <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5 text-white" aria-hidden="true"><path d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.18-.04-.56-.04-.95 0-1.15.572-2.27 1.206-2.98.794-.9 2.122-1.59 3.218-1.63.03.13.09.57.09.94zM20.975 17.19c-.603 1.45-.883 2.09-1.65 3.35-1.07 1.76-2.58 3.96-4.45 3.98-1.66.01-2.09-1.09-4.37-1.08-2.28.02-2.74 1.1-4.41 1.1-1.87.01-3.29-2-4.37-3.76-3.01-4.93-3.34-10.74-1.48-13.83 1.33-2.2 3.43-3.5 5.42-3.5 2.03 0 3.31 1.12 4.98 1.12 1.63 0 2.61-1.12 4.93-1.12 1.77 0 3.64.96 4.97 2.62-4.37 2.4-3.66 8.63 1.43 11.12z"/></svg>{providerLoading === 'apple' ? 'Connecting...' : 'Apple'}
-            </button>
-            <button type="button" onClick={() => handleProvider('azure')} disabled={Boolean(providerLoading)} className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold transition hover:border-[rgba(216,180,90,0.50)] disabled:opacity-60">
-              <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true"><path fill="#F25022" d="M1 1h10.5v10.5H1z"/><path fill="#7FBA00" d="M12.5 1H23v10.5H12.5z"/><path fill="#00A4EF" d="M1 12.5h10.5V23H1z"/><path fill="#FFB900" d="M12.5 12.5H23V23H12.5z"/></svg>{providerLoading === 'azure' ? 'Connecting...' : 'Microsoft'}
-            </button>
+          <div className="mt-7 grid gap-3">
+            <ProviderButton
+              provider="google"
+              label="Google"
+              loading={providerLoading === 'google'}
+              onClick={() => handleProvider('google')}
+              logo={
+                <svg viewBox="0 0 48 48" className="h-5 w-5" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.01 24.01 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+              }
+            />
+            <ProviderButton
+              provider="apple"
+              label="Apple"
+              loading={providerLoading === 'apple'}
+              onClick={() => handleProvider('apple')}
+              logo={
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="#000000" aria-hidden="true"><path d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.18-.04-.56-.04-.95 0-1.15.572-2.27 1.206-2.98.794-.9 2.122-1.59 3.218-1.63.03.13.09.57.09.94zM20.975 17.19c-.603 1.45-.883 2.09-1.65 3.35-1.07 1.76-2.58 3.96-4.45 3.98-1.66.01-2.09-1.09-4.37-1.08-2.28.02-2.74 1.1-4.41 1.1-1.87.01-3.29-2-4.37-3.76-3.01-4.93-3.34-10.74-1.48-13.83 1.33-2.2 3.43-3.5 5.42-3.5 2.03 0 3.31 1.12 4.98 1.12 1.63 0 2.61-1.12 4.93-1.12 1.77 0 3.64.96 4.97 2.62-4.37 2.4-3.66 8.63 1.43 11.12z"/></svg>
+              }
+            />
+            <ProviderButton
+              provider="azure"
+              label="Microsoft"
+              loading={providerLoading === 'azure'}
+              onClick={() => handleProvider('azure')}
+              logo={
+                <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true"><path fill="#F25022" d="M1 1h10.5v10.5H1z"/><path fill="#7FBA00" d="M12.5 1H23v10.5H12.5z"/><path fill="#00A4EF" d="M1 12.5h10.5V23H1z"/><path fill="#FFB900" d="M12.5 12.5H23V23H12.5z"/></svg>
+              }
+            />
           </div>
           <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-[.16em] text-[#718781]"><span className="h-px flex-1 bg-white/10" />or email<span className="h-px flex-1 bg-white/10" /></div>
 
