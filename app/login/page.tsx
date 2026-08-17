@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import Brand from '../../components/Brand'
 import ProviderButton from '../../components/ProviderButton'
@@ -129,29 +129,85 @@ function CountryPhoneField() {
     return COUNTRIES.find(c => c.iso2 === cc) || COUNTRIES.find(c => c.iso2 === 'US')!
   })
   const [number, setNumber] = useState('')
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const boxRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onClick(e: MouseEvent) {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [open])
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return COUNTRIES
+    return COUNTRIES.filter(c =>
+      c.name.toLowerCase().includes(q) ||
+      c.iso2.toLowerCase().includes(q) ||
+      c.dialCode.includes(q.replace(/\+/, ''))
+    )
+  }, [query])
+
+  function pick(c: Country) {
+    setCountry(c)
+    setQuery('')
+    setOpen(false)
+  }
 
   return (
     <div className="mt-2 flex items-stretch gap-2">
-      <select
-        value={country.iso2}
-        onChange={e => {
-          const c = COUNTRIES.find(x => x.iso2 === e.target.value)
-          if (c) setCountry(c)
-        }}
-        className="w-[8.5rem] shrink-0 cursor-pointer rounded-xl border border-white/10 bg-white/5 px-2 py-3.5 text-sm outline-none focus:border-[rgba(216,180,90,0.50)]"
-        aria-label="Country code"
-      >
-        {COUNTRIES.map(c => (
-          <option key={`${c.iso2}-${c.dialCode}-${c.name}`} value={c.iso2} className="bg-[#122521] text-[#d9e0dc]">
-            {c.flag} {c.dialCode}
-          </option>
-        ))}
-      </select>
+      <div ref={boxRef} className="relative w-[11rem] shrink-0">
+        <button
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          className="flex h-full w-full items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2 py-3.5 text-sm outline-none focus:border-[rgba(216,180,90,0.50)]"
+          aria-label="Choose country code"
+        >
+          <span className="text-base leading-none">{country.flag}</span>
+          <span className="font-semibold text-[#d9e0dc]">{country.iso2}</span>
+          <span className="text-[#9aaca6]">{country.dialCode}</span>
+          <svg viewBox="0 0 20 20" fill="currentColor" className="ml-auto h-4 w-4 text-[#718781]" aria-hidden="true"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.09 1.03l-4.25 4.5a.75.75 0 01-1.09 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
+        </button>
+        {open && (
+          <div className="absolute left-0 top-full z-40 mt-1 w-[16rem] overflow-hidden rounded-xl border border-white/10 bg-[#122521] shadow-xl">
+            <div className="border-b border-white/10 p-2">
+              <input
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Search country or code..."
+                autoFocus
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-[rgba(216,180,90,0.50)]"
+              />
+            </div>
+            <ul className="max-h-56 overflow-y-auto">
+              {filtered.length === 0 && <li className="px-3 py-2 text-xs text-[#718781]">No country found</li>}
+              {filtered.map(c => (
+                <li key={`${c.iso2}-${c.dialCode}-${c.name}`}>
+                  <button
+                    type="button"
+                    onClick={() => pick(c)}
+                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-white/10 ${c.iso2 === country.iso2 ? 'bg-[rgba(216,180,90,0.12)] text-[#f0d98b]' : 'text-[#d9e0dc]'}`}
+                  >
+                    <span className="text-base leading-none">{c.flag}</span>
+                    <span className="w-8 font-semibold">{c.iso2}</span>
+                    <span className="w-12 text-[#9aaca6]">{c.dialCode}</span>
+                    <span className="flex-1 truncate text-left">{c.name}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
       <input
         className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]"
         type="tel"
         inputMode="tel"
-        placeholder="e.g. 555 123 4567"
+        placeholder="555 123 4567"
         required
         value={number}
         onChange={e => setNumber(e.target.value)}
