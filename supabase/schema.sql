@@ -61,3 +61,26 @@ create policy "public work samples" on public.work_samples for select using (tru
 create policy "users read own saves" on public.saved_samples for select using (auth.uid() = user_id);
 create policy "users create own saves" on public.saved_samples for insert with check (auth.uid() = user_id);
 create policy "users delete own saves" on public.saved_samples for delete using (auth.uid() = user_id);
+
+-- Admin write policies: only users whose profile role = 'admin' can manage content.
+create policy "admins manage categories" on public.categories for all using (
+  (select role from public.profiles where id = auth.uid()) = 'admin') with check (
+  (select role from public.profiles where id = auth.uid()) = 'admin');
+create policy "admins manage services" on public.services for all using (
+  (select role from public.profiles where id = auth.uid()) = 'admin') with check (
+  (select role from public.profiles where id = auth.uid()) = 'admin');
+create policy "admins manage freelancers" on public.freelancers for all using (
+  (select role from public.profiles where id = auth.uid()) = 'admin') with check (
+  (select role from public.profiles where id = auth.uid()) = 'admin');
+create policy "admins manage work samples" on public.work_samples for all using (
+  (select role from public.profiles where id = auth.uid()) = 'admin') with check (
+  (select role from public.profiles where id = auth.uid()) = 'admin');
+create policy "users update own profile" on public.profiles for update using (
+  auth.uid() = id and (select role from public.profiles where id = auth.uid()) = 'user') with check (
+  auth.uid() = id);
+
+-- Indexes for common lookups
+create index if not exists idx_profiles_role on public.profiles(role);
+create index if not exists idx_saved_samples_user on public.saved_samples(user_id);
+create index if not exists idx_work_samples_featured on public.work_samples(featured) where featured = true;
+create index if not exists idx_services_category on public.services(category_id) where active = true;
