@@ -48,7 +48,10 @@ begin
     coalesce(new.raw_user_meta_data->>'full_name',''),
     coalesce(new.raw_user_meta_data->>'phone',''),
     nullif(new.raw_user_meta_data->>'telegram_username','')
-  );
+  )
+  on conflict (id) do update set
+    full_name = coalesce(excluded.full_name, public.profiles.full_name),
+    telegram_username = coalesce(excluded.telegram_username, public.profiles.telegram_username);
   return new;
 end; $$;
 
@@ -62,29 +65,43 @@ alter table public.freelancers enable row level security;
 alter table public.work_samples enable row level security;
 alter table public.saved_samples enable row level security;
 
+drop policy if exists "profiles own read" on public.profiles;
 create policy "profiles own read" on public.profiles for select using (auth.uid() = id);
+drop policy if exists "profiles own update" on public.profiles;
 create policy "profiles own update" on public.profiles for update using (auth.uid() = id);
+drop policy if exists "public active categories" on public.categories;
 create policy "public active categories" on public.categories for select using (active = true);
+drop policy if exists "public active services" on public.services;
 create policy "public active services" on public.services for select using (active = true);
+drop policy if exists "public active freelancers" on public.freelancers;
 create policy "public active freelancers" on public.freelancers for select using (active = true);
+drop policy if exists "public work samples" on public.work_samples;
 create policy "public work samples" on public.work_samples for select using (true);
+drop policy if exists "users read own saves" on public.saved_samples;
 create policy "users read own saves" on public.saved_samples for select using (auth.uid() = user_id);
+drop policy if exists "users create own saves" on public.saved_samples;
 create policy "users create own saves" on public.saved_samples for insert with check (auth.uid() = user_id);
+drop policy if exists "users delete own saves" on public.saved_samples;
 create policy "users delete own saves" on public.saved_samples for delete using (auth.uid() = user_id);
 
 -- Admin write policies: only users whose profile role = 'admin' can manage content.
+drop policy if exists "admins manage categories" on public.categories;
 create policy "admins manage categories" on public.categories for all using (
   (select role from public.profiles where id = auth.uid()) = 'admin') with check (
   (select role from public.profiles where id = auth.uid()) = 'admin');
+drop policy if exists "admins manage services" on public.services;
 create policy "admins manage services" on public.services for all using (
   (select role from public.profiles where id = auth.uid()) = 'admin') with check (
   (select role from public.profiles where id = auth.uid()) = 'admin');
+drop policy if exists "admins manage freelancers" on public.freelancers;
 create policy "admins manage freelancers" on public.freelancers for all using (
   (select role from public.profiles where id = auth.uid()) = 'admin') with check (
   (select role from public.profiles where id = auth.uid()) = 'admin');
+drop policy if exists "admins manage work samples" on public.work_samples;
 create policy "admins manage work samples" on public.work_samples for all using (
   (select role from public.profiles where id = auth.uid()) = 'admin') with check (
   (select role from public.profiles where id = auth.uid()) = 'admin');
+drop policy if exists "users update own profile" on public.profiles;
 create policy "users update own profile" on public.profiles for update using (
   auth.uid() = id and (select role from public.profiles where id = auth.uid()) = 'user') with check (
   auth.uid() = id);
@@ -126,14 +143,15 @@ create table if not exists public.referral_tiers (
 );
 
 insert into public.referral_tiers (name, min_active_referrals, max_active_referrals, commission_rate)
-select v[1]::text, v[2]::int, v[3]::int, v[4]::numeric
-from (values
-  ('STARTER', 1, 5, 0.10),
-  ('GROWTH', 6, 20, 0.15),
-  ('PRO', 21, 50, 0.20),
-  ('PARTNER', 51, null, 0.25)
-) as v
-where not exists (select 1 from public.referral_tiers where name = v[1]);
+select a, b, c, d
+from (
+  values
+    ('STARTER', 1, 5, 0.10),
+    ('GROWTH', 6, 20, 0.15),
+    ('PRO', 21, 50, 0.20),
+    ('PARTNER', 51, null, 0.25)
+) as v(a, b, c, d)
+where not exists (select 1 from public.referral_tiers where name = v.a);
 
 create table if not exists public.referral_codes (
   id uuid primary key default gen_random_uuid(),
@@ -155,9 +173,12 @@ create table if not exists public.referrals (
   status text not null default 'active' check (status in ('active','expired','cancelled')),
   -- Original source tracking for attribution
   source_url text,
-  source_channel text,
-  unique(referred_user_id) where referred_user_id is not null
+  source_channel text
 );
+
+-- Each referred user account can only be attributed once (partial unique index).
+drop index if exists idx_referrals_referred_user_unique;
+create unique index idx_referrals_referred_user_unique on public.referrals (referred_user_id) where referred_user_id is not null;
 
 -- Client referrals don't attach to a user account yet; the project tracks them.
 -- eligible_project_id is set server-side once the underlying activity qualifies.
@@ -248,28 +269,43 @@ alter table public.referral_commissions enable row level security;
 alter table public.commission_ledger enable row level security;
 alter table public.payout_requests enable row level security;
 
+drop policy if exists "config public read" on public.program_config;
 create policy "config public read" on public.program_config for select using (true);
+drop policy if exists "admins update config" on public.program_config;
 create policy "admins update config" on public.program_config for update using (
   (select role from public.profiles where id = auth.uid()) = 'admin') with check (
   (select role from public.profiles where id = auth.uid()) = 'admin');
+drop policy if exists "tiers public read" on public.referral_tiers;
 create policy "tiers public read" on public.referral_tiers for select using (true);
+drop policy if exists "admins manage tiers" on public.referral_tiers;
 create policy "admins manage tiers" on public.referral_tiers for all using (
   (select role from public.profiles where id = auth.uid()) = 'admin') with check (
   (select role from public.profiles where id = auth.uid()) = 'admin');
+drop policy if exists "users read own codes" on public.referral_codes;
 create policy "users read own codes" on public.referral_codes for select using (auth.uid() = user_id);
+drop policy if exists "users create own codes" on public.referral_codes;
 create policy "users create own codes" on public.referral_codes for insert with check (auth.uid() = user_id);
+drop policy if exists "users update own codes" on public.referral_codes;
 create policy "users update own codes" on public.referral_codes for update using (auth.uid() = user_id);
+drop policy if exists "users read own referrals" on public.referrals;
 create policy "users read own referrals" on public.referrals for select using (auth.uid() = referrer_id);
+drop policy if exists "users read own commissions" on public.referral_commissions;
 create policy "users read own commissions" on public.referral_commissions for select using (
   auth.uid() = (select referrer_id from public.referrals where id = referral_commissions.referral_id));
+drop policy if exists "users read own ledger" on public.commission_ledger;
 create policy "users read own ledger" on public.commission_ledger for select using (auth.uid() = user_id);
+drop policy if exists "users read own payouts" on public.payout_requests;
 create policy "users read own payouts" on public.payout_requests for select using (auth.uid() = user_id);
+drop policy if exists "users create own payouts" on public.payout_requests;
 create policy "users create own payouts" on public.payout_requests for insert with check (auth.uid() = user_id);
+drop policy if exists "admins read all referrals" on public.referrals;
 create policy "admins read all referrals" on public.referrals for select using (
   (select role from public.profiles where id = auth.uid()) = 'admin');
+drop policy if exists "admins manage commissions" on public.referral_commissions;
 create policy "admins manage commissions" on public.referral_commissions for all using (
   (select role from public.profiles where id = auth.uid()) = 'admin') with check (
   (select role from public.profiles where id = auth.uid()) = 'admin');
+drop policy if exists "admins manage payouts" on public.payout_requests;
 create policy "admins manage payouts" on public.payout_requests for all using (
   (select role from public.profiles where id = auth.uid()) = 'admin') with check (
   (select role from public.profiles where id = auth.uid()) = 'admin');
