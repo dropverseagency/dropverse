@@ -12,6 +12,7 @@ import {
   User,
   Phone,
   AtSign,
+  Settings as SettingsIcon,
 } from 'lucide-react'
 import Brand from '../../components/Brand'
 import { createClient } from '../../lib/supabase'
@@ -106,7 +107,10 @@ export default function Dashboard() {
 
               {/* Profile details */}
               <div className="mt-7 grid gap-3 sm:grid-cols-2">
-                <ProfileRow icon={<User size={15} />} label="Username" value={profile?.username || '—'} />
+                <ProfileRow                     icon={<User size={15} />} label="Username" value={profile?.username || '—'} />
+                <ProfileRow icon={<SettingsIcon size={15} />} label="Account" value={
+                  <Link href="/dashboard/settings" className="underline decoration-dotted underline-offset-4 hover:text-[#e4c979]">Manage →</Link>
+                } />
                 <ProfileRow icon={<User size={15} />} label="Full name" value={profile?.full_name || '—'} />
                 <ProfileRow icon={<Phone size={15} />} label="Mobile" value={profile?.phone || '—'} />
                 <ProfileRow icon={<AtSign size={15} />} label="Telegram" value={profile?.telegram_username || 'Not added'} />
@@ -129,6 +133,11 @@ export default function Dashboard() {
                   <span className="text-xs text-[#687d76]">Your workspace</span>
                 </div>
                 <div className="mt-6 space-y-3">
+                  <Action
+                    title="Settings"
+                    text="Update your name, username, contact details or email."
+                    href="/dashboard/settings"
+                  />
                   <Action
                     title="Explore services"
                     text="Find services you can package and sell."
@@ -175,7 +184,7 @@ export default function Dashboard() {
   )
 }
 
-function ProfileRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function ProfileRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[.025] px-4 py-3.5">
       <span className="text-[#d8b45a]">{icon}</span>
