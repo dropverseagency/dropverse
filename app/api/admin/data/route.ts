@@ -95,6 +95,56 @@ export async function GET(request: NextRequest) {
         return { section: 'users', rows: rows.map((d) => ({ ...d, email: byId.get(d.id) ?? null })), count: count ?? 0, offset, limit }
       }
 
+      case 'user_detail': {
+        // Full profile of a single user: identity + projects + referral activity.
+        const detailId = (searchParams.get('id') ?? '').trim()
+        if (!detailId) return { error: 'MISSING_ID', section: 'user_detail' }
+        const { data: prof, error: profError } = await admin
+          .from('profiles')
+          .select('id, full_name, username, phone, telegram_username, avatar_url, role, created_at')
+          .eq('id', detailId)
+          .maybeSingle()
+        if (profError) throw profError
+        if (!prof) return { error: 'USER_NOT_FOUND', section: 'user_detail' }
+        const { data: emailRow } = await admin
+          .from('users_view')
+          .select('id, email, email_confirmed_at')
+          .eq('id', detailId)
+          .maybeSingle()
+        const [projects, orgs] = await Promise.all([
+          admin.from('projects').select('id, title, project_type, billing_interval, client_price, fulfillment_cost, seller_profit, payment_status, status, created_at')
+            .eq('user_id', detailId).order('created_at', { ascending: false }).limit(50),
+          admin.from('organizations').select('id, name, status').eq('owner_id', detailId).limit(20),
+        ])
+        // Referral activity (as affiliate)
+        const { data: codes } = await admin
+          .from('referral_codes')
+          .select('id, code, kind, active, created_at')
+          .eq('user_id', detailId)
+        const refs: any[] = []
+        let totalCommission = 0
+        for (const code of codes ?? []) {
+          const { data: codeRefs } = await admin.from('referrals').select('id, referred_user_id, attributed_at, source_channel').eq('referral_code_id', code.id)
+          for (const r of codeRefs ?? []) {
+            const { data: comms } = await admin.from('referral_commissions').select('base_amount, commission_amount, status').eq('referral_id', r.id)
+            for (const c of comms ?? []) totalCommission += Number(c.commission_amount || 0)
+            refs.push({ ...r, referral_code_id: code.id, referral_code: code.code, commissions: comms ?? [] })
+          }
+        }
+        // Referrals received (as referred user)
+        const { data: referredBy } = await admin.from('referrals').select('id, referrer_id, attributed_at').eq('referred_user_id', detailId)
+        return {
+          section: 'user_detail',
+          profile: { ...prof, email: emailRow?.email ?? null, email_confirmed_at: emailRow?.email_confirmed_at ?? null },
+          projects: projects.data ?? [],
+          organizations: orgs.data ?? [],
+          referralCodes: codes ?? [],
+          referralsMade: refs,
+          referralCommissionEarned: Math.round(totalCommission * 100) / 100,
+          referredBy: referredBy ?? [],
+        }
+      }
+
       case 'agencies': {
         let query = select('organizations', 'id, name, slug, type, plan, owner_id, status, team_size, created_at').order('created_at', { ascending: false })
         if (q) query = query.or(`name.ilike.%${q}%,slug.ilike.%${q}%`)

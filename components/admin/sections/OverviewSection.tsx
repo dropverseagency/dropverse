@@ -1,5 +1,23 @@
 'use client'
-import { fmtUsd, fmtDate, StatCard, Card, useAdminData, LoadingOrError, Badge } from '@/components/admin/shared'
+import Link from 'next/link'
+import { fmtUsd, fmtDate, Card, useAdminData, LoadingOrError, Badge } from '@/components/admin/shared'
+import { Users, Building2, FolderKanban, CreditCard, Users2, Coins, Wallet, TrendingUp } from 'lucide-react'
+
+function GroupCard({ icon: Icon, label, value, sub, href }: { icon: any; label: string; value: string; sub?: string; href: string }) {
+  return (
+    <Link href={href} className="group flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] p-4 transition hover:border-[rgba(216,180,90,0.35)] hover:bg-[rgba(216,180,90,0.06)]">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[rgba(216,180,90,0.14)] text-[#d8b45a]">
+        <Icon size={19} />
+      </div>
+      <div className="min-w-0">
+        <div className="font-display text-xl font-extrabold text-[#f0f4f2]">{value}</div>
+        <div className="text-xs text-[#7f918c]">{label}</div>
+        {sub ? <div className="truncate text-[11px] text-[#5f746e]">{sub}</div> : null}
+      </div>
+      <span className="ml-auto shrink-0 text-xs text-[#5f746e] transition group-hover:text-[#e4c979]">Open →</span>
+    </Link>
+  )
+}
 
 export default function OverviewSection() {
   const { data, loading, error } = useAdminData('overview')
@@ -10,20 +28,31 @@ export default function OverviewSection() {
       {loading || error ? <LoadingOrError loading={loading} error={error} /> : null}
       {data ? (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            <StatCard label="Users" value={String(t.users ?? 0)} />
-            <StatCard label="Agencies" value={String(t.agencies ?? 0)} />
-            <StatCard label="Projects" value={String(t.projects ?? 0)} />
-            <StatCard label="Payments confirmed" value={String(t.paymentsConfirmed ?? 0)} sub={`Pending: ${t.paymentsPending ?? 0}`} />
-            <StatCard label="Active referrals" value={String(t.activeReferrals ?? 0)} />
-          </div>
-          <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
-            <StatCard label="DV Revenue (commissions base)" value={fmtUsd(t.dvRevenue)} sub="Sum of approved/paid commission base amounts" />
-            <StatCard label="Total Payouts" value={fmtUsd(t.totalPayouts)} sub="Approved payout requests" />
-            <StatCard label="Commissions" value={`${t.commissionsPending ?? 0} pending`} sub={`${t.commissionsPaid ?? 0} paid`} />
+          {/* People */}
+          <h2 className="mb-2 font-display text-xs font-extrabold uppercase tracking-[0.18em] text-[#7f918c]">People</h2>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-2">
+            <GroupCard icon={Users} label="Users" value={String(t.users ?? 0)} href="/admin/users" />
+            <GroupCard icon={Building2} label="Agencies" value={String(t.agencies ?? 0)} href="/admin/agencies" />
           </div>
 
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          {/* Work & Money */}
+          <h2 className="mb-2 mt-6 font-display text-xs font-extrabold uppercase tracking-[0.18em] text-[#7f918c]">Work & Payments</h2>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <GroupCard icon={FolderKanban} label="Projects" value={String(t.projects ?? 0)} href="/admin/projects" />
+            <GroupCard icon={CreditCard} label="Payments confirmed" value={String(t.paymentsConfirmed ?? 0)} sub={`Pending: ${t.paymentsPending ?? 0}`} href="/admin/payments" />
+            <GroupCard icon={Wallet} label="DV Revenue" value={fmtUsd(t.dvRevenue)} sub="Commission base" href="/admin/commissions" />
+            <GroupCard icon={Coins} label="Total payouts" value={fmtUsd(t.totalPayouts)} sub={`${t.commissionsPending ?? 0} commissions pending`} href="/admin/commissions" />
+          </div>
+
+          {/* Growth */}
+          <h2 className="mb-2 mt-6 font-display text-xs font-extrabold uppercase tracking-[0.18em] text-[#7f918c]">Affiliate Program</h2>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-2">
+            <GroupCard icon={Users2} label="Active referrals" value={String(t.activeReferrals ?? 0)} sub={`${t.commissionsPaid ?? 0} commissions paid`} href="/admin/affiliates" />
+            <GroupCard icon={TrendingUp} label="Paid commissions" value={String(t.commissionsPaid ?? 0)} sub={`${t.commissionsPending ?? 0} pending`} href="/admin/commissions" />
+          </div>
+
+          {/* Recent activity */}
+          <div className="mt-6 grid gap-4 lg:grid-cols-2">
             <Card title="Recent projects">
               {!(data.recentProjects?.length) ? (
                 <p className="py-6 text-center text-sm text-[#7f918c]">No projects yet.</p>
