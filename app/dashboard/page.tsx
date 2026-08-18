@@ -39,11 +39,12 @@ interface Profile {
 }
 
 interface Transaction {
-  type: 'commission' | 'payout'
+  type: 'commission' | 'payout' | 'project'
   label: string
   amount: number
   status: string
   date: string
+  detail?: string
 }
 
 interface ProjectRow {
@@ -185,13 +186,25 @@ export default function Dashboard() {
       rows.sort((a, b) => (a.date < b.date ? 1 : -1))
       setTransactions(rows.slice(0, 10))
 
-      // Projects created by this user (RLS limits to own rows)
+      // Projects created by this user (RLS limits to own rows) — also appear in Activity
       const { data: projRows } = await supabase
         .from('projects')
         .select('id, title, project_type, billing_interval, client_price, fulfillment_cost, seller_profit, payment_method, payment_status, status, created_at')
         .order('created_at', { ascending: false })
         .limit(25)
       if (!cancelled) setProjects((projRows as ProjectRow[] | null) ?? [])
+
+      if (!cancelled && projRows) {
+        const projectRows: Transaction[] = (projRows as ProjectRow[]).map((p) => ({
+          type: 'project' as const,
+          label: `Created project`,
+          amount: Number(p.seller_profit || 0),
+          status: p.payment_status.toLowerCase().replace(/_/g, ' '),
+          date: p.created_at,
+          detail: p.title,
+        }))
+        setTransactions((prev) => [...projectRows, ...prev].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 10))
+      }
       setLoading(false)
     }
     load()
@@ -393,7 +406,7 @@ export default function Dashboard() {
                   </div>
                   <p className="mt-4 text-sm font-semibold text-[#8fa29c]">No activity yet</p>
                   <p className="mt-1.5 text-sm text-[#687d76]">
-                    Your earnings, commissions and payouts will appear here as they happen.
+                    Projects you create, your earnings, commissions and payouts will appear here as they happen.
                   </p>
                 </div>
               ) : (
@@ -406,15 +419,17 @@ export default function Dashboard() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 text-sm font-semibold text-[#d9e0dc]">
                           <span
-                            className={`h-2 w-2 rounded-full ${t.type === 'commission' ? 'bg-[#6fbf73]' : 'bg-[#e4c979]'}`}
+                            className={`h-2 w-2 rounded-full ${t.type === 'commission' ? 'bg-[#6fbf73]' : t.type === 'project' ? 'bg-[#d8b45a]' : 'bg-[#e4c979]'}`}
                           />
                           {t.label}
                           <span className="hidden sm:inline text-xs text-[#687d76]">{t.status}</span>
                         </div>
-                        <div className="mt-0.5 pl-4 text-xs text-[#687d76]">{formatDate(t.date)}</div>
+                        <div className="mt-0.5 pl-4 text-xs text-[#687d76]">
+                          {t.detail ? `“${t.detail}” · ` : ''}{formatDate(t.date)}
+                        </div>
                       </div>
                       <div className={`font-bold ${t.amount >= 0 ? 'text-[#6fbf73]' : 'text-[#9aaca6]'}`}>
-                        {t.amount >= 0 ? '+' : ''}{formatUSD(t.amount)}
+                        {t.type === 'project' ? '' : t.amount >= 0 ? '+' : ''}{formatUSD(t.amount)}
                       </div>
                     </div>
                   ))}

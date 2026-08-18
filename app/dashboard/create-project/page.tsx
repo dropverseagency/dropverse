@@ -242,6 +242,7 @@ export default function CreateProjectPage() {
                     />
                     <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-xs text-[#5f726c]">USD{labels.periodSuffix}</span>
                   </div>
+                  <p className="mt-1.5 text-xs leading-5 text-[#6e817c]">How much you charge your client{labels.periodSuffix}. Must be greater than zero.</p>
                 </div>
 
                 <div>
@@ -259,6 +260,12 @@ export default function CreateProjectPage() {
                     />
                     <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-xs text-[#5f726c]">USD{labels.periodSuffix}</span>
                   </div>
+                  {fc > 0 && fc >= cp && cp > 0 && (
+                    <p className="mt-1.5 flex items-center gap-1.5 text-xs leading-5 text-red-300">
+                      <AlertTriangle size={13} className="shrink-0" /> The DropVerse cost must be less than the client price.
+                    </p>
+                  )}
+                  <p className="mt-1.5 text-xs leading-5 text-[#6e817c]">What DropVerse charges to deliver the service{labels.periodSuffix}. Must be greater than zero and less than the client price.</p>
                 </div>
 
                 <div className="flex items-center justify-between rounded-2xl border border-[rgba(216,180,90,0.25)] bg-[rgba(216,180,90,0.06)] px-5 py-4">
@@ -340,6 +347,11 @@ export default function CreateProjectPage() {
                     Next: Review <ArrowRight size={16} />
                   </button>
                 </div>
+                {!billingValid && (
+                  <p className="mt-3 text-right text-xs leading-5 text-[#6e817c]">
+                    The review step unlocks when both prices are entered and the DropVerse cost is less than the client price.
+                  </p>
+                )}
               </div>
             </section>
           </div>
@@ -411,7 +423,13 @@ export default function CreateProjectPage() {
                   {submitting ? 'Creating...' : 'Create Project'} <ArrowRight size={17} />
                 </button>
               )}
-
+              {!created && (!basicsValid || !billingValid) && (
+                <p className="mt-3 text-center text-[11px] leading-5 text-[#5f726c]">
+                  {!basicsValid
+                    ? 'Add a project name (at least 3 characters) and a short description (at least 5 characters) in step 1.'
+                    : 'Enter both prices in step 2 — the DropVerse cost must be less than the client price.'}
+                </p>
+              )}
               <p className="mt-4 text-center text-[11px] leading-5 text-[#5f726c]">
                 No payment gateway is integrated yet. Submitting puts the project into Payment Pending.
               </p>
