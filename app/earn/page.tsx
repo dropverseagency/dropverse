@@ -5,13 +5,55 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowRight, Check, ChevronRight, Copy, Facebook, Share2, TrendingUp, Users, Zap, Link2, DollarSign, Activity, X, Menu } from 'lucide-react'
 import { REFERRAL_TIERS, referralLinkFor } from '../../lib/referralConfig'
+import { createClient } from '../../lib/supabase'
+import { useAuth } from '../../lib/useAuth'
 
 const shareUrl = referralLinkFor('YOURCODE')
+
+function UserMenu({ user }: { user: { name?: string | null; email?: string } }) {
+  const [open, setOpen] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
+  async function handleSignOut() {
+    if (signingOut) return
+    setSigningOut(true)
+    await createClient().auth.signOut()
+    window.location.assign('/')
+  }
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-2 rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] px-4 py-2 text-sm font-semibold text-[#e4c979] transition hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.14)]"
+        aria-haspopup="true"
+        aria-expanded={open}
+      >
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#d8b45a] text-xs font-bold text-[#10221f]">
+          {(user.name || user.email || '?').trim().charAt(0).toUpperCase()}
+        </span>
+        <span className="max-w-[10rem] truncate">{user.name || user.email}</span>
+      </button>
+      {open && (
+        <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#0a2926] shadow-xl">
+          <Link href="/dashboard" onClick={() => setOpen(false)} className="block px-4 py-3 text-sm text-[#d9e0dc] transition hover:bg-white/5">Dashboard</Link>
+          <button
+            onClick={handleSignOut}
+            disabled={signingOut}
+            className="flex w-full items-center gap-2 px-4 py-3 text-sm text-[#d9e0dc] transition hover:bg-white/5 disabled:opacity-60"
+          >
+            <X size={15} /> {signingOut ? 'Signing out...' : 'Sign out'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function EarnPage() {
   const [menu, setMenu] = useState(false)
   const [copied, setCopied] = useState(false)
   const [openFaq, setOpenFaq] = useState<number | null>(0)
+  const auth = useAuth()
+  const signedIn = !auth.loading && Boolean(auth.user)
 
   function copyLink() {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -36,7 +78,11 @@ export default function EarnPage() {
             <a href="#faq" className="hover:text-[#f0d98b]">FAQ</a>
           </nav>
           <div className="hidden items-center gap-3 md:flex">
-            <Link href="/login" className="px-4 py-2 text-sm text-[#d9e0dc]">Login</Link>
+            {signedIn && auth.user ? (
+              <UserMenu user={auth.user} />
+            ) : (
+              <Link href="/login" className="px-4 py-2 text-sm text-[#d9e0dc]">{auth.loading ? '' : 'Login'}</Link>
+            )}
             <a href="#start-earning" className="rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]">Start Earning</a>
           </div>
           <button onClick={() => setMenu(!menu)} className="md:hidden" aria-label="Menu">{menu ? <X/> : <Menu/>}</button>
@@ -47,7 +93,11 @@ export default function EarnPage() {
               <a href="#two-ways" onClick={() => setMenu(false)}>Two Ways to Earn</a>
               <a href="#commissions" onClick={() => setMenu(false)}>Commissions</a>
               <a href="#faq" onClick={() => setMenu(false)}>FAQ</a>
-              <Link href="/login" className="text-[#d8b45a]">Start Earning →</Link>
+              {signedIn ? (
+                <Link href="/dashboard" className="text-[#d8b45a]">Dashboard →</Link>
+              ) : (
+                <Link href="/login" className="text-[#d8b45a]">Start Earning →</Link>
+              )}
             </div>
           </div>
         )}
