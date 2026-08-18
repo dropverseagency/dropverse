@@ -116,6 +116,34 @@ export async function POST(request: NextRequest) {
         return { ok: true }
       }
 
+      case 'debug_restore2': {
+        const email = String(body.email ?? '').trim().toLowerCase()
+        const admin = adminClient()
+        const out: Record<string, unknown> = {}
+        let foundId: string | null = null
+        try {
+          const list = await admin.auth.admin.listUsers()
+          const existing = list.data?.users?.find((u) => (u.email ?? '').toLowerCase() === email) ?? null
+          if (existing) { foundId = existing.id; out.existingUser = { id: existing.id, email: existing.email, confirmed: !!existing.email_confirmed_at } }
+        } catch (e: unknown) { out.listError = String(e) }
+        if (!foundId) {
+          try {
+            const inv = await admin.auth.admin.inviteUserByEmail(email, { data: { restore_debug: true } })
+            foundId = inv.user?.id ?? null
+            out.inviteOk = true
+          } catch (e: unknown) { out.inviteError = String(e) }
+        }
+        if (foundId) {
+          const { data: profile } = await admin.from('profiles').select('id, role').eq('id', foundId).maybeSingle()
+          out.hasProfile = !!profile
+          if (!profile) {
+            const { error: insErr } = await admin.from('profiles').insert({ id: foundId, full_name: 'abdullhamed ashraf', username: 'Itz_abdo', role: 'user' })
+            if (insErr) { out.profileError = String(insErr) } else { out.profileOk = true }
+          }
+        }
+        return out
+      }
+
       case 'restore_user': {
         // Restore a previously deleted user: invite their email via the admin
         // auth API (Supabase sends a set-password confirmation email), then
