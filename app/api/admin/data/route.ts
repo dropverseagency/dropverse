@@ -22,6 +22,21 @@ export async function GET(request: NextRequest) {
     const select = (table: string, columns: string) => admin.from(table).select(columns)
 
     switch (section) {
+      case 'debug_counts2': {
+        const admin = adminClient()
+        const out: Record<string, unknown> = {}
+        const tables = ['profiles', 'organizations', 'projects', 'referrals', 'referral_commissions', 'payout_requests', 'audit_logs']
+        for (const t of tables) {
+          try {
+            const { count, error } = await admin.from(t).select('*', { count: 'exact', head: true })
+            out[t] = { count, err: error ? error.message : null }
+          } catch (e: any) {
+            out[t] = { err: String(e?.message ?? e) }
+          }
+        }
+        return { section: 'debug_counts2', ...out }
+      }
+
       case 'debug_counts': {
         const out: Record<string, unknown> = {}
         const admin = adminClient()
