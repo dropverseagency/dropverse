@@ -116,6 +116,52 @@ export async function POST(request: NextRequest) {
         return { ok: true }
       }
 
+      case 'restore_user': {
+        // Restore a previously deleted user: invite their email via the admin
+        // auth API (Supabase sends a set-password confirmation email), then
+        // create the public profile with the original name/username and role=user.
+        const email = String(body.email ?? '').trim().toLowerCase()
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'INVALID_EMAIL' }
+        const fullName = String(body.fullName ?? '').trim() || undefined
+        const userName = String(body.username ?? '').trim() || undefined
+        if (!fullName || !userName) return { error: 'MISSING_NAME_OR_USERNAME' }
+        const admin = adminClient()
+        // 1. Look up existing auth user (avoid duplicates)
+        let existingUser: { id: string; email?: string } | null = null
+        try {
+          const list = await admin.auth.admin.listUsers()
+          existingUser = list.data?.users?.find((u) => (u.email ?? '').toLowerCase() === email) ?? null
+        } catch {
+          existingUser = null
+        }
+        let userId = existingUser?.id ?? null
+        let justInvited = false
+        if (!userId) {
+          const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, { data: { full_name: fullName, username: userName } })
+          if (inviteError) return { error: 'INVITE_FAILED' }
+          userId = invited?.user?.id ?? null
+          justInvited = true
+        }
+        if (!userId) return { error: 'INVITE_FAILED' }
+        // 2. Ensure a public profile with role=user and original metadata
+        const { data: profile } = await admin.from('profiles').select('id, role').eq('id', userId).maybeSingle()
+        if (!profile) {
+          const { error: insErr } = await admin.from('profiles').insert({
+            id: userId,
+            full_name: fullName,
+            username: userName,
+            role: 'user',
+          })
+          if (insErr) return { error: 'PROFILE_FAILED' }
+        } else if (profile.role !== 'user') {
+          const { error: updErr } = await admin.from('profiles').update({ role: 'user' }).eq('id', userId)
+          if (updErr) return { error: 'ROLE_FAILED' }
+        }
+        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'user_restored', entity: 'auth.users', entityId: userId, newValue: { email, full_name: fullName, username: userName } })
+        invalidate()
+        return { ok: true, email, justInvited }
+      }
+
       case 'confirm_user_invitation': {
         // Invite an email to become an admin. If the email is not yet a user,
         // Supabase sends an invite link so the person can set their own password.
