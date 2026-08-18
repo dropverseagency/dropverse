@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { computeSellerProfit, billingIntervalFor, type ProjectDraft } from './projectConfig'
+import { computeSellerProfit, computeFulfillmentCost, billingIntervalFor, type ProjectDraft } from './projectConfig'
 
 /**
  * Creates a new client project.
@@ -36,16 +36,14 @@ export async function createProjectServer(draft: ProjectDraft) {
     return { error: 'NOT_AUTHENTICATED' }
   }
 
-  // --- Server-side computation (no hardcoded client values) ---
+  // --- Server-side computation (no client-supplied numbers, ever) ---
   const clientPrice = Math.round(Number(draft.clientPrice || 0) * 100) / 100
-  const fulfillmentCost = Math.round(Number(draft.fulfillmentCost || 0) * 100) / 100
-
   if (!(clientPrice > 0)) {
     return { error: 'INVALID_PRICE' }
   }
-  if (!(fulfillmentCost > 0) || fulfillmentCost >= clientPrice) {
-    return { error: 'INVALID_COST' }
-  }
+  // Fulfillment cost is ALWAYS computed from the platform's configured rate
+  // for the chosen project type — the seller never sets it.
+  const fulfillmentCost = computeFulfillmentCost(draft.projectType, clientPrice)
 
   const sellerProfit = computeSellerProfit(clientPrice, fulfillmentCost)
   const billingInterval = billingIntervalFor(draft.projectType)

@@ -172,6 +172,29 @@ export function moneyLabels(type: ProjectType): MoneyLabel {
   }
 }
 
+/**
+ * PLATFORM FULFILLMENT RATES (set once by DropVerse, applied automatically).
+ * The seller never enters a fulfillment cost — it is computed from the client
+ * price using the rate configured for the chosen project type. These rates are
+ * derived from the service pricing we will define in the platform later; they
+ * are the single source of truth so cost can never be faked by the client.
+ *
+ * When real per-service pricing tables exist, replace computeFulfillmentCost
+ * with a lookup; the interface (type + client price -> cost) stays the same.
+ */
+export const FULFILLMENT_RATES: Record<ProjectType, number> = {
+  ONE_TIME: 0.40, // 40% of client price
+  MONTHLY: 0.40,
+  ANNUAL: 0.35,   // discounted rate for annual commitments
+  CUSTOM_RECURRING: 0.40,
+}
+
+/** Automatic fulfillment cost from the platform rates. Never trust the client. */
+export function computeFulfillmentCost(type: ProjectType, clientPrice: number): number {
+  const cost = clientPrice * (FULFILLMENT_RATES[type] ?? 0.40)
+  return Math.round(cost * 100) / 100
+}
+
 /** Server-side rule: profit = client price - fulfillment cost. Never trust the client. */
 export function computeSellerProfit(clientPrice: number, fulfillmentCost: number): number {
   const profit = clientPrice - fulfillmentCost
@@ -187,6 +210,7 @@ export interface ProjectDraft {
   description: string
   projectType: ProjectType
   clientPrice: number
+  /** Ignored by the server — fulfillment cost is auto-computed from platform rates. */
   fulfillmentCost: number
   paymentMethod: PaymentMethod
   deliveryNotes: string

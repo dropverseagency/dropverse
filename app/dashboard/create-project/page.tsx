@@ -278,7 +278,7 @@ export default function CreateProjectPage() {
                   <div className="flex items-start gap-3">
                     <ShieldCheck size={18} className="mt-0.5 shrink-0 text-[#d8b45a]" />
                     <div className="text-sm leading-6 text-[#9aaba6]">
-                      <p className="font-semibold text-[#d9e0dc]">{labels.paymentNowMessage}</p>
+                      <p className="font-semibold text-[#d9e0dc]">{labels.paymentNowMessage} — <span className="font-bold text-[#f0d98b]">{formatUsd(fc)}{labels.periodSuffix}</span> DropVerse fulfillment amount</p>
                       <p>{labels.fulfillmentMessage}</p>
                       {projectType === 'ANNUAL' && (
                         <p className="mt-1 text-[#c1cbc7]">The initial payment covers the entire first year — it is not split into monthly payments.</p>
@@ -349,7 +349,7 @@ export default function CreateProjectPage() {
                 </div>
                 {!billingValid && (
                   <p className="mt-3 text-right text-xs leading-5 text-[#6e817c]">
-                    The review step unlocks when both prices are entered and the DropVerse cost is less than the client price.
+                    The review step unlocks when the client price is entered.
                   </p>
                 )}
               </div>
@@ -427,7 +427,7 @@ export default function CreateProjectPage() {
                 <p className="mt-3 text-center text-[11px] leading-5 text-[#5f726c]">
                   {!basicsValid
                     ? 'Add a project name (at least 3 characters) and a short description (at least 5 characters) in step 1.'
-                    : 'Enter both prices in step 2 — the DropVerse cost must be less than the client price.'}
+                    : 'Enter the client price in step 2 — the DropVerse fulfillment cost is set by platform pricing.'}
                 </p>
               )}
               <p className="mt-4 text-center text-[11px] leading-5 text-[#5f726c]">
