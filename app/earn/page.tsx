@@ -58,14 +58,19 @@ export default function EarnPage() {
   const auth = useAuth()
   const signedIn = !auth.loading && Boolean(auth.user)
 
+    // Admin check derived DIRECTLY from the signed-in session + profile role.
   useEffect(() => {
-    if (!signedIn) return
     let cancelled = false
-    fetch('/api/admin/me').then(r => r.ok ? r.json() : { isAdmin: false }).then(j => { if (!cancelled && j?.isAdmin) setIsAdmin(true) }).catch(() => undefined)
+    const supa = createClient()
+    supa.auth.getUser().then(({ data: { user } }) => {
+      if (cancelled || !user) return
+      supa.from('profiles').select('role').eq('id', user.id).single().then(({ data: prof }) => {
+        if (!cancelled && prof && prof.role === 'admin') setIsAdmin(true)
+      })
+    })
     return () => { cancelled = true }
   }, [signedIn])
-
-  function copyLink() {
+function copyLink() {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(shareUrl).then(() => {
         setCopied(true)

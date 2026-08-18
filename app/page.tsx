@@ -69,13 +69,19 @@ export default function Home() {
   const [isAdmin,setIsAdmin]=useState(false)
   const auth = useAuth()
   const signedIn = !auth.loading && Boolean(auth.user)
+    // Admin check derived DIRECTLY from the signed-in session + profile role.
   useEffect(() => {
-    if (!signedIn) return
     let cancelled = false
-    fetch('/api/admin/me').then(r => r.ok ? r.json() : { isAdmin: false }).then(j => { if (!cancelled && j?.isAdmin) setIsAdmin(true) }).catch(() => undefined)
+    const supa = createClient()
+    supa.auth.getUser().then(({ data: { user } }) => {
+      if (cancelled || !user) return
+      supa.from('profiles').select('role').eq('id', user.id).single().then(({ data: prof }) => {
+        if (!cancelled && prof && prof.role === 'admin') setIsAdmin(true)
+      })
+    })
     return () => { cancelled = true }
   }, [signedIn])
-  return <main className="overflow-hidden">
+return <main className="overflow-hidden">
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[rgba(7,31,29,0.80)] backdrop-blur-xl">
       <div className="container flex h-20 items-center justify-between">
         <Link href="/" className="inline-flex items-center gap-3" aria-label="DropVerse home"><Image src="/dropverse-logo.jpeg" alt="DropVerse" width={42} height={42} className="rounded-xl object-cover" priority/><span className="font-display text-xl font-extrabold tracking-[.16em]">DROP<span className="text-[#d8b45a]">VERSE</span></span></Link>

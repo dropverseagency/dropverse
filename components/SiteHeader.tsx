@@ -13,17 +13,19 @@ export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: b
   const signedIn = !auth.loading && Boolean(auth.user)
 
   // Check whether the signed-in user is an admin (for the Admin entry link).
+    // Admin check derived DIRECTLY from the signed-in session + profile role.
   useEffect(() => {
-    if (!signedIn) return
     let cancelled = false
-    fetch('/api/admin/me')
-      .then((r) => (r.ok ? r.json() : { isAdmin: false }))
-      .then((j) => { if (!cancelled && j?.isAdmin) setIsAdmin(true) })
-      .catch(() => undefined)
+    const supa = createClient()
+    supa.auth.getUser().then(({ data: { user } }) => {
+      if (cancelled || !user) return
+      supa.from('profiles').select('role').eq('id', user.id).single().then(({ data: prof }) => {
+        if (!cancelled && prof && prof.role === 'admin') setIsAdmin(true)
+      })
+    })
     return () => { cancelled = true }
   }, [signedIn])
-
-  const nav = (
+const nav = (
     <>
       <a href="/#services" className="hover:text-[#f0d98b]">Services</a>
       <a href="/#how" className="hover:text-[#f0d98b]">How It Works</a>
