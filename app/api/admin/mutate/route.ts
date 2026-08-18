@@ -22,6 +22,7 @@ import { PROJECT_TYPES, FULFILLMENT_RATES } from '@/lib/projectConfig'
  *   set_user_role        { userId, role }   (admin/manager only — never downgrade self)
  *   set_referral_active  { referralId, status }
  *   create_test_referral { referrerUserId, referredUserId }  — manual attribution for testing
+ *   confirm_user         { email }  — confirm a user's email (admin tooling)
  */
 const VALID_COMMISSION_STATUSES: CommissionStatus[] = [
   'pending', 'approved', 'available', 'paid', 'reversed', 'cancelled',
@@ -145,6 +146,20 @@ export async function POST(request: NextRequest) {
         const referredUserId = String(body.referredUserId ?? '')
         if (!referrerUserId || !referredUserId) return { error: 'MISSING_USER_IDS' }
         return await attributeReferral({ referredUserId, code: '__TEST__', sourceChannel: 'admin_manual' })
+      }
+
+      case 'confirm_user': {
+        // Confirm a user's email address (service role, bypasses RLS). Logged to audit.
+        const email = String(body.email ?? '').trim().toLowerCase()
+        if (!email) return { error: 'MISSING_EMAIL' }
+        const admin = adminClient()
+        const { data: users, error } = await admin.from('users').select('id').eq('email', email).limit(1)
+        if (error || !users || users.length === 0) return { error: 'USER_NOT_FOUND' }
+        const userId = users[0].id
+        const { error: updError } = await admin.auth.admin.updateUserById(userId, { email_confirm: true })
+        if (updError) return { error: 'CONFIRM_FAILED' }
+        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'user_email_confirmed', entity: 'auth.users', entityId: userId, newValue: { email } })
+        return { ok: true }
       }
 
       default:
