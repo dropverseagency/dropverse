@@ -21,6 +21,12 @@ import Brand from '../../components/Brand'
 import { createClient } from '../../lib/supabase'
 import { canViewFinancials, isManager, type OrgRow } from '../../lib/orgs'
 import { PLAN_CONFIG, planById, type OrgRole } from '../../lib/planConfig'
+import {
+  PROJECT_TYPES,
+  PAYMENT_METHODS,
+  STATUS_LABELS,
+  formatUsd,
+} from '../../lib/projectConfig'
 
 interface Profile {
   id: string
@@ -40,6 +46,20 @@ interface Transaction {
   date: string
 }
 
+interface ProjectRow {
+  id: string
+  title: string
+  project_type: string
+  billing_interval: string
+  client_price: number | string
+  fulfillment_cost: number | string
+  seller_profit: number | string
+  payment_method: string
+  payment_status: string
+  status: string
+  created_at: string
+}
+
 export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -53,6 +73,7 @@ export default function Dashboard() {
   const [orgRole, setOrgRole] = useState<OrgRole | null>(null)
   const [switcherOpen, setSwitcherOpen] = useState(false)
   const [chosenPlan, setChosenPlan] = useState<string | null>(null)
+  const [projects, setProjects] = useState<ProjectRow[]>([])
   useEffect(() => {
     const p = new URLSearchParams(window.location.search).get('plan')
     if (p) setChosenPlan(p.toUpperCase())
@@ -163,6 +184,14 @@ export default function Dashboard() {
       }
       rows.sort((a, b) => (a.date < b.date ? 1 : -1))
       setTransactions(rows.slice(0, 10))
+
+      // Projects created by this user (RLS limits to own rows)
+      const { data: projRows } = await supabase
+        .from('projects')
+        .select('id, title, project_type, billing_interval, client_price, fulfillment_cost, seller_profit, payment_method, payment_status, status, created_at')
+        .order('created_at', { ascending: false })
+        .limit(25)
+      if (!cancelled) setProjects((projRows as ProjectRow[] | null) ?? [])
       setLoading(false)
     }
     load()
@@ -313,6 +342,42 @@ export default function Dashboard() {
               <Stat icon={<CheckCircle2 />} label="Paid out" value={formatUSD(paidPayout)} />
             </div>
 
+            {/* Projects */}
+            <div className="card mt-8 rounded-3xl p-7">
+              <div className="flex items-center justify-between">
+                <h2 className="font-display text-xl font-bold">Projects</h2>
+                <Link
+                  href="/dashboard/create-project"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.10)] px-4 py-2 text-xs font-bold text-[#e4c979] transition hover:bg-[rgba(216,180,90,0.18)]"
+                >
+                  <Plus size={14} /> New Project
+                </Link>
+              </div>
+              {projects.length === 0 ? (
+                <div className="mt-8 text-center">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[.03] text-[#536963]">
+                    <Layers size={22} />
+                  </div>
+                  <p className="mt-4 text-sm font-semibold text-[#8fa29c]">No projects yet</p>
+                  <p className="mt-1.5 text-sm text-[#687d76]">
+                    Create your first project and start selling DropVerse services to your clients.
+                  </p>
+                  <Link
+                    href="/dashboard/create-project"
+                    className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#e4c979]"
+                  >
+                    Create Project <ArrowRight size={15} />
+                  </Link>
+                </div>
+              ) : (
+                <div className="mt-5 space-y-3">
+                  {projects.map((p) => (
+                    <ProjectCard key={p.id} project={p} />
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Transactions */}
             <div className="card mt-8 rounded-3xl p-7">
               <div className="flex items-center justify-between">
@@ -419,6 +484,51 @@ export default function Dashboard() {
         )}
       </div>
     </main>
+  )
+}
+
+function ProjectCard({ project }: { project: ProjectRow }) {
+  const type = PROJECT_TYPES.find((t) => t.id === project.project_type)
+  const method = PAYMENT_METHODS.find((m) => m.id === project.payment_method)
+  const isPending = project.payment_status === 'PAYMENT_PENDING'
+  return (
+    <div className="rounded-2xl border border-white/5 bg-white/[.02] p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-[#d9e0dc]">{project.title || 'Untitled project'}</p>
+          <p className="mt-1 text-xs text-[#687d76]">
+            {type?.label ?? project.project_type}
+            {project.billing_interval && project.billing_interval !== 'ONE_TIME' ? ` · per ${project.billing_interval.toLowerCase()}` : ''}
+            {method ? ` · ${method.label}` : ''}
+          </p>
+        </div>
+        <span
+          className={`whitespace-nowrap rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[.12em] ${
+            isPending
+              ? 'border border-[rgba(228,201,121,0.45)] bg-[rgba(228,201,121,0.10)] text-[#e4c979]'
+              : 'border border-[rgba(111,191,115,0.45)] bg-[rgba(111,191,115,0.10)] text-[#6fbf73]'
+          }`}
+        >
+          {STATUS_LABELS[project.status as keyof typeof STATUS_LABELS] ?? project.status}
+          {isPending ? ' · Payment pending' : ''}
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <MiniMetric label="Client price" value={formatUsd(Number(project.client_price || 0))} />
+        <MiniMetric label="DropVerse fee" value={formatUsd(Number(project.fulfillment_cost || 0))} />
+        <MiniMetric label="Your profit" value={formatUsd(Number(project.seller_profit || 0))} accent />
+        <MiniMetric label="Created" value={formatDate(project.created_at)} />
+      </div>
+    </div>
+  )
+}
+
+function MiniMetric({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="rounded-xl border border-white/5 bg-white/[.025] px-3 py-2">
+      <div className="text-[10px] uppercase tracking-[.12em] text-[#687d76]">{label}</div>
+      <div className={`mt-0.5 text-sm font-bold ${accent ? 'text-[#e4c979]' : 'text-[#d9e0dc]'}`}>{value}</div>
+    </div>
   )
 }
 
