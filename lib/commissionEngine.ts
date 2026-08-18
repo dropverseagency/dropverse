@@ -152,6 +152,11 @@ export async function attributeReferral(params: {
     .maybeSingle()
   if (existing) return { referred: false, reason: 'ALREADY_REFERRED' } // locked — never changeable
 
+  // Read the attribution window from program_config (referral_eligibility_months).
+  let { data: program } = await admin.from('program_config').select('referral_eligibility_months').eq('id', 1).maybeSingle()
+  const months = typeof program?.referral_eligibility_months === 'number' && program.referral_eligibility_months > 0 ? program.referral_eligibility_months : 3
+  const expiresAt = new Date(Date.now() + months * 30.44 * 24 * 3600 * 1000).toISOString()
+
   const { error } = await admin.from('referrals').insert({
     referral_code_id: codeRow.id,
     referrer_id: codeRow.user_id,
@@ -162,6 +167,7 @@ export async function attributeReferral(params: {
     source_channel: params.sourceChannel,
     attributed_at: new Date().toISOString(),
     locked_at: new Date().toISOString(),
+    expires_at: expiresAt,
   })
   if (error) return { referred: false, reason: 'DB_ERROR', detail: error.message }
 
