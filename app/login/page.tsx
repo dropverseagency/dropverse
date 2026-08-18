@@ -111,6 +111,15 @@ export default function LoginPage() {
     return '/pricing'
   }
 
+  // Client-side safety net: after hydration / client-side navigation, re-sync the
+  // mode from the current URL so a soft nav with ?ref= still lands on sign-up.
+  useEffect(() => {
+    const ref = searchParams.get('ref')
+    if (ref) {
+      setMode('signup')
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Handle email confirmation hash: /auth/v1/verify lands on the site with the token in the URL.
   // When the user follows the confirm link, exchange the hash and redirect.
   useEffect(() => {
