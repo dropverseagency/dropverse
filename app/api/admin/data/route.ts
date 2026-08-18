@@ -22,6 +22,24 @@ export async function GET(request: NextRequest) {
     const select = (table: string, columns: string) => admin.from(table).select(columns)
 
     switch (section) {
+      case 'debug_counts': {
+        const out: Record<string, unknown> = {}
+        const admin = adminClient()
+        const tryCount = async (name: string, table: string, opts?: { column?: string; value?: string }) => {
+          try {
+            let q: any = admin.from(table).select('*', { count: 'exact', head: true })
+            if (opts?.column) q = q.eq(opts.column, opts.value)
+            const { data, count, error } = await q
+            out[name] = { count, error: error ? { message: error.message, code: error.code } : null }
+          } catch (e: any) {
+            out[name] = { error: String(e?.message ?? e) }
+          }
+        }
+        await tryCount('profiles', 'profiles')
+        await tryCount('profiles_all', 'profiles', { column: 'id', value: '*' })
+        return { section: 'debug_counts', ...out }
+      }
+
       case 'overview': {
         const [
           users, projects, agencies, paymentsConfirmed, paymentsPending,
