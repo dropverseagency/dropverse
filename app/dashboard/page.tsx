@@ -52,6 +52,11 @@ export default function Dashboard() {
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null)
   const [orgRole, setOrgRole] = useState<OrgRole | null>(null)
   const [switcherOpen, setSwitcherOpen] = useState(false)
+  const [chosenPlan, setChosenPlan] = useState<string | null>(null)
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get('plan')
+    if (p) setChosenPlan(p.toUpperCase())
+  }, [])
 
   const activeOrg = useMemo(
     () => orgs.find((o) => o.id === activeOrgId) ?? orgs[0] ?? null,
@@ -281,6 +286,17 @@ export default function Dashboard() {
                 sales and earnings overview. Sell services, grow your referral network and track
                 your payouts.
               </p>
+              {chosenPlan && chosenPlan !== orgPlan?.id ? (
+                <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.08)] px-4 py-3 text-sm text-[#e4c979]">
+                  <span>
+                    You chose the <b>{planById(chosenPlan as never)?.displayName ?? chosenPlan} Plan</b>.
+                    {orgPlan?.id === 'SOLO' ? ' Upgrade your workspace whenever you are ready.' : ''}
+                  </span>
+                  <Link href="/dashboard/billing" className="inline-flex items-center gap-1.5 font-bold underline underline-offset-2 hover:text-[#f0d98b]">
+                    Manage plan <ArrowRight size={14} />
+                  </Link>
+                </div>
+              ) : null}
 
               <div className="mt-7 grid gap-3 sm:grid-cols-2">
                 <ProfileRow icon={<Layers size={15} />} label="Username" value={profile?.username || '—'} />

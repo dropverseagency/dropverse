@@ -1,12 +1,16 @@
-import type { Metadata } from 'next'
+'use client'
 import Link from 'next/link'
 import Image from 'next/image'
+import { useState } from 'react'
 import { ArrowRight, Check, Star, Zap, Users, Target } from 'lucide-react'
 import { PLAN_CONFIG, membersLabelFor } from '../../lib/planConfig'
+import SiteHeader from '../../components/SiteHeader'
+import { useAuth } from '../../lib/useAuth'
 
-export const metadata: Metadata = {
-  title: 'Pricing',
-  description: 'Choose the DropVerse workspace that fits your business — Solo freelancers to full agencies.',
+function planHref(signedIn: boolean, planId: string): string {
+  // Signed-in users choose a plan and go straight to the dashboard;
+  // guests are invited to sign in so their account lands on pricing (redirect).
+  return signedIn ? `/dashboard?plan=${encodeURIComponent(planId)}` : '/login'
 }
 
 const ALL_FEATURES = [
@@ -66,29 +70,11 @@ function perMonth(plan: (typeof PLAN_CONFIG)[number]): string {
 }
 
 export default function PricingPage() {
+  const auth = useAuth()
+  const signedIn = !auth.loading && Boolean(auth.user)
   return (
     <main className="overflow-hidden">
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[rgba(7,31,29,0.80)] backdrop-blur-xl">
-        <div className="container flex h-20 items-center justify-between">
-          <Link href="/" className="inline-flex items-center gap-3" aria-label="DropVerse home">
-            <Image src="/dropverse-logo.jpeg" alt="DropVerse" width={42} height={42} className="rounded-xl object-cover" priority />
-            <span className="font-display text-xl font-extrabold tracking-[.16em]">
-              DROP<span className="text-[#d8b45a]">VERSE</span>
-            </span>
-          </Link>
-          <nav className="hidden items-center gap-7 text-sm text-[#c1cbc7] lg:flex">
-            <a href="/#services">Services</a>
-            <Link href="/earn">Earn</Link>
-            <span className="font-semibold text-[#e4c979]">Pricing</span>
-          </nav>
-          <div className="hidden items-center gap-3 lg:flex">
-            <Link href="/login" className="px-4 py-2 text-sm text-[#d9e0dc]">Login</Link>
-            <Link href="/login" className="rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
-              Get Started
-            </Link>
-          </div>
-        </div>
-      </header>
+      <SiteHeader highlightEarn={false} />
 
       {/* Hero */}
       <section className="grid-bg relative flex min-h-[55vh] items-center pt-20">
@@ -143,14 +129,14 @@ export default function PricingPage() {
                 </a>
               ) : (
                 <Link
-                  href="/login"
+                  href={planHref(signedIn, plan.id)}
                   className={`mt-8 flex items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold transition ${
                     plan.highlight
                       ? 'bg-[#d8b45a] text-[#10221f] hover:bg-[#f0d98b]'
                       : 'border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] text-[#e4c979] hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.14)]'
                   }`}
                 >
-                  {plan.cta} <ArrowRight size={16} />
+                  {signedIn ? `Choose ${plan.displayName}` : plan.cta} <ArrowRight size={16} />
                 </Link>
               )}
             </div>
@@ -230,8 +216,8 @@ export default function PricingPage() {
               </div>
             </div>
           </div>
-          <Link href="/login" className="mt-12 inline-flex items-center gap-3 rounded-full bg-[#d8b45a] px-7 py-4 font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
-            Create your agency workspace <ArrowRight size={18} />
+          <Link href={planHref(signedIn, 'AGENCY')} className="mt-12 inline-flex items-center gap-3 rounded-full bg-[#d8b45a] px-7 py-4 font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
+            {signedIn ? 'Create your agency workspace' : 'Get started free'} <ArrowRight size={18} />
           </Link>
         </div>
       </section>
