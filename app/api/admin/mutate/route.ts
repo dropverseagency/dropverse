@@ -153,9 +153,17 @@ export async function POST(request: NextRequest) {
         const email = String(body.email ?? '').trim().toLowerCase()
         if (!email) return { error: 'MISSING_EMAIL' }
         const admin = adminClient()
-        const { data: users, error } = await admin.from('users').select('id').eq('email', email).limit(1)
-        if (error || !users || users.length === 0) return { error: 'USER_NOT_FOUND' }
-        const userId = users[0].id
+        // Search auth users by email via the admin auth API (the 'users' table
+        // lives in the auth schema and is not directly queryable via .from()).
+        let targetId: string | null = null
+        try {
+          const list = await admin.auth.admin.listUsers()
+          targetId = list.data?.users?.find((u) => (u.email ?? '').toLowerCase() === email)?.id ?? null
+        } catch {
+          targetId = null
+        }
+        if (!targetId) return { error: 'USER_NOT_FOUND' }
+        const userId = targetId
         const { error: updError } = await admin.auth.admin.updateUserById(userId, { email_confirm: true })
         if (updError) return { error: 'CONFIRM_FAILED' }
         await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'user_email_confirmed', entity: 'auth.users', entityId: userId, newValue: { email } })
