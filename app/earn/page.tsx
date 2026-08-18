@@ -7,6 +7,7 @@ import { ArrowRight, Check, ChevronRight, Copy, Facebook, Share2, TrendingUp, Us
 import { REFERRAL_TIERS, referralLinkFor } from '../../lib/referralConfig'
 import { createClient } from '../../lib/supabase'
 import { useAuth } from '../../lib/useAuth'
+import { ctaFor } from '../../lib/authCta'
 
 const shareUrl = referralLinkFor('YOURCODE')
 
@@ -118,8 +119,8 @@ export default function EarnPage() {
               Sell digital services to clients, refer entrepreneurs to DropVerse, or combine both models into one scalable business.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
-              <Link href="/login" className="group flex items-center gap-3 rounded-full bg-[#d8b45a] px-6 py-3.5 font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
-                Start Earning <ArrowRight size={18} className="transition group-hover:translate-x-1"/>
+              <Link href={ctaFor(signedIn, '/login')} className="group flex items-center gap-3 rounded-full bg-[#d8b45a] px-6 py-3.5 font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
+                {signedIn ? 'Create Project' : 'Start Earning'} <ArrowRight size={18} className="transition group-hover:translate-x-1"/>
               </Link>
               <a href="#two-ways" className="flex items-center gap-2 rounded-full border border-white/10 px-6 py-3.5 font-semibold text-white transition hover:border-[rgba(216,180,90,0.40)]">
                 See How It Works <ChevronRight size={18}/>
@@ -205,7 +206,7 @@ export default function EarnPage() {
                   <li key={b} className="flex items-center gap-2"><Check size={14} className="text-[#d8b45a]"/>{b}</li>
                 ))}
               </ul>
-              <Link href="/login" className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#d8b45a] px-6 py-3 font-bold text-[#10221f] transition hover:bg-[#f0d98b]">Start Selling <ArrowRight size={16}/></Link>
+              <Link href={ctaFor(signedIn, '/login')} className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#d8b45a] px-6 py-3 font-bold text-[#10221f] transition hover:bg-[#f0d98b]">{signedIn ? 'Create Project' : 'Start Selling'} <ArrowRight size={16}/></Link>
             </div>
 
             {/* PASSIVE */}
@@ -232,7 +233,7 @@ export default function EarnPage() {
                   <li key={b} className="flex items-center gap-2"><Check size={14} className="text-[#d8b45a]"/>{b}</li>
                 ))}
               </ul>
-              <Link href="/login" className="mt-8 inline-flex items-center gap-2 rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.06)] px-6 py-3 font-bold text-[#f0d98b] transition hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.12)]">Become a Partner <ArrowRight size={16}/></Link>
+              <Link href={ctaFor(signedIn, '/login')} className="mt-8 inline-flex items-center gap-2 rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.06)] px-6 py-3 font-bold text-[#f0d98b] transition hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.12)]">{signedIn ? 'My Dashboard' : 'Become a Partner'} <ArrowRight size={16}/></Link>
             </div>
           </div>
           <p className="mt-8 text-sm leading-6 text-[#7d908a]">
@@ -294,17 +295,17 @@ export default function EarnPage() {
               {
                 tag: 'Option 1', title: 'Active Only', sub: 'For people who want to focus on selling.',
                 items: ['Find clients','Sell services','Use DropVerse talent','Earn from your projects'],
-                cta: 'Start Selling', href: '/login', featured: false,
+                cta: signedIn ? 'Create Project' : 'Start Selling', href: ctaFor(signedIn, '/login'), featured: false,
               },
               {
                 tag: 'Option 2', title: 'Passive / Referral Only', sub: 'For people who prefer building a referral network.',
                 items: ['Get your referral link','Share it','Refer entrepreneurs','Earn eligible commissions from their activity'],
-                cta: 'Start Referring', href: '/login', featured: false,
+                cta: signedIn ? 'My Referrals' : 'Start Referring', href: ctaFor(signedIn, '/login'), featured: false,
               },
               {
                 tag: 'Option 3', title: 'Hybrid', sub: 'For people who want to build both.', badge: 'Most Flexible',
                 items: ['Sell your own services','Build your referral network','Generate project revenue','Build referral commissions'],
-                cta: 'Build Both', href: '/login', featured: true,
+                cta: signedIn ? 'Create Project' : 'Build Both', href: ctaFor(signedIn, '/login'), featured: true,
               },
             ].map(o => (
               <div key={o.title} className={`card relative rounded-3xl border p-8 transition duration-300 hover:-translate-y-1 ${o.featured ? 'border-[rgba(216,180,90,0.35)] bg-[#071f1d] shadow-[0_0_60px_rgba(216,180,90,0.08)]' : 'border-white/5 bg-[#071f1d]'}`}>
@@ -612,8 +613,8 @@ export default function EarnPage() {
           <h2 className="font-display mx-auto max-w-3xl text-4xl font-extrabold tracking-tight sm:text-6xl">Your Network. Your Sales. <span className="gold-gradient">Your DropVerse Business.</span></h2>
           <p className="mx-auto mt-6 max-w-xl text-[#95a7a1]">Choose your path. Sell actively, build referrals, or combine both.</p>
           <div className="mt-10 flex flex-wrap justify-center gap-3">
-            <Link href="/login" className="group flex items-center gap-3 rounded-full bg-[#d8b45a] px-7 py-4 font-bold text-[#10221f] transition hover:bg-[#f0d98b]">Start Selling <ArrowRight size={18} className="transition group-hover:translate-x-1"/></Link>
-            <Link href="/login" className="flex items-center gap-2 rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.06)] px-7 py-4 font-bold text-[#f0d98b] transition hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.12)]">Start Referring <ArrowRight size={18}/></Link>
+            <Link href={ctaFor(signedIn, '/login')} className="group flex items-center gap-3 rounded-full bg-[#d8b45a] px-7 py-4 font-bold text-[#10221f] transition hover:bg-[#f0d98b]">{signedIn ? 'Create Project' : 'Start Selling'} <ArrowRight size={18} className="transition group-hover:translate-x-1"/></Link>
+            <Link href={ctaFor(signedIn, '/login')} className="flex items-center gap-2 rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.06)] px-7 py-4 font-bold text-[#f0d98b] transition hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.12)]">{signedIn ? 'My Referrals' : 'Start Referring'} <ArrowRight size={18}/></Link>
           </div>
         </div>
       </section>

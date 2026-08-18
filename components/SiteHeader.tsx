@@ -43,9 +43,15 @@ export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: b
           <Link href="/pricing" className="rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] px-4 py-2 text-sm font-bold text-[#e4c979] transition hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.14)]">
             Pricing
           </Link>
-          <Link href="/login" className="rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
-            Get Started
-          </Link>
+          {signedIn ? (
+            <Link href="/dashboard" className="rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
+              Dashboard
+            </Link>
+          ) : (
+            <Link href="/login" className="rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
+              Get Started
+            </Link>
+          )}
         </div>
         <button onClick={() => setMenu(!menu)} className="lg:hidden" aria-label="Menu">
           {menu ? <X /> : <Menu />}
