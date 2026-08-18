@@ -107,6 +107,7 @@ export function useAdminData<T = any>(section: string, deps: (string | number)[]
     setLoading(true)
     const url = new URL('/api/admin/data', window.location.origin)
     url.searchParams.set('section', section)
+    url.searchParams.set('ts', String(Date.now()))
     deps.forEach((d, i) => {
       const keys = ['page', 'limit', 'q', 'payment_status', 'status', 'entity']
       url.searchParams.set(keys[i % keys.length], String(d))
@@ -125,6 +126,35 @@ export function useAdminData<T = any>(section: string, deps: (string | number)[]
       if (!cancelled) { setError('NETWORK_ERROR'); setLoading(false) }
     })
     return () => { cancelled = true }
+  }, [section, ...deps])
+
+  // Live refresh: re-pull numbers whenever the tab regains focus / becomes
+  // visible, plus a gentle poll, so brand-new sign-ups / projects /
+  // commissions appear without a manual reload.
+  useEffect(() => {
+    const refetch = () => {
+      const url = new URL('/api/admin/data', window.location.origin)
+      url.searchParams.set('section', section)
+      url.searchParams.set('ts', String(Date.now()))
+      deps.forEach((d, i) => {
+        const keys = ['page', 'limit', 'q', 'payment_status', 'status', 'entity']
+        url.searchParams.set(keys[i % keys.length], String(d))
+      })
+      fetch(url.href).then((r) => r.json()).then((j) => {
+        if (!j.error) { setData(j); setError(null) }
+      }).catch(() => {})
+    }
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refetch()
+    }
+    window.addEventListener('focus', onVisible)
+    document.addEventListener('visibilitychange', onVisible)
+    const timer = setInterval(refetch, 20000)
+    return () => {
+      window.removeEventListener('focus', onVisible)
+      document.removeEventListener('visibilitychange', onVisible)
+      clearInterval(timer)
+    }
   }, [section, ...deps])
 
   return { data, loading, error }
