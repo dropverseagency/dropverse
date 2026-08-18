@@ -16,6 +16,7 @@ import {
   Building2,
   ChevronDown,
   Plus,
+  LogOut,
 } from 'lucide-react'
 import Brand from '../../components/Brand'
 import { createClient } from '../../lib/supabase'
@@ -304,9 +305,12 @@ export default function Dashboard() {
             <button
               onClick={handleSignOut}
               disabled={signingOut}
-              className="hidden sm:flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-[#9aaca6] transition hover:border-[rgba(216,180,90,0.40)] hover:text-[#e4c979] disabled:opacity-60"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-[#9aaca6] transition hover:border-[rgba(216,180,90,0.40)] hover:text-[#e4c979] disabled:opacity-60 sm:flex sm:h-auto sm:w-auto sm:items-center sm:gap-2 sm:px-4 sm:py-2 sm:text-sm sm:font-semibold"
+              title="Sign out"
+              aria-label="Sign out"
             >
-              {signingOut ? 'Signing out...' : 'Sign out'}
+              <LogOut size={17} className="sm:hidden" />
+              <span className="hidden sm:inline">{signingOut ? 'Signing out...' : 'Sign out'}</span>
             </button>
           </div>
         </div>

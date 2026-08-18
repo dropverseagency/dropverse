@@ -134,21 +134,27 @@ export default function AffiliatePage() {
                   emptyNote('No referrals yet. Share your invite link to start earning.')
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-white/5">
-                    <div className="grid grid-cols-[1fr_100px_100px_110px] gap-3 border-b border-white/5 bg-white/[0.02] px-4 py-2.5 text-[11px] uppercase tracking-wider text-[#7f918c]">
+                    <div className="hidden grid-cols-[1fr_100px_100px_110px] gap-3 border-b border-white/5 bg-white/[0.02] px-4 py-2.5 text-[11px] uppercase tracking-wider text-[#7f918c] sm:grid">
                       <span>Referred user</span><span>Status</span><span>Commissions</span><span>Attributed</span>
                     </div>
                     {data.referrals.map((r) => {
                       const pending = r.commissions.filter((c) => c.status === 'pending' || c.status === 'approved').reduce((s, c) => s + Number(c.commission_amount || 0), 0)
                       const paid = r.commissions.filter((c) => c.status === 'paid').reduce((s, c) => s + Number(c.commission_amount || 0), 0)
                       return (
-                        <div key={r.id} className="grid grid-cols-[1fr_100px_100px_110px] gap-3 border-b border-white/5 px-4 py-3.5 text-sm">
+                        <div key={r.id} className="grid grid-cols-[1fr_100px_100px_110px] gap-3 border-b border-white/5 px-4 py-3.5 text-sm last:border-b-0 sm:grid">
                           <div>
                             <div className="font-semibold text-[#f0f4f2]">{r.referredProfile?.full_name || r.referredProfile?.username || 'Anonymous'}</div>
                             <div className="mt-0.5 text-xs text-[#81948e]">{fmtUsd(paid)} paid · {fmtUsd(pending)} pending</div>
                           </div>
-                          <div className="flex items-center"><Badge status={r.status} /></div>
-                          <div className="flex items-center text-[#c8d4d0]">{r.commissions.length}</div>
-                          <div className="flex items-center text-xs text-[#81948e]">{fmtDate(r.attributed_at || r.created_at)}</div>
+                          <div className="hidden items-center sm:flex"><Badge status={r.status} /></div>
+                          <div className="hidden items-center text-[#c8d4d0] sm:flex">{r.commissions.length}</div>
+                          <div className="hidden items-center text-xs text-[#81948e] sm:flex">{fmtDate(r.attributed_at || r.created_at)}</div>
+                          {/* Mobile card footer: stacked chips */}
+                          <div className="flex items-center justify-between gap-2 border-t border-white/5 pt-2.5 sm:hidden">
+                            <Badge status={r.status} />
+                            <span className="text-[13px] text-[#c8d4d0]">{r.commissions.length} commission{r.commissions.length === 1 ? '' : 's'}</span>
+                            <span className="text-xs text-[#81948e]">{fmtDate(r.attributed_at || r.created_at)}</span>
+                          </div>
                         </div>
                       )
                     })}
