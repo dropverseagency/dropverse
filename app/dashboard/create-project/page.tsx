@@ -10,7 +10,7 @@ import { createClient } from '../../../lib/supabase'
 import { useAuth } from '../../../lib/useAuth'
 import {
   PROJECT_TYPES, PAYMENT_METHODS, moneyLabels, paymentRequiredNow,
-  firstBillingPeriodLabel, formatUsd, computeSellerProfit,
+  firstBillingPeriodLabel, formatUsd, computeSellerProfit, FULFILLMENT_RATES,
   type ProjectDraft, type ProjectType, type PaymentMethod,
 } from '../../../lib/projectConfig'
 import { createProjectServer } from '../../../lib/createProject'
@@ -26,7 +26,6 @@ export default function CreateProjectPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [clientPrice, setClientPrice] = useState('')
-  const [fulfillmentCost, setFulfillmentCost] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CLIENT_PAYS_DROPVERSE')
   const [clientContactEmail, setClientContactEmail] = useState('')
   const [deliveryNotes, setDeliveryNotes] = useState('')
@@ -44,7 +43,9 @@ export default function CreateProjectPage() {
 
   const labels = useMemo(() => moneyLabels(projectType), [projectType])
   const cp = Number(clientPrice) || 0
-  const fc = Number(fulfillmentCost) || 0
+  // The DropVerse fulfillment cost is computed automatically from platform pricing —
+  // the seller only enters the client price.
+  const fc = useMemo(() => Math.round(cp * (FULFILLMENT_RATES[projectType] ?? 0) * 100) / 100, [cp, projectType])
   const profit = useMemo(() => computeSellerProfit(cp, fc), [cp, fc])
   const dueNow = useMemo(() => paymentRequiredNow({ projectType, clientPrice: cp, fulfillmentCost: fc, paymentMethod, title: title, description: '', deliveryNotes: '', clientContactEmail: '' }), [projectType, cp, fc, paymentMethod])
   const isRecurring = projectType === 'MONTHLY' || projectType === 'ANNUAL' || projectType === 'CUSTOM_RECURRING'
@@ -52,7 +53,7 @@ export default function CreateProjectPage() {
   const typeBlocked = projectType === 'CUSTOM_RECURRING'
 
   const basicsValid = title.trim().length >= 3 && description.trim().length >= 5
-  const billingValid = cp > 0 && fc > 0 && fc < cp
+  const billingValid = cp > 0
 
   async function handleSubmit() {
     if (submitting || created) return
@@ -245,27 +246,12 @@ export default function CreateProjectPage() {
                   <p className="mt-1.5 text-xs leading-5 text-[#6e817c]">How much you charge your client{labels.periodSuffix}. Must be greater than zero.</p>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-[#c1cbc7]">{labels.costLabel} *</label>
-                  <div className="relative mt-2">
-                    <span className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-sm text-[#5f726c]">$</span>
-                    <input
-                      type="number"
-                      min={0}
-                      inputMode="decimal"
-                      value={fulfillmentCost}
-                      onChange={(e) => setFulfillmentCost(e.target.value)}
-                      placeholder="0"
-                      className="w-full rounded-2xl border border-white/10 bg-[#071f1d] py-3.5 pl-9 pr-16 text-sm text-[#e7edea] placeholder:text-[#5f726c] focus:border-[rgba(216,180,90,0.5)] focus:outline-none"
-                    />
-                    <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-xs text-[#5f726c]">USD{labels.periodSuffix}</span>
+                <div className="rounded-2xl border border-[rgba(216,180,90,0.25)] bg-[rgba(216,180,90,0.06)] px-5 py-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-[#c1cbc7]">{labels.costLabel}</span>
+                    <span className="font-display text-lg font-extrabold text-[#f0d98b]">{formatUsd(fc)}<span className="text-xs font-normal text-[#8f9f9a]">{labels.periodSuffix}</span></span>
                   </div>
-                  {fc > 0 && fc >= cp && cp > 0 && (
-                    <p className="mt-1.5 flex items-center gap-1.5 text-xs leading-5 text-red-300">
-                      <AlertTriangle size={13} className="shrink-0" /> The DropVerse cost must be less than the client price.
-                    </p>
-                  )}
-                  <p className="mt-1.5 text-xs leading-5 text-[#6e817c]">What DropVerse charges to deliver the service{labels.periodSuffix}. Must be greater than zero and less than the client price.</p>
+                  <p className="mt-1.5 text-xs leading-5 text-[#6e817c]">Computed automatically from platform pricing ({Math.round((FULFILLMENT_RATES[projectType] ?? 0) * 100)}% of the client price) — not entered by you.</p>
                 </div>
 
                 <div className="flex items-center justify-between rounded-2xl border border-[rgba(216,180,90,0.25)] bg-[rgba(216,180,90,0.06)] px-5 py-4">
