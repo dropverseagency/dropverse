@@ -9,9 +9,9 @@
  * - `audit()` writes an immutable row to audit_logs.
  * - Commission math always happens here / in server actions — never client-side.
  */
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { createClient as createServiceClient, createClient as createBrowserClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 
 export const ADMIN_ROLE = 'admin'
@@ -55,11 +55,27 @@ export class AdminOnlyError extends Error {
  * Throws AdminOnlyError for everyone else.
  */
 export async function requireAdmin(): Promise<{ userId: string; email: string | null }> {
-  const supabase = await sessionClient()
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser()
+  // Accept either the Supabase session cookies (browser) or an
+  // Authorization: Bearer <JWT> header (API clients / E2E tests).
+  const hdrs = await headers()
+  const bearer = (hdrs.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
+  let user = null as any
+  let error = null as any
+  if (bearer) {
+    const supa = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    )
+    const res = await supa.auth.getUser(bearer)
+    user = res.data.user
+    error = res.error
+  } else {
+    const supabase = await sessionClient()
+    const res = await supabase.auth.getUser()
+    user = res.data.user
+    error = res.error
+  }
   if (error || !user) {
     throw new AdminOnlyError('NOT_AUTHENTICATED')
   }
