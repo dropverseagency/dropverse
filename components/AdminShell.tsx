@@ -44,12 +44,12 @@ export default function AdminShell({ children, title }: { children: React.ReactN
   }
 
   return (
-    <div className="min-h-screen bg-[#0a211e] text-[#d9e0dc]">
+    <div className="flex min-h-screen flex-col bg-[#0a211e] text-[#d9e0dc]">
       {/* Top bar */}
-      <header className="fixed top-0 left-0 right-0 z-40 border-b border-white/5 bg-[rgba(7,31,29,0.92)] backdrop-blur-xl">
-        <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="inline-flex items-center gap-3" aria-label="DropVerse home">
+      <header className="sticky top-0 z-50 border-b border-[rgba(216,180,90,0.18)] bg-[rgba(7,31,29,0.94)] backdrop-blur-xl">
+        <div className="container flex h-16 items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-4">
+            <Link href="/dashboard" className="inline-flex shrink-0 items-center gap-3" aria-label="DropVerse home">
               <Image src="/dropverse-logo.jpeg" alt="DropVerse" width={38} height={38} className="rounded-lg object-cover" priority />
               <span className="font-display text-lg font-extrabold tracking-[.16em]">
                 DROP<span className="text-[#d8b45a]">VERSE</span>
@@ -73,58 +73,61 @@ export default function AdminShell({ children, title }: { children: React.ReactN
         </div>
       </header>
 
-      {/* Sidebar (desktop) */}
-      <aside className="fixed left-0 top-16 z-30 hidden h-[calc(100vh-4rem)] w-56 flex-col border-r border-white/5 bg-[#071f1d] overflow-y-auto md:flex">
-        <nav className="flex flex-col gap-0.5 p-3">
-          {ADMIN_SECTIONS.map((s) => {
-            const active = current === s.id
-            const Icon = s.icon
-            return (
-              <Link
-                key={s.id}
-                href={`/admin/${s.id === 'overview' ? '' : s.id}`}
-                className={`relative inline-flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${
-                  active
-                    ? 'bg-[rgba(216,180,90,0.16)] font-semibold text-[#f0d98b] before:absolute before:left-0 before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-[#d8b45a]'
-                    : 'text-[#7f918c] hover:bg-white/5 hover:text-[#d9e0dc]'
-                }`}
-              >
-                <Icon size={16} className={active ? 'text-[#d8b45a]' : 'shrink-0'} />
-                {s.label}
-              </Link>
-            )
-          })}
-        </nav>
-      </aside>
+      {/* Body: sidebar (desktop) + content flow layout (no fixed positioning) */}
+      <div className="flex flex-1">
+        {/* Sidebar (desktop) */}
+        <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-56 shrink-0 flex-col border-r border-white/5 bg-[#071f1d] overflow-y-auto md:flex">
+          <nav className="flex flex-col gap-0.5 p-3">
+            {ADMIN_SECTIONS.map((s) => {
+              const active = current === s.id
+              const Icon = s.icon
+              return (
+                <Link
+                  key={s.id}
+                  href={`/admin/${s.id === 'overview' ? '' : s.id}`}
+                  className={`relative inline-flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${
+                    active
+                      ? 'bg-[rgba(216,180,90,0.16)] font-semibold text-[#f0d98b] before:absolute before:left-0 before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-[#d8b45a]'
+                      : 'text-[#7f918c] hover:bg-white/5 hover:text-[#d9e0dc]'
+                  }`}
+                >
+                  <Icon size={16} className={active ? 'text-[#d8b45a]' : 'shrink-0'} />
+                  {s.label}
+                </Link>
+              )
+            })}
+          </nav>
+        </aside>
 
-      {/* Mobile section picker */}
-      <div className="sticky top-16 z-30 overflow-x-auto border-b border-white/5 bg-[#071f1d] md:hidden">
-        <div className="flex gap-1 p-2">
-          {ADMIN_SECTIONS.map((s) => {
-            const active = current === s.id
-            const Icon = s.icon
-            return (
-              <Link
-                key={s.id}
-                href={`/admin/${s.id === 'overview' ? '' : s.id}`}
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition ${
-                  active ? 'border border-[rgba(216,180,90,0.45)] bg-[rgba(216,180,90,0.16)] text-[#f0d98b]' : 'border border-white/8 text-[#91a39e] hover:bg-white/5'
-                }`}
-              >
-                <Icon size={14} className={active ? 'text-[#d8b45a]' : 'text-[#7f918c]'} />
-                {s.label}
-              </Link>
-            )
-          })}
+        {/* Mobile section picker */}
+        <div className="sticky top-16 z-30 h-14 shrink-0 overflow-x-auto border-b border-white/5 bg-[#071f1d] md:hidden">
+          <div className="flex gap-1 p-2">
+            {ADMIN_SECTIONS.map((s) => {
+              const active = current === s.id
+              const Icon = s.icon
+              return (
+                <Link
+                  key={s.id}
+                  href={`/admin/${s.id === 'overview' ? '' : s.id}`}
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition ${
+                    active ? 'border border-[rgba(216,180,90,0.45)] bg-[rgba(216,180,90,0.16)] text-[#f0d98b]' : 'border border-white/8 text-[#91a39e] hover:bg-white/5'
+                  }`}
+                >
+                  <Icon size={14} className={active ? 'text-[#d8b45a]' : 'text-[#7f918c]'} />
+                  {s.label}
+                </Link>
+              )
+            })}
+          </div>
         </div>
+
+        <main className="min-w-0 flex-1">
+          <div className="container py-8">
+            <h1 className="mb-6 font-display text-2xl font-extrabold tracking-wide text-[#f0f4f2]">{title}</h1>
+            {children}
+          </div>
+        </main>
       </div>
-
-      <main className="pt-16 md:pl-56">
-        <div className="container py-8">
-          <h1 className="mb-6 font-display text-2xl font-extrabold tracking-wide text-[#f0f4f2]">{title}</h1>
-          {children}
-        </div>
-      </main>
     </div>
   )
 }

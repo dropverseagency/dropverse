@@ -22,54 +22,6 @@ export async function GET(request: NextRequest) {
     const select = (table: string, columns: string) => admin.from(table).select(columns)
 
     switch (section) {
-      case 'debug_counts3': {
-        const out: Record<string, unknown> = {}
-        const [p, pr, a, pc, pp, af, cp, cpa] = await Promise.all([
-          countOf('profiles', null),
-          countOf('projects', null),
-          countOf('organizations', null),
-          countOf('projects', { column: 'payment_status', value: 'PAYMENT_CONFIRMED' }),
-          countOf('projects', { column: 'payment_status', value: 'PAYMENT_PENDING' }),
-          countOf('referrals', { column: 'status', value: 'active' }),
-          countOf('referral_commissions', { column: 'status', value: 'pending' }),
-          countOf('referral_commissions', { column: 'status', value: 'paid' }),
-        ])
-        return { section: 'debug_counts3', profiles: p, projects: pr, agencies: a, paymentsConfirmed: pc, paymentsPending: pp, activeReferrals: af, commissionsPending: cp, commissionsPaid: cpa }
-      }
-
-      case 'debug_counts2': {
-        const admin = adminClient()
-        const out: Record<string, unknown> = {}
-        const tables = ['profiles', 'organizations', 'projects', 'referrals', 'referral_commissions', 'payout_requests', 'audit_logs']
-        for (const t of tables) {
-          try {
-            const { count, error } = await admin.from(t).select('*', { count: 'exact', head: true })
-            out[t] = { count, err: error ? error.message : null }
-          } catch (e: any) {
-            out[t] = { err: String(e?.message ?? e) }
-          }
-        }
-        return { section: 'debug_counts2', ...out }
-      }
-
-      case 'debug_counts': {
-        const out: Record<string, unknown> = {}
-        const admin = adminClient()
-        const tryCount = async (name: string, table: string, opts?: { column?: string; value?: string }) => {
-          try {
-            let q: any = admin.from(table).select('*', { count: 'exact', head: true })
-            if (opts?.column) q = q.eq(opts.column, opts.value)
-            const { data, count, error } = await q
-            out[name] = { count, error: error ? { message: error.message, code: error.code } : null }
-          } catch (e: any) {
-            out[name] = { error: String(e?.message ?? e) }
-          }
-        }
-        await tryCount('profiles', 'profiles')
-        await tryCount('profiles_all', 'profiles', { column: 'id', value: '*' })
-        return { section: 'debug_counts', ...out }
-      }
-
       case 'overview': {
         const [
           users, projects, agencies, paymentsConfirmed, paymentsPending,
