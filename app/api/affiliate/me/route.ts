@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { adminClient, sessionClient } from '@/lib/adminCore'
+import { createClient } from '@supabase/supabase-js'
 import { referralLinkFor } from '@/lib/referralConfig'
 
 /**
@@ -9,10 +10,20 @@ import { referralLinkFor } from '@/lib/referralConfig'
  * Authenticated users only; admins read only their own data here.
  */
 export async function GET(request: NextRequest) {
-  const supabase = await sessionClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Accept session cookies (browser) or Authorization: Bearer <JWT> (API/E2E).
+  const bearer = (request.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
+  let user = null as any
+  if (bearer) {
+    const supa = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    const res = await supa.auth.getUser(bearer)
+    user = res.data?.user ?? null
+  } else {
+    const supabase = await sessionClient()
+    const res = await supabase.auth.getUser()
+    user = res.data?.user ?? null
+  }
   if (!user) return new Response(JSON.stringify({ error: 'NOT_AUTHENTICATED' }), { status: 401, headers: { 'Content-Type': 'application/json' } })
 
   const admin = adminClient()
