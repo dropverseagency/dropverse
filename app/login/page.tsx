@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import Brand from '../../components/Brand'
 import ProviderButton from '../../components/ProviderButton'
 import { createClient } from '../../lib/supabase'
@@ -9,7 +10,10 @@ import { COUNTRIES, type Country } from '../../lib/countries'
 import { applyPendingReferral } from '../../lib/attributeReferralAction'
 
 export default function LoginPage() {
-  const [searchParams] = useState(() => typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams())
+  // Use next/navigation's useSearchParams() so the values are always accurate
+  // after client-side (soft) navigation — window.location.search is stale during
+  // Next.js soft transitions and caused the ref mode to be missed.
+  const searchParams = useSearchParams()
   const [redirectTo] = useState(() => searchParams.get('redirect') || '/dashboard')
   // Visitors arriving from an affiliate link (/r/CODE → /login?ref=CODE) land
   // directly on the sign-up form instead of the sign-in form.
@@ -110,15 +114,6 @@ export default function LoginPage() {
     if (data && data.length > 0) return redirectTo
     return '/pricing'
   }
-
-  // Client-side safety net: after hydration / client-side navigation, re-sync the
-  // mode from the current URL so a soft nav with ?ref= still lands on sign-up.
-  useEffect(() => {
-    const ref = searchParams.get('ref')
-    if (ref) {
-      setMode('signup')
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle email confirmation hash: /auth/v1/verify lands on the site with the token in the URL.
   // When the user follows the confirm link, exchange the hash and redirect.
