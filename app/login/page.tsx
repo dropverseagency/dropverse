@@ -55,9 +55,11 @@ export default function LoginPage() {
         if (data.session) window.location.assign(redirectTo)
         else setMessage('Account created. Please open the confirmation email we sent to your inbox, then sign in.')
       } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+        const { error: signInError, data: signInData } = await supabase.auth.signInWithPassword({ email, password })
         if (signInError) throw signInError
-        window.location.assign(redirectTo)
+        // New users (no workspace yet) start at Pricing to pick a plan;
+        // existing users with a workspace go straight to the dashboard.
+        window.location.assign(await firstLoginTarget(supabase, signInData?.user?.id ?? ''))
       }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Something went wrong. Please try again.')
@@ -81,14 +83,26 @@ export default function LoginPage() {
     }
   }
 
+  // Decide where a signed-in user should land: existing users -> dashboard,
+  // brand-new users (no workspace yet) -> /pricing to choose a plan.
+  async function firstLoginTarget(
+    supabase: ReturnType<typeof createClient>,
+    userId: string,
+  ): Promise<string> {
+    if (!userId) return redirectTo
+    const { data } = await supabase.from('organizations').select('id').limit(1)
+    if (data && data.length > 0) return redirectTo
+    return '/pricing'
+  }
+
   // Handle email confirmation hash: /auth/v1/verify lands on the site with the token in the URL.
-  // When the user follows the confirm link, exchange the hash and redirect to the dashboard.
+  // When the user follows the confirm link, exchange the hash and redirect.
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (window.location.hash.length < 3) return
     const supabase = createClient()
-    supabase.auth.exchangeCodeForSession(window.location.hash).then(({ error }) => {
-      if (!error) window.location.assign(redirectTo)
+    supabase.auth.exchangeCodeForSession(window.location.hash).then(async ({ data, error }) => {
+      if (!error) window.location.assign(await firstLoginTarget(supabase, data.session?.user?.id ?? ''))
     })
   }, [redirectTo])
 
