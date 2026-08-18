@@ -35,11 +35,21 @@ export default function Dashboard() {
     const supabase = createClient()
     let cancelled = false
     async function load() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
+      // Retry a few times: after sign-in the session cookie may still be
+      // persisting on the client side, and an immediate read can return null.
+      let session = null
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const {
+          data: { session: current },
+        } = await supabase.auth.getSession()
+        if (current) {
+          session = current
+          break
+        }
+        if (attempt < 4) await new Promise((r) => setTimeout(r, 800))
+      }
       if (!session) {
-        window.location.assign('/login')
+        window.location.assign('/login?redirect=%2Fdashboard')
         return
       }
       const { data } = await supabase
