@@ -23,6 +23,7 @@ import { PROJECT_TYPES, FULFILLMENT_RATES } from '@/lib/projectConfig'
  *   set_referral_active  { referralId, status }
  *   create_test_referral { referrerUserId, referredUserId }  — manual attribution for testing
  *   confirm_user         { email }  — confirm a user's email (admin tooling)
+ *   confirm_user_invitation { email } — invite an email to become admin (creates user if needed)
  */
 const VALID_COMMISSION_STATUSES: CommissionStatus[] = [
   'pending', 'approved', 'available', 'paid', 'reversed', 'cancelled',
@@ -113,6 +114,41 @@ export async function POST(request: NextRequest) {
         await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'program_config_updated', entity: 'program_config', newValue: patch })
         invalidate()
         return { ok: true }
+      }
+
+      case 'confirm_user_invitation': {
+        // Invite an email to become an admin. If the email is not yet a user,
+        // Supabase sends an invite link so the person can set their own password.
+        const email = String(body.email ?? '').trim().toLowerCase()
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'INVALID_EMAIL' }
+        const admin = adminClient()
+        // 1. Look up existing auth user
+        let existingUser: { id: string; email?: string } | null = null
+        try {
+          const list = await admin.auth.admin.listUsers()
+          existingUser = list.data?.users?.find((u) => (u.email ?? '').toLowerCase() === email) ?? null
+        } catch {
+          existingUser = null
+        }
+        let userId = existingUser?.id ?? null
+        if (!userId) {
+          const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, { data: { role: 'admin' } })
+          if (inviteError) return { error: 'INVITE_FAILED' }
+          userId = invited?.user?.id ?? null
+        }
+        if (!userId) return { error: 'INVITE_FAILED' }
+        // 2. Ensure a profile with admin role exists
+        const { data: profile } = await admin.from('profiles').select('id, role').eq('id', userId).maybeSingle()
+        if (!profile) {
+          const { error: insErr } = await admin.from('profiles').insert({ id: userId, role: 'admin' })
+          if (insErr) return { error: 'PROFILE_FAILED' }
+        } else if (profile.role !== 'admin') {
+          const { error: updErr } = await admin.from('profiles').update({ role: 'admin' }).eq('id', userId)
+          if (updErr) return { error: 'ROLE_FAILED' }
+        }
+        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'admin_invited', entity: 'profiles', entityId: userId, oldValue: { role: profile?.role ?? null }, newValue: { role: 'admin', email } })
+        invalidate()
+        return { ok: true, email }
       }
 
       case 'set_user_role': {

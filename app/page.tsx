@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowRight, Check, ChevronRight, Menu, Play, Sparkles, Users, Zap, Globe, Layers, X, LogOut } from 'lucide-react'
@@ -25,7 +25,7 @@ const samples = [
   ['SaaS Landing Page','Web Design','03'],
 ]
 
-function UserMenu({ user }: { user: { name?: string | null; email?: string } }) {
+function UserMenu({ user, isAdmin = false }: { user: { name?: string | null; email?: string }; isAdmin?: boolean }) {
   const [open, setOpen] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
   async function handleSignOut() {
@@ -49,6 +49,7 @@ function UserMenu({ user }: { user: { name?: string | null; email?: string } }) 
       </button>
       {open && (
         <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#0a2926] shadow-xl">
+          {isAdmin ? <Link href="/admin" onClick={() => setOpen(false)} className="block px-4 py-3 text-sm font-bold text-[#f0d98b] transition hover:bg-white/5">Admin Panel</Link> : null}
           <Link href="/dashboard" onClick={() => setOpen(false)} className="block px-4 py-3 text-sm text-[#d9e0dc] transition hover:bg-white/5">Dashboard</Link>
           <button
             onClick={handleSignOut}
@@ -65,8 +66,15 @@ function UserMenu({ user }: { user: { name?: string | null; email?: string } }) 
 
 export default function Home() {
   const [menu,setMenu]=useState(false)
+  const [isAdmin,setIsAdmin]=useState(false)
   const auth = useAuth()
   const signedIn = !auth.loading && Boolean(auth.user)
+  useEffect(() => {
+    if (!signedIn) return
+    let cancelled = false
+    fetch('/api/admin/me').then(r => r.ok ? r.json() : { isAdmin: false }).then(j => { if (!cancelled && j?.isAdmin) setIsAdmin(true) }).catch(() => undefined)
+    return () => { cancelled = true }
+  }, [signedIn])
   return <main className="overflow-hidden">
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[rgba(7,31,29,0.80)] backdrop-blur-xl">
       <div className="container flex h-20 items-center justify-between">
@@ -76,7 +84,10 @@ export default function Home() {
         </nav>
         <div className="hidden items-center gap-3 md:flex">
           {signedIn && auth.user ? (
-            <UserMenu user={auth.user} />
+            <>
+              {isAdmin && <Link href="/admin" className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] px-3.5 py-2 text-sm font-bold text-[#f0d98b] transition hover:bg-[rgba(216,180,90,0.22)]">Admin</Link>}
+              <UserMenu user={auth.user} isAdmin={isAdmin} />
+            </>
           ) : (
             <Link href="/login" className="px-4 py-2 text-sm text-[#d9e0dc]">{auth.loading ? '' : 'Login'}</Link>
           )}
@@ -85,7 +96,7 @@ export default function Home() {
         </div>
         <button onClick={()=>setMenu(!menu)} className="md:hidden" aria-label="Menu">{menu?<X/>:<Menu/>}</button>
       </div>
-      {menu&&<div className="border-t border-white/5 bg-[#071f1d] p-5 md:hidden"><div className="container flex flex-col gap-5 text-[#d9e0dc]"><a href="#services" onClick={()=>setMenu(false)}>Services</a><a href="#how" onClick={()=>setMenu(false)}>How It Works</a><a href="#samples" onClick={()=>setMenu(false)}>Work Samples</a><a href="#about" onClick={()=>setMenu(false)}>About</a><Link href="/earn" className="text-[#d8b45a]" onClick={()=>setMenu(false)}>Earn With DropVerse →</Link>{signedIn ? <Link href="/dashboard" className="text-[#d8b45a]" onClick={()=>setMenu(false)}>Dashboard →</Link> : <Link href="/login" className="text-[#d8b45a]">Get Started →</Link>}</div></div>}
+      {menu&&<div className="border-t border-white/5 bg-[#071f1d] p-5 md:hidden"><div className="container flex flex-col gap-5 text-[#d9e0dc]"><a href="#services" onClick={()=>setMenu(false)}>Services</a><a href="#how" onClick={()=>setMenu(false)}>How It Works</a><a href="#samples" onClick={()=>setMenu(false)}>Work Samples</a><a href="#about" onClick={()=>setMenu(false)}>About</a><Link href="/earn" className="text-[#d8b45a]" onClick={()=>setMenu(false)}>Earn With DropVerse →</Link>{isAdmin ? <Link href="/admin" className="font-bold text-[#f0d98b]" onClick={()=>setMenu(false)}>Admin Panel →</Link> : null}{signedIn ? <Link href="/dashboard" className="text-[#d8b45a]" onClick={()=>setMenu(false)}>Dashboard →</Link> : <Link href="/login" className="text-[#d8b45a]">Get Started →</Link>}</div></div>}
     </header>
 
     <section className="grid-bg relative flex min-h-screen items-center pt-20">

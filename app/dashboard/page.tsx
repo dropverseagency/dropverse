@@ -74,6 +74,7 @@ export default function Dashboard() {
   const [orgRole, setOrgRole] = useState<OrgRole | null>(null)
   const [switcherOpen, setSwitcherOpen] = useState(false)
   const [chosenPlan, setChosenPlan] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [projects, setProjects] = useState<ProjectRow[]>([])
   useEffect(() => {
     const p = new URLSearchParams(window.location.search).get('plan')
@@ -110,6 +111,7 @@ export default function Dashboard() {
         .single()
       if (cancelled) return
       if (profileData) setProfile(profileData as Profile)
+      if (profileData?.role === 'admin') setIsAdmin(true)
 
       // Organizations this user belongs to (RLS) + their role
       const { data: orgRows } = await supabase
@@ -281,6 +283,16 @@ export default function Dashboard() {
                 )}
               </div>
             )}
+            {isAdmin ? (
+              <Link
+                href="/admin"
+                className="flex h-10 items-center gap-2 rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] px-4 text-sm font-bold text-[#f0d98b] transition hover:bg-[rgba(216,180,90,0.22)]"
+                aria-label="Admin Panel"
+                title="Admin Panel"
+              >
+                Admin
+              </Link>
+            ) : null}
             <Link
               href="/dashboard/settings"
               className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-[#9aaca6] transition hover:border-[rgba(216,180,90,0.40)] hover:text-[#e4c979]"
