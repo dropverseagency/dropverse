@@ -116,28 +116,6 @@ export async function POST(request: NextRequest) {
         return { ok: true }
       }
 
-      case 'debug_restore': {
-        // Debug: expose raw Supabase admin auth errors for restore_user.
-        const email = String(body.email ?? '').trim().toLowerCase()
-        const admin = adminClient()
-        const out: Record<string, unknown> = {}
-        try {
-          const list = await admin.auth.admin.listUsers()
-          const existing = list.data?.users?.find((u) => (u.email ?? '').toLowerCase() === email) ?? null
-          out.existingUser = existing ? { id: existing.id, email: existing.email, email_confirmed: existing.email_confirmed_at } : null
-        } catch (e: unknown) {
-          out.listUsersError = String(e)
-        }
-        try {
-          const inv = await admin.auth.admin.inviteUserByEmail(email, { data: { test: true } })
-          out.inviteOk = true
-          out.invitedUserId = inv.user?.id ?? null
-        } catch (e: unknown) {
-          out.inviteError = String(e)
-        }
-        return out
-      }
-
       case 'restore_user': {
         // Restore a previously deleted user: invite their email via the admin
         // auth API (Supabase sends a set-password confirmation email), then
