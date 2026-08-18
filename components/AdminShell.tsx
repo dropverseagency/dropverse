@@ -83,13 +83,13 @@ export default function AdminShell({ children, title }: { children: React.ReactN
               <Link
                 key={s.id}
                 href={`/admin/${s.id === 'overview' ? '' : s.id}`}
-                className={`inline-flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${
+                className={`relative inline-flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${
                   active
-                    ? 'bg-[rgba(216,180,90,0.14)] font-semibold text-[#f0d98b]'
+                    ? 'bg-[rgba(216,180,90,0.16)] font-semibold text-[#f0d98b] before:absolute before:left-0 before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-[#d8b45a]'
                     : 'text-[#7f918c] hover:bg-white/5 hover:text-[#d9e0dc]'
                 }`}
               >
-                <Icon size={16} className={active ? 'text-[#d8b45a]' : ''} />
+                <Icon size={16} className={active ? 'text-[#d8b45a]' : 'shrink-0'} />
                 {s.label}
               </Link>
             )
@@ -102,14 +102,16 @@ export default function AdminShell({ children, title }: { children: React.ReactN
         <div className="flex gap-1 p-2">
           {ADMIN_SECTIONS.map((s) => {
             const active = current === s.id
+            const Icon = s.icon
             return (
               <Link
                 key={s.id}
                 href={`/admin/${s.id === 'overview' ? '' : s.id}`}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                  active ? 'bg-[rgba(216,180,90,0.16)] text-[#f0d98b]' : 'text-[#7f918c] hover:bg-white/5'
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition ${
+                  active ? 'border border-[rgba(216,180,90,0.45)] bg-[rgba(216,180,90,0.16)] text-[#f0d98b]' : 'border border-white/8 text-[#91a39e] hover:bg-white/5'
                 }`}
               >
+                <Icon size={14} className={active ? 'text-[#d8b45a]' : 'text-[#7f918c]'} />
                 {s.label}
               </Link>
             )
