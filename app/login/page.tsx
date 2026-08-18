@@ -30,6 +30,10 @@ export default function LoginPage() {
       if (mode === 'signup') {
         const fullName = String(form.get('full_name') || '').trim()
         const phone = String(form.get('phone') || '').trim()
+        const username = String(form.get('username') || '').trim()
+        if (!username || username.length < 3) {
+          throw new Error('Username is required (at least 3 characters).')
+        }
         const telegramUsername = String(form.get('telegram_username') || '').trim()
 
         const { data, error: signUpError } = await supabase.auth.signUp({
@@ -37,7 +41,7 @@ export default function LoginPage() {
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/login`,
-            data: { full_name: fullName, phone, telegram_username: telegramUsername },
+            data: { full_name: fullName, phone, username, telegram_username: telegramUsername },
           },
         })
         if (signUpError) throw signUpError
@@ -105,6 +109,7 @@ export default function LoginPage() {
             {mode === 'signup' && <>
               <label className="block text-sm font-medium text-[#d9e0dc]">Full name<input name="full_name" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="text" placeholder="Your full name" required autoComplete="name" /></label>
               <label className="block text-sm font-medium text-[#d9e0dc]">Mobile number <span className="text-xs font-normal text-[#9aaca6]">(must work on WhatsApp or Telegram)</span><CountryPhoneField /></label>
+              <label className="block text-sm font-medium text-[#d9e0dc]">Username<input name="username" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="text" placeholder="Pick a username" required minLength={3} autoComplete="username" /></label>
               <label className="block text-sm font-medium text-[#d9e0dc]">Telegram username <span className="text-xs font-normal text-[#9aaca6]">(optional)</span><input name="telegram_username" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="text" placeholder="@username" autoComplete="nickname" /></label>
             </>}
             <label className="block text-sm font-medium text-[#d9e0dc]">Email address<input name="email" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="email" placeholder="you@example.com" required autoComplete="email" /></label>
