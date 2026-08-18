@@ -74,6 +74,17 @@ export default function LoginPage() {
     }
   }
 
+  // Handle email confirmation hash: /auth/v1/verify lands on the site with the token in the URL.
+  // When the user follows the confirm link, exchange the hash and redirect to the dashboard.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (window.location.hash.length < 3) return
+    const supabase = createClient()
+    supabase.auth.exchangeCodeForSession(window.location.hash).then(({ error }) => {
+      if (!error) window.location.assign(redirectTo)
+    })
+  }, [redirectTo])
+
   return (
     <main className="min-h-screen grid-bg px-5 py-12 sm:py-20">
       <div className="mx-auto w-full max-w-md">
