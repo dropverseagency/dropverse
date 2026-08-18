@@ -44,7 +44,14 @@ export default function LoginPage() {
             data: { full_name: fullName, phone, username, telegram_username: telegramUsername },
           },
         })
-        if (signUpError) throw signUpError
+        if (signUpError) {
+          const sMsg = signUpError.message || ''
+          const sDetail = ((signUpError as { details?: string }).details || '').toLowerCase()
+          if (sMsg.includes('already registered') || sDetail.includes('duplicate') || sMsg.includes('duplicate')) {
+            throw new Error('This email is already registered — please sign in instead, or use a different email.')
+          }
+          throw signUpError
+        }
         if (data.session) window.location.assign(redirectTo)
         else setMessage('Account created. Please open the confirmation email we sent to your inbox, then sign in.')
       } else {

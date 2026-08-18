@@ -26,6 +26,7 @@ interface Profile {
   username: string | null
   phone: string | null
   telegram_username: string | null
+  username_cooldown_at: string | null
 }
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
@@ -43,6 +44,7 @@ export default function Settings() {
 
   const [profileStatus, setProfileStatus] = useState<SaveStatus>('idle')
   const [profileError, setProfileError] = useState('')
+  const [cooldownUntil, setCooldownUntil] = useState<Date | null>(null)
   const [emailStatus, setEmailStatus] = useState<SaveStatus>('idle')
   const [emailError, setEmailError] = useState('')
   const [emailSent, setEmailSent] = useState(false)
@@ -67,7 +69,7 @@ export default function Settings() {
       setUser({ id: session.user.id, email: session.user.email ?? null })
       const { data } = await supabase
         .from('profiles')
-        .select('id, full_name, username, phone, telegram_username')
+        .select('id, full_name, username, phone, telegram_username, username_cooldown_at')
         .eq('id', session.user.id)
         .single()
       if (cancelled) return
@@ -78,6 +80,9 @@ export default function Settings() {
         setUsername(p.username ?? '')
         setPhone(p.phone ?? '')
         setTelegram(p.telegram_username ?? '')
+        if (p.username && p.username_cooldown_at) {
+          setCooldownUntil(new Date(new Date(p.username_cooldown_at).getTime() + 90 * 24 * 60 * 60 * 1000))
+        }
       }
       setLoading(false)
     }
@@ -92,6 +97,13 @@ export default function Settings() {
     const trimmedUsername = username.trim().toLowerCase()
     if (trimmedUsername.length < 3) {
       setProfileError('Username must be at least 3 characters.')
+      return
+    }
+    const sameUsername = trimmedUsername === (username.trim().toLowerCase())
+    if (!sameUsername && cooldownUntil && new Date() < cooldownUntil) {
+      setProfileError(
+        `Username can only be changed once every 90 days — next change available ${cooldownUntil.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}.`,
+      )
       return
     }
     const supabase = createClient()
@@ -109,8 +121,25 @@ export default function Settings() {
       { onConflict: 'id' },
     )
     if (error) {
-      if (error.code === '23505') {
-        setProfileError('This username is already taken — pick another one.')
+      const msg = error.message || ''
+      const detail = error.details || ''
+      const cooldownUntilStr = detail.includes('cooldown_until=')
+        ? detail.split('cooldown_until=')[1]?.split('\n')[0]?.trim()
+        : null
+      if (cooldownUntilStr) {
+        setProfileError(
+          `Username can only be changed once every 90 days${cooldownUntilStr ? ` — next change available ${cooldownUntilStr}` : ''}.`,
+        )
+      } else if (error.code === '23505' || msg.includes('duplicate key')) {
+        // Which unique column? The unique index names differ per column.
+        const detailLower = detail.toLowerCase()
+        if (detailLower.includes('username') || msg.toLowerCase().includes('username')) {
+          setProfileError('This username is already taken — pick another one.')
+        } else if (detailLower.includes('phone') || msg.toLowerCase().includes('phone')) {
+          setProfileError('This mobile number is already registered to another account.')
+        } else {
+          setProfileError('This value is already used by another account.')
+        }
       } else {
         setProfileError('Could not save. Please try again.')
       }
@@ -179,8 +208,9 @@ export default function Settings() {
         <p className="mt-6 text-sm text-[#d8b45a]">Account settings</p>
         <h1 className="font-display mt-2 text-3xl font-extrabold sm:text-4xl">Settings</h1>
         <p className="mt-3 max-w-xl text-sm leading-6 text-[#8fa29c]">
-          Update your profile anytime. Your name, username and contact details are saved
-          instantly. Changing your email sends a confirmation link to the new address.
+          Update your profile anytime. Your name, contact details and email are saved
+          instantly. Changing your email sends a confirmation link to the new address. Username
+          can be changed once every 90 days.
         </p>
 
         {loading ? (
@@ -206,6 +236,16 @@ export default function Settings() {
                   onChange={setUsername}
                   placeholder="min 3 characters"
                 />
+                {cooldownUntil && !profileError && new Date() < cooldownUntil && (
+                  <p className="text-xs text-[#c9a86a] sm:col-span-2">
+                    Username changed recently — next change available{' '}
+                    {cooldownUntil.toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}.
+                  </p>
+                )}
                 <Field
                   icon={<Phone size={15} />}
                   label="Mobile"
