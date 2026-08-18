@@ -66,6 +66,9 @@ export default function LoginPage() {
       } else {
         const { error: signInError, data: signInData } = await supabase.auth.signInWithPassword({ email, password })
         if (signInError) throw signInError
+        // Apply any pending referral code (from a /r/... link clicked before signing in).
+        // Applies once to the now-authenticated user; safe and idempotent.
+        applyPendingReferral().catch(() => undefined)
         // New users (no workspace yet) start at Pricing to pick a plan;
         // existing users with a workspace go straight to the dashboard.
         window.location.assign(await firstLoginTarget(supabase, signInData?.user?.id ?? ''))
