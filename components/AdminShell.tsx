@@ -74,7 +74,8 @@ export default function AdminShell({ children, title }: { children: React.ReactN
       </header>
 
       {/* Body: sidebar (desktop) + content flow layout (no fixed positioning) */}
-      <div className="flex flex-1">
+      {/* Mobile: column stack (picker above content); Desktop: row with sticky sidebar */}
+      <div className="flex flex-1 flex-col md:flex-row">
         {/* Sidebar (desktop) */}
         <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-56 shrink-0 flex-col border-r border-white/5 bg-[#071f1d] overflow-y-auto md:flex">
           <nav className="flex flex-col gap-0.5 p-3">
@@ -121,7 +122,7 @@ export default function AdminShell({ children, title }: { children: React.ReactN
           </div>
         </div>
 
-        <main className="min-w-0 flex-1">
+        <main className="min-w-0 w-full flex-1">
           <div className="container py-8">
             <h1 className="mb-6 font-display text-2xl font-extrabold tracking-wide text-[#f0f4f2]">{title}</h1>
             {children}
