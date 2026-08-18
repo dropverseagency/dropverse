@@ -142,10 +142,15 @@ export async function POST(request: NextRequest) {
       }
 
       case 'create_test_referral': {
-        const referrerUserId = String(body.referrerUserId ?? '')
+        // Debug action: apply a real referral code to a given user and return the
+        // full attributeReferral result (incl. DB_ERROR detail) so attribution
+        // failures are observable rather than silent.
         const referredUserId = String(body.referredUserId ?? '')
-        if (!referrerUserId || !referredUserId) return { error: 'MISSING_USER_IDS' }
-        return await attributeReferral({ referredUserId, code: '__TEST__', sourceChannel: 'admin_manual' })
+        const code = String(body.code ?? '').trim() || undefined
+        if (!referredUserId) return { error: 'MISSING_USER_ID' }
+        const result = await attributeReferral({ referredUserId, code, sourceChannel: 'admin_manual' })
+        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'referral_manual_apply', entity: 'referrals', entityId: referredUserId, newValue: result })
+        return result
       }
 
       case 'confirm_user': {
