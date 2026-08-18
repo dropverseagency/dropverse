@@ -44,6 +44,19 @@ export async function createCommissionsForProject(params: {
   if (!(eligible > 0)) return { created: false, reason: 'NO_ELIGIBLE_REVENUE' }
 
   let referralId = params.referralId
+  if (!referralId) {
+    // No referral provided — auto-resolve the active referral attributed to
+    // the project owner (most recent non-cancelled referral wins).
+    const { data: ref } = await admin
+      .from('referrals')
+      .select('id, referrer_id, referred_user_id, locked_at')
+      .eq('referred_user_id', project.user_id)
+      .not('status', 'eq', 'cancelled')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    referralId = ref?.id ?? null
+  }
   if (!referralId && params.code) {
     // Resolve code → referral for this project owner
     const { data: codeRow } = await admin
