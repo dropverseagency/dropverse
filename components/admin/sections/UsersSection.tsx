@@ -42,7 +42,12 @@ export default function UsersSection() {
     const res = await adminMutate('confirm_user_invitation', { email: inviteEmail.trim() })
     setInviteBusy(false)
     if (res.error) {
-      setInviteResult(`Error: ${String(res.error)}. Try again or check the email.`)
+      const err = String(res.error)
+      if (err === 'INVITE_FAILED') {
+        setInviteResult(`Could not send the invite email right now. Ask the person to sign up with this email, then promote them to admin from the Users list.`)
+      } else {
+        setInviteResult(`Error: ${err}. Try again or check the email.`)
+      }
     } else {
       setInviteResult(`Success! ${inviteEmail} is now an admin.`)
       setInviteEmail('')
