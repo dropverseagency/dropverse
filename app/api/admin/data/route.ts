@@ -22,6 +22,21 @@ export async function GET(request: NextRequest) {
     const select = (table: string, columns: string) => admin.from(table).select(columns)
 
     switch (section) {
+      case 'debug_counts3': {
+        const out: Record<string, unknown> = {}
+        const [p, pr, a, pc, pp, af, cp, cpa] = await Promise.all([
+          countOf('profiles', null),
+          countOf('projects', null),
+          countOf('organizations', null),
+          countOf('projects', { column: 'payment_status', value: 'PAYMENT_CONFIRMED' }),
+          countOf('projects', { column: 'payment_status', value: 'PAYMENT_PENDING' }),
+          countOf('referrals', { column: 'status', value: 'active' }),
+          countOf('referral_commissions', { column: 'status', value: 'pending' }),
+          countOf('referral_commissions', { column: 'status', value: 'paid' }),
+        ])
+        return { section: 'debug_counts3', profiles: p, projects: pr, agencies: a, paymentsConfirmed: pc, paymentsPending: pp, activeReferrals: af, commissionsPending: cp, commissionsPaid: cpa }
+      }
+
       case 'debug_counts2': {
         const admin = adminClient()
         const out: Record<string, unknown> = {}
