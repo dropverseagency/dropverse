@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import Brand from '../../components/Brand'
@@ -10,6 +10,14 @@ import { COUNTRIES, type Country } from '../../lib/countries'
 import { applyPendingReferral } from '../../lib/attributeReferralAction'
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
+  )
+}
+
+function LoginPageInner() {
   // Use next/navigation's useSearchParams() so the values are always accurate
   // after client-side (soft) navigation — window.location.search is stale during
   // Next.js soft transitions and caused the ref mode to be missed.
