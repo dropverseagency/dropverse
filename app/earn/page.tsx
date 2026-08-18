@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { ArrowRight, Check, ChevronRight, Copy, Facebook, Share2, TrendingUp, Users, Zap, Link2, DollarSign, Activity, X, Menu } from 'lucide-react'
+import { ArrowRight, Check, ChevronRight, Copy, Facebook, Share2, TrendingUp, Users, Zap, Link2, DollarSign, Activity, X, Menu, ShieldCheck } from 'lucide-react'
 import { REFERRAL_TIERS, referralLinkFor } from '../../lib/referralConfig'
 import { createClient } from '../../lib/supabase'
 import { useAuth } from '../../lib/useAuth'
@@ -90,7 +90,7 @@ export default function EarnPage() {
           <div className="hidden items-center gap-3 md:flex">
             {signedIn && auth.user ? (
               <>
-                {isAdmin && <Link href="/admin" className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] px-3.5 py-2 text-sm font-bold text-[#f0d98b] transition hover:bg-[rgba(216,180,90,0.22)]">Admin</Link>}
+                {isAdmin && <Link href="/admin" className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] px-3.5 py-2 text-sm font-bold text-[#f0d98b] transition hover:bg-[rgba(216,180,90,0.22)]"><ShieldCheck size={16} className="shrink-0 md:hidden" aria-label="Admin Panel" /><span className="hidden md:inline">Admin</span></Link>}
                 <UserMenu user={auth.user} isAdmin={isAdmin} />
               </>
             ) : (
@@ -98,7 +98,14 @@ export default function EarnPage() {
             )}
             <a href="#start-earning" className="rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]">Start Earning</a>
           </div>
-          <button onClick={() => setMenu(!menu)} className="md:hidden" aria-label="Menu">{menu ? <X/> : <Menu/>}</button>
+          <div className="flex items-center gap-2.5 md:hidden">
+            {isAdmin ? (
+              <Link href="/admin" className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] text-[#f0d98b] transition hover:bg-[rgba(216,180,90,0.22)]" aria-label="Admin Panel" title="Admin Panel">
+                <ShieldCheck size={17} />
+              </Link>
+            ) : null}
+            <button onClick={() => setMenu(!menu)} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-[#c1cbc7]" aria-label="Menu">{menu ? <X size={17}/> : <Menu size={17}/>}</button>
+          </div>
         </div>
         {menu && (
           <div className="border-t border-white/5 bg-[#071f1d] p-5 md:hidden">

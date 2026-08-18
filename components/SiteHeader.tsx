@@ -48,8 +48,9 @@ export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: b
           {signedIn && auth.user ? (
             <>
               {isAdmin && (
-                <Link href="/admin" className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] px-3.5 py-2 text-sm font-bold text-[#f0d98b] transition hover:bg-[rgba(216,180,90,0.22)]">
-                  <ShieldCheck size={15} /> Admin
+                <Link href="/admin" className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] px-3.5 py-2 text-sm font-bold text-[#f0d98b] transition hover:bg-[rgba(216,180,90,0.22)]" title="Admin Panel">
+                  <ShieldCheck size={16} className="shrink-0 lg:hidden" aria-label="Admin Panel" />
+                  <span className="hidden lg:inline">Admin</span>
                 </Link>
               )}
               <UserMenu user={auth.user} isAdmin={isAdmin} />
@@ -72,9 +73,16 @@ export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: b
             </Link>
           )}
         </div>
-        <button onClick={() => setMenu(!menu)} className="lg:hidden" aria-label="Menu">
-          {menu ? <X /> : <Menu />}
-        </button>
+        <div className="flex items-center gap-2.5 lg:hidden">
+          {isAdmin ? (
+            <Link href="/admin" className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] text-[#f0d98b] transition hover:bg-[rgba(216,180,90,0.22)]" aria-label="Admin Panel" title="Admin Panel">
+              <ShieldCheck size={17} />
+            </Link>
+          ) : null}
+          <button onClick={() => setMenu(!menu)} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-[#c1cbc7]" aria-label="Menu">
+            {menu ? <X size={17} /> : <Menu size={17} />}
+          </button>
+        </div>
       </div>
       {menu && (
         <div className="border-t border-white/5 bg-[#071f1d] p-5 lg:hidden">

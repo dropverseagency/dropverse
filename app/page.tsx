@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { ArrowRight, Check, ChevronRight, Menu, Play, Sparkles, Users, Zap, Globe, Layers, X, LogOut } from 'lucide-react'
+import { ArrowRight, Check, ChevronRight, Menu, Play, Sparkles, Users, Zap, Globe, Layers, X, LogOut, ShieldCheck } from 'lucide-react'
 import { createClient } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
 import { ctaFor } from '../lib/authCta'
@@ -85,7 +85,7 @@ export default function Home() {
         <div className="hidden items-center gap-3 md:flex">
           {signedIn && auth.user ? (
             <>
-              {isAdmin && <Link href="/admin" className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] px-3.5 py-2 text-sm font-bold text-[#f0d98b] transition hover:bg-[rgba(216,180,90,0.22)]">Admin</Link>}
+              {isAdmin && <Link href="/admin" className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] px-3.5 py-2 text-sm font-bold text-[#f0d98b] transition hover:bg-[rgba(216,180,90,0.22)]"><ShieldCheck size={16} className="shrink-0 md:hidden" aria-label="Admin Panel" /><span className="hidden md:inline">Admin</span></Link>}
               <UserMenu user={auth.user} isAdmin={isAdmin} />
             </>
           ) : (
@@ -94,7 +94,14 @@ export default function Home() {
           <Link href="/earn" className="rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] px-4 py-2 text-sm font-bold text-[#e4c979] transition hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.14)]">Earn</Link>
           <a href="#start" className="rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]">Get Started</a>
         </div>
-        <button onClick={()=>setMenu(!menu)} className="md:hidden" aria-label="Menu">{menu?<X/>:<Menu/>}</button>
+        <div className="flex items-center gap-2.5 md:hidden">
+          {isAdmin ? (
+            <Link href="/admin" className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] text-[#f0d98b] transition hover:bg-[rgba(216,180,90,0.22)]" aria-label="Admin Panel" title="Admin Panel">
+              <ShieldCheck size={17} />
+            </Link>
+          ) : null}
+          <button onClick={()=>setMenu(!menu)} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-[#c1cbc7]" aria-label="Menu">{menu?<X size={17}/>:<Menu size={17}/>}</button>
+        </div>
       </div>
       {menu&&<div className="border-t border-white/5 bg-[#071f1d] p-5 md:hidden"><div className="container flex flex-col gap-5 text-[#d9e0dc]"><a href="#services" onClick={()=>setMenu(false)}>Services</a><a href="#how" onClick={()=>setMenu(false)}>How It Works</a><a href="#samples" onClick={()=>setMenu(false)}>Work Samples</a><a href="#about" onClick={()=>setMenu(false)}>About</a><Link href="/earn" className="text-[#d8b45a]" onClick={()=>setMenu(false)}>Earn With DropVerse →</Link>{isAdmin ? <Link href="/admin" className="font-bold text-[#f0d98b]" onClick={()=>setMenu(false)}>Admin Panel →</Link> : null}{signedIn ? <Link href="/dashboard" className="text-[#d8b45a]" onClick={()=>setMenu(false)}>Dashboard →</Link> : <Link href="/login" className="text-[#d8b45a]">Get Started →</Link>}</div></div>}
     </header>
