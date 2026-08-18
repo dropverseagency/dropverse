@@ -11,7 +11,7 @@ import type { NextRequest } from 'next/server'
  * session cookie is never visible to middleware. This helper reassembles all
  * chunks for a given cookie prefix into the full token.
  */
-const protectedPaths = ['/dashboard']
+const protectedPaths = ['/dashboard', '/admin']
 
 const SESSION_COOKIE_PREFIXES = [
   'sb-ekarcueygmmpgdveryrp-auth-token', // default @supabase/ssr >= 0.5 cookie (may be chunked)
@@ -59,4 +59,4 @@ export function middleware(request: NextRequest) {
   return NextResponse.next()
 }
 
-export const config = { matcher: ['/dashboard', '/dashboard/:path*'] }
+export const config = { matcher: ['/dashboard', '/dashboard/:path*', '/admin', '/admin/:path*'] }

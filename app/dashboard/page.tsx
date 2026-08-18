@@ -461,6 +461,12 @@ export default function Dashboard() {
                     href="/dashboard/billing"
                   />
                   <Action
+                    icon={<TrendingUp size={16} />}
+                    title="Affiliate"
+                    text="Share your invite link and earn commissions from referred projects."
+                    href="/dashboard/affiliate"
+                  />
+                  <Action
                     icon={<BarChart3 size={16} />}
                     title="Analytics"
                     text={orgPlan.limits.analytics === 'advanced' ? 'Advanced performance insights.' : 'Basic overview of your activity.'}

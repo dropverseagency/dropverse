@@ -6,6 +6,7 @@ import Brand from '../../components/Brand'
 import ProviderButton from '../../components/ProviderButton'
 import { createClient } from '../../lib/supabase'
 import { COUNTRIES, type Country } from '../../lib/countries'
+import { applyPendingReferral } from '../../lib/attributeReferralAction'
 
 export default function LoginPage() {
   const [redirectTo] = useState(() => typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('redirect') || '/dashboard' : '/dashboard')
@@ -35,6 +36,12 @@ export default function LoginPage() {
           throw new Error('Username is required (at least 3 characters).')
         }
         const telegramUsername = String(form.get('telegram_username') || '').trim()
+        const referralCode = String(form.get('referral_code') || '').trim().toUpperCase()
+        if (referralCode) {
+          try {
+            await fetch('/api/referral/pending?code=' + encodeURIComponent(referralCode))
+          } catch { /* non-fatal — attribution retries after signup */ }
+        }
 
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
@@ -52,6 +59,8 @@ export default function LoginPage() {
           }
           throw signUpError
         }
+        // Apply any pending referral code (from a /r/... link the user clicked before signing up).
+        applyPendingReferral().catch(() => undefined)
         if (data.session) window.location.assign(redirectTo)
         else setMessage('Account created. Please open the confirmation email we sent to your inbox, then sign in.')
       } else {
@@ -102,7 +111,10 @@ export default function LoginPage() {
     if (window.location.hash.length < 3) return
     const supabase = createClient()
     supabase.auth.exchangeCodeForSession(window.location.hash).then(async ({ data, error }) => {
-      if (!error) window.location.assign(await firstLoginTarget(supabase, data.session?.user?.id ?? ''))
+      if (!error) {
+        applyPendingReferral().catch(() => undefined)
+        window.location.assign(await firstLoginTarget(supabase, data.session?.user?.id ?? ''))
+      }
     })
   }, [redirectTo])
 
@@ -143,6 +155,7 @@ export default function LoginPage() {
               <label className="block text-sm font-medium text-[#d9e0dc]">Mobile number <span className="text-xs font-normal text-[#9aaca6]">(must work on WhatsApp or Telegram)</span><CountryPhoneField /></label>
               <label className="block text-sm font-medium text-[#d9e0dc]">Username<input name="username" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="text" placeholder="Pick a username" required minLength={3} autoComplete="username" /></label>
               <label className="block text-sm font-medium text-[#d9e0dc]">Telegram username <span className="text-xs font-normal text-[#9aaca6]">(optional)</span><input name="telegram_username" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="text" placeholder="@username" autoComplete="nickname" /></label>
+              <label className="block text-sm font-medium text-[#d9e0dc]">Referral code <span className="text-xs font-normal text-[#9aaca6]">(optional — from a friend's invite link)</span><input name="referral_code" id="referral_code" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 uppercase outline-none focus:border-[rgba(216,180,90,0.50)]" type="text" placeholder="DV-XXXXXXXX" maxLength={12} autoComplete="off" /></label>
             </>}
             <label className="block text-sm font-medium text-[#d9e0dc]">Email address<input name="email" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="email" placeholder="you@example.com" required autoComplete="email" /></label>
             <label className="block text-sm font-medium text-[#d9e0dc]">Password<input name="password" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="password" placeholder="At least 8 characters" required minLength={8} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} /></label>
