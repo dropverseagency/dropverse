@@ -9,8 +9,12 @@ import { COUNTRIES, type Country } from '../../lib/countries'
 import { applyPendingReferral } from '../../lib/attributeReferralAction'
 
 export default function LoginPage() {
-  const [redirectTo] = useState(() => typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('redirect') || '/dashboard' : '/dashboard')
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const [searchParams] = useState(() => typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams())
+  const [redirectTo] = useState(() => searchParams.get('redirect') || '/dashboard')
+  // Visitors arriving from an affiliate link (/r/CODE → /login?ref=CODE) land
+  // directly on the sign-up form instead of the sign-in form.
+  const [mode, setMode] = useState<'login' | 'signup'>(() => searchParams.get('ref') ? 'signup' : 'login')
+  const [referralPrefill] = useState(() => searchParams.get('ref') || '')
   const [loading, setLoading] = useState(false)
   const [providerLoading, setProviderLoading] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -158,7 +162,7 @@ export default function LoginPage() {
               <label className="block text-sm font-medium text-[#d9e0dc]">Mobile number <span className="text-xs font-normal text-[#9aaca6]">(must work on WhatsApp or Telegram)</span><CountryPhoneField /></label>
               <label className="block text-sm font-medium text-[#d9e0dc]">Username<input name="username" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="text" placeholder="Pick a username" required minLength={3} autoComplete="username" /></label>
               <label className="block text-sm font-medium text-[#d9e0dc]">Telegram username <span className="text-xs font-normal text-[#9aaca6]">(optional)</span><input name="telegram_username" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="text" placeholder="@username" autoComplete="nickname" /></label>
-              <label className="block text-sm font-medium text-[#d9e0dc]">Referral code <span className="text-xs font-normal text-[#9aaca6]">(optional — from a friend's invite link)</span><input name="referral_code" id="referral_code" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 uppercase outline-none focus:border-[rgba(216,180,90,0.50)]" type="text" placeholder="DV-XXXXXXXX" maxLength={12} autoComplete="off" /></label>
+              <label className="block text-sm font-medium text-[#d9e0dc]">Referral code <span className="text-xs font-normal text-[#9aaca6]">(optional — from a friend's invite link)</span><input name="referral_code" id="referral_code" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 uppercase outline-none focus:border-[rgba(216,180,90,0.50)]" type="text" placeholder="DV-XXXXXXXX" maxLength={12} autoComplete="off" defaultValue={referralPrefill} /></label>
             </>}
             <label className="block text-sm font-medium text-[#d9e0dc]">Email address<input name="email" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="email" placeholder="you@example.com" required autoComplete="email" /></label>
             <label className="block text-sm font-medium text-[#d9e0dc]">Password<input name="password" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="password" placeholder="At least 8 characters" required minLength={8} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} /></label>
