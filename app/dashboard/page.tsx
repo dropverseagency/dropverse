@@ -77,6 +77,9 @@ export default function Dashboard() {
   const [chosenPlan, setChosenPlan] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [projects, setProjects] = useState<ProjectRow[]>([])
+  const [dashLink, setDashLink] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const host = typeof window !== 'undefined' ? window.location.host : 'dropverse10v.vercel.app'
   useEffect(() => {
     const p = new URLSearchParams(window.location.search).get('plan')
     if (p) setChosenPlan(p.toUpperCase())
@@ -113,6 +116,13 @@ export default function Dashboard() {
       if (cancelled) return
       if (profileData) setProfile(profileData as Profile)
       if (profileData?.role === 'admin') setIsAdmin(true)
+
+      // Lightweight affiliate: fetch this user's REAL referral code (auto-provisioned)
+      const meRes = await fetch('/api/affiliate/me', { credentials: 'include' })
+      if (meRes.ok) {
+        const meJson = await meRes.json()
+        if (!cancelled && typeof meJson?.code === 'string') setDashLink(meJson.code)
+      }
 
       // Organizations this user belongs to (RLS) + their role
       const { data: orgRows } = await supabase
@@ -371,8 +381,8 @@ export default function Dashboard() {
               <Stat icon={<CheckCircle2 />} label="Paid out" value={formatUSD(paidPayout)} />
             </div>
 
-            {/* Projects */}
-            <div className="card mt-8 rounded-3xl p-7">
+              {/* Projects */}
+            <div className="card mt-8 rounded-3xl border-[rgba(216,180,90,0.30)] bg-[rgba(216,180,90,0.03)] p-7">
               <div className="flex items-center justify-between">
                 <h2 className="font-display text-xl font-bold">Projects</h2>
                 <Link
@@ -477,12 +487,6 @@ export default function Dashboard() {
                     href="/dashboard/billing"
                   />
                   <Action
-                    icon={<TrendingUp size={16} />}
-                    title="Affiliate"
-                    text="Share your invite link and earn commissions from referred projects."
-                    href="/dashboard/affiliate"
-                  />
-                  <Action
                     icon={<BarChart3 size={16} />}
                     title="Analytics"
                     text={orgPlan.limits.analytics === 'advanced' ? 'Advanced performance insights.' : 'Basic overview of your activity.'}
@@ -499,7 +503,37 @@ export default function Dashboard() {
 
               <div className="card rounded-3xl p-7">
                 <p className="text-sm text-[#d8b45a]">Quick actions</p>
-                <h2 className="font-display mt-2 text-xl font-bold">Explore services.</h2>
+                <h2 className="font-display mt-2 text-xl font-bold">Affiliate &amp; more.</h2>
+                {/* Slim affiliate strip: real link + copy, no big separate card */}
+                <div className="mt-4 overflow-hidden rounded-2xl border border-[rgba(216,180,90,0.25)] bg-[rgba(216,180,90,0.05)]">
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] uppercase tracking-[.14em] text-[#718781]">Your referral link</div>
+                      <div className="mt-0.5 truncate font-mono text-sm text-[#f0d98b]">
+                        {dashLink
+                          ? `https://${host}/r/${dashLink}`
+                          : 'Loading your link...'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (!dashLink) return
+                        navigator.clipboard?.writeText(`https://${host}/r/${dashLink}`).then(() => {
+                          setCopied(true)
+                          setTimeout(() => setCopied(false), 2000)
+                        })
+                      }}
+                      disabled={!dashLink}
+                      className="shrink-0 rounded-lg bg-[#d8b45a] px-3 py-1.5 text-xs font-bold text-[#10221f] transition hover:bg-[#f0d98b] disabled:opacity-50"
+                    >
+                      {copied ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                  <Link href="/dashboard/affiliate" className="flex items-center gap-1.5 border-t border-white/5 px-4 py-2.5 text-xs font-bold text-[#e4c979] hover:bg-white/[.03]">
+                    My Referrals <ArrowRight size={12} />
+                  </Link>
+                </div>
+                <h2 className="font-display mt-6 text-xl font-bold">Explore services.</h2>
                 <p className="mt-3 text-sm leading-6 text-[#81948e]">
                   Explore the library, save strong samples and start building your offer.
                 </p>
