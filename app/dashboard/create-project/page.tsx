@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import {
   ArrowRight, Rocket, Check, Info, ShieldCheck, CreditCard,
-  HandCoins, AlertTriangle, Wallet,
+  HandCoins, AlertTriangle, Wallet, FileText, Copy, ExternalLink,
 } from 'lucide-react'
 import { createClient } from '../../../lib/supabase'
 import { useAuth } from '../../../lib/useAuth'
@@ -40,6 +40,12 @@ export default function CreateProjectPage() {
 
   // Spaceremit checkout step (created project pending payment)
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null)
+
+  // Invoice send step (created project with INVOICE_SEND method)
+  const [invoiceId, setInvoiceId] = useState<string | null>(null)
+  const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null)
+  const [invoiceCopied, setInvoiceCopied] = useState(false)
+  const [invoiceError, setInvoiceError] = useState<string | null>(null)
   const [paying, setPaying] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
   const [payConfirmed, setPayConfirmed] = useState(false)
@@ -83,6 +89,7 @@ export default function CreateProjectPage() {
     if (res.error) {
       const messages: Record<string, string> = {
         NOT_AUTHENTICATED: 'You are no longer signed in. Please sign in again.',
+        INVOICE_FAILED: 'Could not create the invoice. The project was saved — you can create the invoice from the dashboard.',
         INVALID_PRICE: 'Enter a valid client price greater than zero.',
         INVALID_COST: 'The DropVerse fulfillment cost must be greater than zero and less than the client price.',
         DB_ERROR: 'Something went wrong saving the project. Please try again.',
@@ -102,6 +109,38 @@ export default function CreateProjectPage() {
         .order('created_at', { ascending: false })
         .limit(1)
       if (rows?.[0]?.id) setPendingProjectId(rows[0].id)
+      return
+    }
+    if (paymentMethod === 'INVOICE_SEND') {
+      // The project was saved in PAYMENT_PENDING; now create (or reuse) the
+      // payable invoice so the seller can send the link to the client.
+      const supabase = createClient()
+      const { data: rows } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('user_id', auth.user?.id)
+        .eq('payment_method', 'INVOICE_SEND')
+        .order('created_at', { ascending: false })
+        .limit(1)
+      const projectId = rows?.[0]?.id || null
+      if (!projectId) {
+        setInvoiceError('Could not locate the created project. Please open the dashboard.')
+        setCreated(true)
+        return
+      }
+      const invRes = await fetch('/api/invoices/me', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, clientName: '', clientEmail: clientContactEmail?.trim() || undefined }),
+      })
+      const invJson = (await invRes.json().catch(() => ({}))) as { invoiceId?: string; error?: string }
+      if (!invRes.ok || !invJson.invoiceId) {
+        setInvoiceError('Could not create the invoice. You can create it from the dashboard instead.')
+        setCreated(true)
+        return
+      }
+      setInvoiceId(invJson.invoiceId)
+      setInvoiceUrl(`${window.location.origin}/invoice/${invJson.invoiceId}`)
       return
     }
     setCreated(true)
@@ -352,7 +391,7 @@ export default function CreateProjectPage() {
                       >
                         <div className="flex items-center justify-between gap-3">
                           <span className={`flex items-center gap-2.5 font-bold ${selected ? 'text-[#f0d98b]' : 'text-[#d9e0dc]'}`}>
-                            {m.id === 'CLIENT_PAYS_DROPVERSE' ? <CreditCard size={18} className="text-[#d8b45a]" /> : m.id === 'SPACEREMIT' ? <Wallet size={18} className="text-[#d8b45a]" /> : <HandCoins size={18} className="text-[#d8b45a]" />}
+                            {m.id === 'CLIENT_PAYS_DROPVERSE' ? <CreditCard size={18} className="text-[#d8b45a]" /> : m.id === 'SPACEREMIT' ? <Wallet size={18} className="text-[#d8b45a]" /> : m.id === 'INVOICE_SEND' ? <FileText size={18} className="text-[#d8b45a]" /> : <HandCoins size={18} className="text-[#d8b45a]" />}
                             {m.label}
                           </span>
                           {m.recommended ? (
@@ -519,7 +558,43 @@ export default function CreateProjectPage() {
                   </Link>
                 </div>
               )}
-              {created && !pendingProjectId && (
+              {created && !pendingProjectId && invoiceId && invoiceUrl && (
+                <div className="mt-6 rounded-2xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] p-5">
+                  <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(216,180,90,0.40)] bg-[#d8b45a] text-[#10221f]">
+                    <FileText size={20} />
+                  </div>
+                  <p className="text-center font-display text-lg font-extrabold">Invoice Ready to Send</p>
+                  <p className="mt-1.5 text-center text-xs leading-5 text-[#9aaba6]">
+                    Your project is in <span className="font-bold text-[#f0d98b]">Payment Pending</span>. Share the invoice link below with your client — they can view the service details and pay securely without creating an account. Once their payment is verified, the project is confirmed automatically.
+                  </p>
+                  <div className="mt-4 flex items-center gap-2 rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3">
+                    <p className="min-w-0 flex-1 truncate text-xs font-mono text-[#e7edea]">{invoiceUrl}</p>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(invoiceUrl).then(() => {
+                          setInvoiceCopied(true)
+                          setTimeout(() => setInvoiceCopied(false), 2000)
+                        }).catch(() => {})
+                      }}
+                      className="shrink-0 rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] px-3.5 py-1.5 text-[11px] font-bold text-[#f0d98b] transition hover:bg-[rgba(216,180,90,0.22)]"
+                    >
+                      {invoiceCopied ? <><Check size={12} /></> : <><Copy size={12} /></>} {invoiceCopied ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-2">
+                    <a href={`mailto:?subject=${encodeURIComponent(`Invoice — ${title.trim()}`)}&body=${encodeURIComponent(`Hi! Please find your invoice here: ${invoiceUrl}`)}`} className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 px-4 py-3 text-xs font-bold text-[#d9e0dc] transition hover:border-[rgba(216,180,90,0.40)] hover:text-[#f0d98b]">
+                      <ExternalLink size={13} /> Email It
+                    </a>
+                    <Link href={`/invoice/${invoiceId}`} target="_blank" className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 px-4 py-3 text-xs font-bold text-[#d9e0dc] transition hover:border-[rgba(216,180,90,0.40)] hover:text-[#f0d98b]">
+                      <ExternalLink size={13} /> Preview Invoice
+                    </Link>
+                  </div>
+                  <Link href="/dashboard" className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#d8b45a] px-6 py-3 font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
+                    Go to Dashboard <ArrowRight size={16} />
+                  </Link>
+                </div>
+              )}
+              {created && !pendingProjectId && !invoiceId && (
                 <div className="mt-6 rounded-2xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] p-5 text-center">
                   <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(216,180,90,0.40)] bg-[#d8b45a] text-[#10221f]">
                     <Check size={20} />
@@ -529,6 +604,12 @@ export default function CreateProjectPage() {
                   <Link href="/dashboard" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#d8b45a] px-6 py-3 font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
                     Go to Dashboard <ArrowRight size={16} />
                   </Link>
+                </div>
+              )}
+              {created && !pendingProjectId && invoiceError && (
+                <div className="mt-6 flex items-start gap-2.5 rounded-2xl border border-red-400/30 bg-red-500/10 p-4 text-xs leading-5 text-red-200">
+                  <AlertTriangle size={15} className="mt-0.5 shrink-0" /> {invoiceError}
+                  <Link href="/dashboard" className="font-bold underline">Dashboard</Link>
                 </div>
               )}
               {!created && !pendingProjectId && (
@@ -550,6 +631,8 @@ export default function CreateProjectPage() {
               <p className="mt-4 text-center text-[11px] leading-5 text-[#5f726c]">
                 {paymentMethod === 'SPACEREMIT' ? (
                   <>SpaceRemit payments are processed securely on our servers. Submitting saves the project as <span className="font-bold text-[#f0d98b]">Payment Pending</span> until the payment is verified with SpaceRemit.</>
+                ) : paymentMethod === 'INVOICE_SEND' ? (
+                  <>Submitting saves the project as <span className="font-bold text-[#f0d98b]">Payment Pending</span> and creates a payment invoice — your client pays from the invoice link and the project is confirmed automatically once their payment is verified.</>
                 ) : (
                   <>The fulfillment team is never instructed to start work until the required payment for the current period is confirmed.</>
                 )}

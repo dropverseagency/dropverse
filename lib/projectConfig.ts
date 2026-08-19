@@ -33,7 +33,7 @@ export const PROJECT_TYPES: { id: ProjectType; label: string; description: strin
   },
 ]
 
-export type PaymentMethod = 'CLIENT_PAYS_DROPVERSE' | 'SPACEREMIT' | 'SELLER_COLLECTED'
+export type PaymentMethod = 'CLIENT_PAYS_DROPVERSE' | 'SPACEREMIT' | 'INVOICE_SEND' | 'SELLER_COLLECTED'
 
 export const PAYMENT_METHODS: { id: PaymentMethod; label: string; description: string; recommended?: boolean }[] = [
   {
@@ -46,6 +46,11 @@ export const PAYMENT_METHODS: { id: PaymentMethod; label: string; description: s
     id: 'SPACEREMIT',
     label: 'Pay with SpaceRemit',
     description: 'Pay securely through the SpaceRemit gateway (card or 70+ local payment methods).',
+  },
+  {
+    id: 'INVOICE_SEND',
+    label: 'Send Invoice to Client',
+    description: 'Create a payment invoice and send the link to your client. They pay securely (no account needed) and the project is confirmed automatically.',
   },
   {
     id: 'SELLER_COLLECTED',
