@@ -84,6 +84,7 @@ export default function SpaceRemitPayForm({
   const [ready, setReady] = useState(false)
   const [iframeReady, setIframeReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const formRef = useRef<HTMLFormElement | null>(null)
   const onPaidRef = useRef(onPaid)
@@ -110,7 +111,17 @@ export default function SpaceRemitPayForm({
     }
     window.SP_RECIVED_MESSAGE = (message: string) => {
       if (message && message.length > 0) {
-        setError(message)
+        const msg = message.trim()
+        // Informational library status (e.g. "Choose one of the methods.") is
+        // shown as neutral guidance; real failures include error keywords.
+        const isError = /error|fail|invalid|denied|refused|exception|unsuccessful/i.test(msg)
+        if (isError) {
+          setError(msg)
+          setInfo(null)
+        } else {
+          setInfo(msg)
+          setError(null)
+        }
         if (onMessageRef.current) onMessageRef.current(message)
       }
     }
@@ -123,22 +134,26 @@ export default function SpaceRemitPayForm({
       .then(() => {
         if (cancelled) return
         setReady(true)
-        // The iframe takes several seconds to paint the method grid;
-        // detect first content paint and remove the loading overlay.
-        const observer = new MutationObserver(() => {
-          const ifr = document.getElementById('sp_local_nethods_iframe') as HTMLIFrameElement | null
-          if (ifr && ifr.contentDocument && ifr.contentDocument.body && ifr.contentDocument.body.children.length > 0) {
-            setIframeReady(true)
-            observer.disconnect()
-          }
-        })
-        setTimeout(() => {
-          const ifr = document.getElementById('sp_local_nethods_iframe')
-          if (ifr) observer.observe(ifr, { childList: true, subtree: true })
-        }, 500)
-        setTimeout(() => observer.disconnect(), 30000)
-        // Fallback: clear overlay after a generous wait even if detection fails.
-        setTimeout(() => setIframeReady(true), 25000)
+        // The iframe is cross-origin, so we can't observe its content paint.
+        // Hide the loading overlay after the iframe's own load event fires
+        // (its JS app starts rendering) plus a buffer, or a fixed timeout.
+        let cleared = false
+        const clearOverlay = () => {
+          if (cleared) return
+          cleared = true
+          setIframeReady(true)
+        }
+        const t1 = setTimeout(clearOverlay, 12000)
+        const t2 = setTimeout(clearOverlay, 18000)
+        const ifr = document.getElementById('sp_local_nethods_iframe') as HTMLIFrameElement | null
+        if (ifr) {
+          ifr.addEventListener('load', () => {
+            clearTimeout(t1)
+            setTimeout(clearOverlay, 4000)
+          })
+        }
+        // Clean up timers on unmount.
+        return () => { clearTimeout(t1); clearTimeout(t2) }
       })
       .catch(() => {
         if (!cancelled) setError('Unable to load the payment methods. Please refresh the page.')
@@ -212,6 +227,11 @@ export default function SpaceRemitPayForm({
       {error && (
         <div className="mt-3 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-center text-xs leading-5 text-red-200">
           {error}
+        </div>
+      )}
+      {info && !error && (
+        <div className="mt-3 rounded-xl border border-[#d8b45a]/30 bg-[#d8b45a]/10 px-4 py-3 text-center text-xs leading-5 text-[#d8b45a]">
+          {info}
         </div>
       )}
       {ready && !error && (
