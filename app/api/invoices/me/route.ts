@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
   // Own the project first.
   const { data: project, error: getError } = await getServiceSupabase()
     .from('projects')
-    .select('id, title, client_price, currency, status, payment_status, client_contact_email')
+    .select('id, user_id, title, client_price, currency, status, payment_status, client_contact_email')
     .eq('id', projectId)
     .single()
 
