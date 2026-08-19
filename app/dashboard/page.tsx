@@ -19,6 +19,7 @@ import {
   LogOut,
 } from 'lucide-react'
 import Brand from '../../components/Brand'
+import PlanUpgradeBanner from '../../components/PlanUpgradeBanner'
 import { createClient } from '../../lib/supabase'
 import { canViewFinancials, isManager, type OrgRow } from '../../lib/orgs'
 import { PLAN_CONFIG, planById, type OrgRole } from '../../lib/planConfig'
@@ -96,6 +97,7 @@ export default function Dashboard() {
   const [copyingInvoice, setCopyingInvoice] = useState<string | null>(null)
   const [creatingInvoice, setCreatingInvoice] = useState<string | null>(null)
   const [invoiceError, setInvoiceError] = useState<string | null>(null)
+  const [sessionToken, setSessionToken] = useState<string | null>(null)
   const baseHost = typeof window !== 'undefined' ? window.location.origin : 'https://dropverse10v.vercel.app'
   const host = typeof window !== 'undefined' ? window.location.host : 'dropverse10v.vercel.app'
   useEffect(() => {
@@ -126,6 +128,7 @@ export default function Dashboard() {
         window.location.assign('/login?redirect=%2Fdashboard')
         return
       }
+      setSessionToken(session.access_token)
       const { data: profileData } = await supabase
         .from('profiles')
         .select('id, full_name, username, phone, telegram_username, role, created_at')
@@ -311,6 +314,9 @@ export default function Dashboard() {
   return (
     <main className="min-h-screen grid-bg px-5 py-10 sm:py-14">
       <div className="mx-auto w-full max-w-5xl">
+        {/* Plan upgrade banner when arriving from /pricing */}
+        <PlanUpgradeBanner orgs={orgs} activeOrgId={activeOrgId} sessionToken={sessionToken} />
+
         {/* Top bar: brand — org switcher — settings — sign out */}
         <div className="flex items-center justify-between gap-3">
           <Brand compact />
