@@ -5,6 +5,53 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowRight, Check, ChevronRight, Copy, Facebook, Share2, TrendingUp, Users, Zap, Link2, DollarSign, Activity, X, Menu, ShieldCheck } from 'lucide-react'
 import { REFERRAL_TIERS, referralLinkFor } from '../../lib/referralConfig'
+
+// Affiliate partnership deadline: on Jan 1, 2027 (UTC) the lifetime-partner offer closes.
+export const PARTNERSHIP_DEADLINE = '2027-01-01T00:00:00Z'
+
+function useCountdown() {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  const deadline = new Date(PARTNERSHIP_DEADLINE).getTime()
+  const remaining = Math.max(0, deadline - now)
+  const d = Math.floor(remaining / 86_400_000)
+  const h = Math.floor((remaining % 86_400_000) / 3_600_000)
+  const m = Math.floor((remaining % 3_600_000) / 60_000)
+  const s = Math.floor((remaining % 60_000) / 1000)
+  return { remaining, d, h, m, s, isClosed: remaining === 0 }
+}
+
+function CountdownBanner() {
+  const { remaining, d, h, m, s, isClosed } = useCountdown()
+  if (isClosed) return null
+  const units: [number, string][] = [
+    [d, 'days'], [h, 'hrs'], [m, 'min'], [s, 'sec'],
+  ]
+  return (
+    <div className="mb-6 inline-flex flex-col items-center gap-2 rounded-2xl border border-[rgba(216,180,90,0.45)] bg-gradient-to-r from-[rgba(216,180,90,0.14)] to-[rgba(216,180,90,0.05)] px-6 py-4 sm:px-8 sm:py-5">
+      <div className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-[.14em] text-[#f0d98b]">
+        <Zap size={15} className="text-[#d8b45a]"/> Lifetime Partner Offer Ends
+      </div>
+      <div className="flex items-center gap-3">
+        {units.map(([v, label]) => (
+          <div key={label} className="flex flex-col items-center">
+            <div className="min-w-[3rem] rounded-lg border border-[rgba(216,180,90,0.30)] bg-[rgba(7,31,29,0.65)] px-2 py-2 text-center font-display text-2xl font-extrabold tabular-nums text-[#f0d98b]">
+              {String(v).padStart(2, '0')}
+            </div>
+            <div className="mt-1 text-[10px] uppercase tracking-[.18em] text-[#879b95]">{label}</div>
+          </div>
+        ))}
+      </div>
+      <div className="max-w-md text-center text-xs text-[#aebcb7]">
+        Become a DropVerse partner <span className="font-bold text-[#f0d98b]">for life</span> before&nbsp;
+        <span className="font-bold text-white">Jan 1, 2027</span> — after that, the affiliate partnership closes.
+      </div>
+    </div>
+  )
+}
 import { createClient } from '../../lib/supabase'
 import { useAuth } from '../../lib/useAuth'
 import { ctaFor } from '../../lib/authCta'
@@ -134,6 +181,7 @@ function copyLink() {
         <div className="absolute left-1/2 top-1/3 h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-[rgba(216,180,90,0.05)] blur-[100px]"/>
         <div className="container relative grid items-center gap-14 py-24 lg:grid-cols-[1.05fr_.95fr]">
           <div>
+            <CountdownBanner/>
             <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[rgba(216,180,90,0.20)] bg-[rgba(216,180,90,0.05)] px-4 py-2 text-xs font-semibold uppercase tracking-[.2em] text-[#e4c979]">
               <Zap size={14}/> DropVerse Partner Program
             </div>
