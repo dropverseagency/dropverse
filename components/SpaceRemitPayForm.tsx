@@ -5,20 +5,30 @@ import { useEffect, useRef, useState } from 'react'
 /**
  * Embedded SpaceRemit payment form (official client-side JS integration).
  * Loads https://spaceremit.com/api/v2/js_script/spaceremit.js and lets the
- * library render card + 70+ local payment methods into this component.
- * On successful payment it calls onPaid(transactionCode).
+ * library render 70+ local payment methods into this component.
+ *
+ * The official integration flow is: buyer picks a payment method in the
+ * rendered methods list, then SUBMITS the form. The library appends the
+ * transaction code and calls SP_SUCCESSFUL_PAYMENT on success.
+ *
+ * Note: the card box is disabled on this SpaceRemit account
+ * ("This payments way is disabled"), so only local methods are shown.
  */
 interface SpaceRemitPayFormProps {
   amount: number
   currency?: string
+  /** Fallback buyer name; pre-filled invisibly (kept editable via nameEditable). */
   fullName: string
   email: string
   phone: string
-  notes?: string
   publicKey: string
   onPaid: (transactionCode: string) => void
   onMessage?: (message: string) => void
   disabled?: boolean
+  /** When true, hide the buyer-info inputs entirely (defaults are used for
+   *  the SpaceRemit hidden fields). */
+  hideBuyerInputs?: boolean
+  submitLabel?: string
 }
 
 declare global {
@@ -64,14 +74,17 @@ export default function SpaceRemitPayForm({
   fullName,
   email,
   phone,
-  notes = '',
   publicKey,
   onPaid,
   onMessage,
   disabled,
+  hideBuyerInputs,
+  submitLabel = 'Pay Now →',
 }: SpaceRemitPayFormProps) {
   const [ready, setReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const formRef = useRef<HTMLFormElement | null>(null)
   const onPaidRef = useRef(onPaid)
   onPaidRef.current = onPaid
   const onMessageRef = useRef(onMessage)
@@ -84,10 +97,9 @@ export default function SpaceRemitPayForm({
     window.SP_SELECT_RADIO_NAME = 'sp-pay-type-radio'
     window.LOCAL_METHODS_BOX_STATUS = true
     window.LOCAL_METHODS_PARENT_ID = '#dv-sp-local-methods-pay'
-    // Card payments (way=card) are disabled on this SpaceRemit account
-    // ("This payments way is disabled"), so only local methods are shown.
     window.CARD_BOX_STATUS = false
     window.CARD_BOX_PARENT_ID = '#dv-sp-card-pay'
+    // Do not auto-submit: the buyer must confirm the payment themselves.
     window.SP_FORM_AUTO_SUBMIT_WHEN_GET_CODE = false
     window.SP_SUCCESSFUL_PAYMENT = (code: string) => {
       onPaidRef.current(code)
@@ -120,43 +132,82 @@ export default function SpaceRemitPayForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  /** Official integration: selecting a method alone does nothing — the buyer
+   *  must submit the form so the library can attach the transaction code. */
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (submitting || disabled || !ready) return
+    setSubmitting(true)
+    setError(null)
+    const form = formRef.current
+    if (!form) {
+      setSubmitting(false)
+      setError('Could not open the payment form. Please refresh the page.')
+      return
+    }
+    form.requestSubmit()
+  }
+
+  const showInputs = !hideBuyerInputs
+
   return (
     <div className="w-full">
-      <form id={FORM_ID}>
+      <form ref={formRef} id={FORM_ID}>
         <input type="hidden" name="amount" value={Math.max(0, Math.round(amount * 100) / 100)} />
         <input type="hidden" name="currency" value={currency} />
         <input type="hidden" name="fullname" value={fullName} />
         <input type="hidden" name="email" value={email} />
         <input type="hidden" name="phone" value={phone} />
-        {/* Do NOT pass notes: the SpaceRemit iframe shows its marketing landing
-            page whenever the `notes` query param is non-empty. */}
+        {/* The `notes` field MUST stay empty: a non-empty notes value makes the
+            SpaceRemit iframe render its marketing landing page instead of the
+            payment methods. */}
         <div className="sp-one-type-select">
           <input type="radio" name="sp-pay-type-radio" value="local-methods-pay" id="dv_sp_local_radio" defaultChecked />
           <label htmlFor="dv_sp_local_radio">
-            <div>Pay with a local method (wallet, bank transfer, card, 70+ options)</div>
+            <div>Pay with a local method (wallet, bank transfer, card — 70+ options)</div>
           </label>
           <div id="dv-sp-local-methods-pay" />
         </div>
         <div id="dv-sp-card-pay" style={{ display: 'none' }} />
       </form>
 
+      {showInputs && (
+        <div className="mt-4 grid gap-3">
+          <input value={fullName} disabled placeholder="Full name" className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-sm text-[#8f9f9a] placeholder:text-[#5f726c] focus:outline-none" aria-label="Full name" />
+          <input value={email} disabled type="email" placeholder="Email for receipt" className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-sm text-[#8f9f9a] placeholder:text-[#5f726c] focus:outline-none" aria-label="Email for receipt" />
+        </div>
+      )}
+
       {!ready && !error && (
-        <div className="rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-center text-xs text-[#8f9f9a]">
+        <div className="mt-4 rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-center text-xs text-[#8f9f9a]">
           Loading payment methods...
         </div>
       )}
       {error && (
-        <div className="mt-2 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-center text-xs leading-5 text-red-200">
+        <div className="mt-3 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-center text-xs leading-5 text-red-200">
           {error}
         </div>
       )}
       {ready && !error && (
-        <style>{`
-          #${FORM_ID} .sp-one-type-select { margin: 0 0 12px 0; }
-          #${FORM_ID} { ${disabled ? 'pointer-events:none; opacity:.4' : ''} }
-          #sp_local_nethods_iframe { height: 760px !important; border-radius: 12px; }
-          #${FORM_ID} .sp_local_nethods_iframe { height: 760px !important; }
-        `}</style>
+        <>
+          <button
+            type="button"
+            disabled={submitting || disabled}
+            onClick={handleSubmit}
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#d8b45a] px-6 py-4 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {submitting ? 'Processing...' : submitLabel}
+          </button>
+          <p className="mt-3 text-center text-[11px] leading-5 text-[#5f726c]">
+            Select your payment method above, then press <span className="font-bold text-[#9aabaa]">Pay Now</span> to continue to SpaceRemit&apos;s secure checkout.
+          </p>
+          <style>{`
+            #${FORM_ID} .sp-one-type-select { margin: 0 0 12px 0; }
+            #${FORM_ID} { ${disabled ? 'pointer-events:none; opacity:.4' : ''} }
+            #sp_local_nethods_iframe { height: 760px !important; border-radius: 12px; }
+            #${FORM_ID} .sp_local_nethods_iframe { height: 760px !important; }
+          `}</style>
+        </>
       )}
     </div>
   )

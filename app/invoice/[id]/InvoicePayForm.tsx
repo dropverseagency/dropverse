@@ -10,9 +10,10 @@ interface Props {
 }
 
 export default function InvoicePayForm({ invoiceId, due, amount }: Props) {
-  const [fullName, setFullName] = useState('')
-  const [payEmail, setPayEmail] = useState('')
-  const [payPhone, setPayPhone] = useState('')
+  // Buyer info is passed to SpaceRemit as hidden defaults (name = invoice
+  // recipient when available); the client only presses Pay Now.
+  const [fullName] = useState('')
+  const [payEmail] = useState('')
   const [transactionCode, setTransactionCode] = useState('')
   const [paying, setPaying] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
@@ -78,23 +79,17 @@ export default function InvoicePayForm({ invoiceId, due, amount }: Props) {
         </div>
       </div>
 
-      <div className="mt-5 grid gap-3">
-        <Field label="Full name" placeholder="Your name" value={fullName} onChange={setFullName} />
-        <Field label="Email address" type="email" placeholder="you@example.com" value={payEmail} onChange={setPayEmail} />
-        <Field label="Phone" type="tel" placeholder="+1 555 000 0000" value={payPhone} onChange={setPayPhone} />
-      </div>
-
       <p className="mt-4 text-[11px] leading-relaxed text-[#687d76]">
-        Pay securely right here via SpaceRemit — card or 70+ local methods. Once your payment completes,
+        Select a payment method below, then press Pay Now. Once your payment completes,
         it is verified automatically and your invoice is marked paid. No account required.
       </p>
 
       <SpaceRemitPayForm
         amount={amount}
-        fullName={fullName}
-        email={payEmail}
-        phone={payPhone}
-        notes={`Invoice payment — ${invoiceId}`}
+        fullName={fullName || 'Invoice client'}
+        email={payEmail || 'client@example.com'}
+        phone="+0000000000"
+        submitLabel="Pay Now →"
         publicKey={process.env.NEXT_PUBLIC_SPACEREMIT_PUBLIC_KEY ?? ''}
         onPaid={async (code: string) => {
           setPaying(true)

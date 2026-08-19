@@ -30,9 +30,16 @@ export default function CreateProjectPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CLIENT_PAYS_DROPVERSE')
   const [clientContactEmail, setClientContactEmail] = useState('')
   const [deliveryNotes, setDeliveryNotes] = useState('')
+  // Buyer info for the SpaceRemit checkout — pre-filled from the session and
+  // shown as disabled read-only fields (only the receipt email matters to the buyer).
   const [fullName, setFullName] = useState('')
   const [payEmail, setPayEmail] = useState('')
-  const [payPhone, setPayPhone] = useState('')
+  useEffect(() => {
+    if (auth.user) {
+      setFullName(auth.user.name ?? '')
+      setPayEmail(auth.user.email ?? '')
+    }
+  }, [auth.user])
   const [transactionCode, setTransactionCode] = useState('')
 
   const [error, setError] = useState<string | null>(null)
@@ -528,9 +535,8 @@ export default function CreateProjectPage() {
                   <p className="mt-1 text-xs leading-5 text-[#9aaba6]">Pay the DropVerse fulfillment amount securely via SpaceRemit (card or 70+ local methods). Fulfillment starts once the payment is confirmed on our side.</p>
                   <p className="mt-3 rounded-xl bg-[#071f1d]/60 p-4 text-xs leading-5 text-[#8f9f9a]">This is the DropVerse fulfillment amount only. Your estimated profit of <span className="font-bold text-[#f0d98b]">{formatUsd(profit)}</span> stays with you.</p>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Full name on card" className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-sm text-[#e7edea] placeholder:text-[#5f726c] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
-                    <input value={payEmail} onChange={e => setPayEmail(e.target.value)} type="email" placeholder="Email for receipt" className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-sm text-[#e7edea] placeholder:text-[#5f726c] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
-                    <input value={payPhone} onChange={e => setPayPhone(e.target.value)} type="tel" placeholder="Phone (for local methods)" className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-sm text-[#e7edea] placeholder:text-[#5f726c] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
+                    <input value={fullName} readOnly placeholder="Full name" className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-sm text-[#8f9f9a] placeholder:text-[#5f726c] focus:outline-none" aria-label="Full name" />
+                    <input value={payEmail} onChange={e => setPayEmail(e.target.value)} type="email" placeholder="Email for receipt" className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-sm text-[#e7edea] placeholder:text-[#5f726c] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" aria-label="Email for receipt" />
                   </div>
                   {payError && (
                     <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-xs leading-5 text-red-200">
@@ -539,10 +545,9 @@ export default function CreateProjectPage() {
                   )}
                   <SpaceRemitPayForm
                     amount={fc}
-                    fullName={fullName}
+                    fullName={fullName || (auth.user?.name ?? '')}
                     email={payEmail}
-                    phone={payPhone}
-                    notes={`DropVerse fulfillment — project ${pendingProjectId}`}
+                    phone="+0000000000"
                     publicKey={process.env.NEXT_PUBLIC_SPACEREMIT_PUBLIC_KEY ?? ''}
                     onPaid={async (code: string) => {
                       setTransactionCode(code)
@@ -550,7 +555,7 @@ export default function CreateProjectPage() {
                     }}
                     onMessage={(msg: string) => setPayError(msg)}
                   />
-                  <p className="mt-3 text-[11px] leading-5 text-[#5f726c]">Pay securely through SpaceRemit right here — choose a card or one of 70+ local payment methods. As soon as your payment completes, we verify it automatically and confirm your project.</p>
+                  <p className="mt-3 text-[11px] leading-5 text-[#5f726c]">Select a payment method below, then press Pay Now — as soon as your payment completes, we verify it automatically and confirm your project.</p>
                   <button onClick={() => { setPendingProjectId(null) }} className="mt-3 w-full text-center text-xs font-semibold text-[#8f9f9a] hover:text-[#d9e0dc]">Back to review</button>
                 </div>
               )}
