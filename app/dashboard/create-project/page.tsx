@@ -107,6 +107,7 @@ export default function CreateProjectPage() {
       res = { error: 'DB_ERROR' }
     }
     setSubmitting(false)
+    console.log('submit res:', JSON.stringify(res), 'method:', paymentMethod)
     if (res.error) {
       const messages: Record<string, string> = {
         NOT_AUTHENTICATED: 'You are no longer signed in. Please sign in again.',
@@ -144,7 +145,9 @@ export default function CreateProjectPage() {
         .order('created_at', { ascending: false })
         .limit(1)
       const projectId = rows?.[0]?.id || null
+      console.log('invoice branch projectId:', projectId)
       if (!projectId) {
+        console.error('invoice branch: no project id found')
         setInvoiceError('Could not locate the created project. Please open the dashboard.')
         setCreated(true)
         return
@@ -154,6 +157,7 @@ export default function CreateProjectPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId, clientName: '', clientEmail: clientContactEmail?.trim() || undefined }),
       })
+      console.log('invoice api status:', invRes.status)
       const invJson = (await invRes.json().catch(() => ({}))) as { invoiceId?: string; error?: string }
       if (!invRes.ok || !invJson.invoiceId) {
         setInvoiceError('Could not create the invoice. You can create it from the dashboard instead.')
@@ -164,6 +168,7 @@ export default function CreateProjectPage() {
       setInvoiceUrl(`${window.location.origin}/invoice/${invJson.invoiceId}`)
       return
     }
+    console.log('invoice card set:', invJson.invoiceId)
     setCreated(true)
   }
 
