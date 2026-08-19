@@ -90,7 +90,9 @@ export default function CreateProjectPage() {
     if (submitting || created || pendingProjectId) return
     setSubmitting(true)
     setError(null)
-    const res = await createProjectServer({
+    let res: Awaited<ReturnType<typeof createProjectServer>>
+    try {
+      res = await createProjectServer({
       title,
       description,
       projectType,
@@ -99,7 +101,11 @@ export default function CreateProjectPage() {
       paymentMethod,
       deliveryNotes,
       clientContactEmail,
-    })
+      })
+    } catch (err) {
+      console.error('createProjectServer threw:', err)
+      res = { error: 'DB_ERROR' }
+    }
     setSubmitting(false)
     if (res.error) {
       const messages: Record<string, string> = {
