@@ -529,11 +529,24 @@ export default function CreateProjectPage() {
                 </p>
               )}
               {/* Spaceremit checkout step — shown after the project is saved in Payment Pending */}
-              {pendingProjectId && !payConfirmed && (
+              {pendingProjectId && !payConfirmed && (() => {
+                const checkoutAmount = paymentMethod === 'SELLER_COLLECTED' ? fc : cp
+                const isSellerPaying = paymentMethod === 'SELLER_COLLECTED'
+                return (
                 <div className="mt-6 rounded-2xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] p-5">
-                  <p className="font-display text-lg font-extrabold">Complete Payment — {formatUsd(fc)}</p>
-                  <p className="mt-1 text-xs leading-5 text-[#9aaba6]">Pay the DropVerse fulfillment amount securely via SpaceRemit (card or 70+ local methods). Fulfillment starts once the payment is confirmed on our side.</p>
-                  <p className="mt-3 rounded-xl bg-[#071f1d]/60 p-4 text-xs leading-5 text-[#8f9f9a]">This is the DropVerse fulfillment amount only. Your estimated profit of <span className="font-bold text-[#f0d98b]">{formatUsd(profit)}</span> stays with you.</p>
+                  <p className="font-display text-lg font-extrabold">Complete Payment — {formatUsd(checkoutAmount)}</p>
+                  {isSellerPaying ? (
+                    <>
+                      <p className="mt-1 text-xs leading-5 text-[#9aaba6]">Pay only the DropVerse fulfillment amount securely via SpaceRemit (card or 70+ local methods). Fulfillment starts once the payment is confirmed on our side.</p>
+                      <p className="mt-3 rounded-xl bg-[#071f1d]/60 p-4 text-xs leading-5 text-[#8f9f9a]">You pay only the DropVerse fulfillment amount of <span className="font-bold text-[#f0d98b]">{formatUsd(fc)}</span>. You keep the rest — your profit of <span className="font-bold text-[#f0d98b]">{formatUsd(profit)}</span> plus the client price you collect.</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="mt-1 text-xs leading-5 text-[#9aaba6]">This is the full amount your client will pay. After creating the project, share the payment link with your client so they can pay securely via SpaceRemit (card or 70+ local methods) without logging in.</p>
+                      <p className="mt-3 rounded-xl bg-[#071f1d]/60 p-4 text-xs leading-5 text-[#8f9f9a]">Your client pays the full price of <span className="font-bold text-[#f0d98b]">{formatUsd(cp)}</span>. The DropVerse fulfillment cost of <span className="font-bold text-[#d9e0dc]">{formatUsd(fc)}</span> is covered inside it — your profit of <span className="font-bold text-[#f0d98b]">{formatUsd(profit)}</span> stays with you.</p>
+                    </>
+                  )}
+
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <input value={fullName} readOnly placeholder="Full name" className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-sm text-[#8f9f9a] placeholder:text-[#5f726c] focus:outline-none" aria-label="Full name" />
                     <input value={payEmail} onChange={e => setPayEmail(e.target.value)} type="email" placeholder="Email for receipt" className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-sm text-[#e7edea] placeholder:text-[#5f726c] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" aria-label="Email for receipt" />
@@ -544,7 +557,7 @@ export default function CreateProjectPage() {
                     </div>
                   )}
                   <SpaceRemitPayForm
-                    amount={fc}
+                    amount={checkoutAmount}
                     fullName={fullName || (auth.user?.name ?? '')}
                     email={payEmail}
                     phone="+0000000000"
@@ -557,7 +570,8 @@ export default function CreateProjectPage() {
                   />
                   <button onClick={() => { setPendingProjectId(null) }} className="mt-3 w-full text-center text-xs font-semibold text-[#8f9f9a] hover:text-[#d9e0dc]">Back to review</button>
                 </div>
-              )}
+                )
+              })()}
               {payConfirmed && (
                 <div className="mt-6 rounded-2xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] p-5 text-center">
                   <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(216,180,90,0.40)] bg-[#d8b45a] text-[#10221f]">
