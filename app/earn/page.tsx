@@ -326,7 +326,7 @@ function copyLink() {
                   <li key={b} className="flex items-center gap-2"><Check size={14} className="text-[#d8b45a]"/>{b}</li>
                 ))}
               </ul>
-              <Link href={ctaFor(signedIn, '/login')} className="mt-8 inline-flex items-center gap-2 rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.06)] px-6 py-3 font-bold text-[#f0d98b] transition hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.12)]">{signedIn ? 'My Dashboard' : 'Become a Partner'} <ArrowRight size={16}/></Link>
+              <Link href={signedIn ? '/dashboard/affiliate' : ctaFor(signedIn, '/login')} className="mt-8 inline-flex items-center gap-2 rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.06)] px-6 py-3 font-bold text-[#f0d98b] transition hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.12)]">{signedIn ? 'My Referrals' : 'Become a Partner'} <ArrowRight size={16}/></Link>
             </div>
           </div>
           <p className="mt-8 text-sm leading-6 text-[#7d908a]">
@@ -393,7 +393,7 @@ function copyLink() {
               {
                 tag: 'Option 2', title: 'Passive / Referral Only', sub: 'For people who prefer building a referral network.',
                 items: ['Get your referral link','Share it','Refer entrepreneurs','Earn eligible commissions from their activity'],
-                cta: signedIn ? 'My Referrals' : 'Start Referring', href: ctaFor(signedIn, '/login'), featured: false,
+                cta: signedIn ? 'My Referrals' : 'Start Referring', href: signedIn ? '/dashboard/affiliate' : ctaFor(signedIn, '/login'), featured: false,
               },
               {
                 tag: 'Option 3', title: 'Hybrid', sub: 'For people who want to build both.', badge: 'Most Flexible',
@@ -720,7 +720,7 @@ function copyLink() {
           <p className="mx-auto mt-6 max-w-xl text-[#95a7a1]">Choose your path. Sell actively, build referrals, or combine both.</p>
           <div className="mt-10 flex flex-wrap justify-center gap-3">
             <Link href={ctaFor(signedIn, '/login')} className="group flex items-center gap-3 rounded-full bg-[#d8b45a] px-7 py-4 font-bold text-[#10221f] transition hover:bg-[#f0d98b]">{signedIn ? 'Create Project' : 'Start Selling'} <ArrowRight size={18} className="transition group-hover:translate-x-1"/></Link>
-            <Link href={ctaFor(signedIn, '/login')} className="flex items-center gap-2 rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.06)] px-7 py-4 font-bold text-[#f0d98b] transition hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.12)]">{signedIn ? 'My Referrals' : 'Start Referring'} <ArrowRight size={18}/></Link>
+            <Link href={signedIn ? '/dashboard/affiliate' : ctaFor(signedIn, '/login')} className="flex items-center gap-2 rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.06)] px-7 py-4 font-bold text-[#f0d98b] transition hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.12)]">{signedIn ? 'My Referrals' : 'Start Referring'} <ArrowRight size={18}/></Link>
           </div>
         </div>
       </section>
