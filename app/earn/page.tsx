@@ -56,7 +56,7 @@ import { createClient } from '../../lib/supabase'
 import { useAuth } from '../../lib/useAuth'
 import { ctaFor } from '../../lib/authCta'
 
-const shareUrl = referralLinkFor('YOURCODE')
+const EXAMPLE_SHARE_URL = referralLinkFor('YOURCODE')
 
 function UserMenu({ user, isAdmin = false }: { user: { name?: string | null; email?: string }; isAdmin?: boolean }) {
   const [open, setOpen] = useState(false)
@@ -101,9 +101,29 @@ export default function EarnPage() {
   const [menu, setMenu] = useState(false)
   const [copied, setCopied] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [myCode, setMyCode] = useState<string | null>(null)
   const [openFaq, setOpenFaq] = useState<number | null>(0)
   const auth = useAuth()
   const signedIn = !auth.loading && Boolean(auth.user)
+
+  // Fetch the signed-in user's REAL referral code from the server
+  // (auto-provisioned as DV-<uid> on first request). Signed-out visitors see no link.
+  useEffect(() => {
+    if (!signedIn) return
+    let cancelled = false
+    fetch('/api/affiliate/me', { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error('no-aff'))))
+      .then(j => {
+        if (cancelled) return
+        setMyCode((j && typeof j.code === 'string') ? j.code : null)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [signedIn])
+
+  const personalLink = myCode
+    ? referralLinkFor(myCode, typeof window !== 'undefined' ? window.location.host : undefined)
+    : EXAMPLE_SHARE_URL
 
     // Admin check derived DIRECTLY from the signed-in session + profile role.
   useEffect(() => {
@@ -119,7 +139,7 @@ export default function EarnPage() {
   }, [signedIn])
 function copyLink() {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(shareUrl).then(() => {
+      navigator.clipboard.writeText(personalLink).then(() => {
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
       })
@@ -552,38 +572,51 @@ function copyLink() {
               </div>
               <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[.03] p-4">
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[rgba(216,180,90,0.10)] text-[#d8b45a]"><Link2 size={16}/></span>
-                <div className="flex-1">
-                  <div className="text-[10px] uppercase tracking-[.14em] text-[#718781]">Your referral link</div>
-                  <div className="mt-0.5 font-mono text-sm text-[#f0d98b]">{referralLinkFor('ABD123')}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] uppercase tracking-[.14em] text-[#718781]">
+                    {signedIn ? 'Your personal referral link' : 'Your referral link after joining'}
+                  </div>
+                  <div className="mt-0.5 truncate font-mono text-sm text-[#f0d98b]">
+                    {signedIn ? (myCode ? personalLink : 'Loading your code...') : referralLinkFor('YOURCODE')}
+                  </div>
                 </div>
-                <button onClick={copyLink} className="rounded-lg bg-[#d8b45a] px-4 py-2 text-xs font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
-                  {copied ? 'Copied!' : <span className="inline-flex items-center gap-1.5"><Copy size={13}/>Copy Link</span>}
-                </button>
+                {signedIn && myCode ? (
+                  <button onClick={copyLink} className="shrink-0 rounded-lg bg-[#d8b45a] px-4 py-2 text-xs font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
+                    {copied ? 'Copied!' : <span className="inline-flex items-center gap-1.5"><Copy size={13}/>Copy Link</span>}
+                  </button>
+                ) : !signedIn ? (
+                  <Link href="/login" className="shrink-0 rounded-lg bg-[#d8b45a] px-4 py-2 text-xs font-bold text-[#10221f] transition hover:bg-[#f0d98b]">Join Free</Link>
+                ) : null}
               </div>
-              <div className="mt-4 grid grid-cols-3 gap-3">
-                {[['Referrals','24'],['Active Users','11'],['Projects Generated','37'],['Revenue Generated','$4,850']].map(([l, v]) => (
-                  <div key={l} className="rounded-xl border border-white/5 bg-white/[.025] p-3.5 text-center">
-                    <div className="font-display text-lg font-extrabold text-[#f0d98b]">{v}</div>
-                    <div className="mt-1 text-[10px] uppercase tracking-[.1em] text-[#7d908a]">{l}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3 grid grid-cols-3 gap-3">
-                {[['Your Earnings','$485'],['Pending','$120'],['Available','$365']].map(([l, v]) => (
-                  <div key={l} className={`rounded-xl border p-3.5 text-center ${l === 'Your Earnings' ? 'border-[rgba(216,180,90,0.25)] bg-[rgba(216,180,90,0.06)]' : 'border-white/5 bg-white/[.025]'}`}>
-                    <div className="font-display text-lg font-extrabold text-[#f0d98b]">{v}</div>
-                    <div className="mt-1 text-[10px] uppercase tracking-[.1em] text-[#7d908a]">{l}</div>
-                  </div>
-                ))}
-              </div>
+              {signedIn && myCode ? (
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {[['Your Code', myCode], ['Status', 'Active'], ['Commission Tiers', '10%–25%'], ['Offer', 'Lifetime']].map(([l, v]) => (
+                    <div key={l} className="rounded-xl border border-white/5 bg-white/[.025] p-3.5 text-center">
+                      <div className="truncate font-display text-sm font-extrabold text-[#f0d98b]">{v}</div>
+                      <div className="mt-1 text-[10px] uppercase tracking-[.1em] text-[#7d908a]">{l}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {[['Referrals', '—'], ['Active Users', '—'], ['Commissions', '—'], ['Earnings', '—']].map(([l]) => (
+                    <div key={l} className="rounded-xl border border-white/5 bg-white/[.025] p-3.5 text-center">
+                      <div className="font-display text-lg font-extrabold text-[#7d908a]">—</div>
+                      <div className="mt-1 text-[10px] uppercase tracking-[.1em] text-[#7d908a]">{l}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="mt-5 flex flex-wrap gap-2 border-t border-white/10 pt-4 text-xs text-[#9aaba6]">
                 <span className="font-semibold uppercase tracking-[.1em] text-[#718781]">Share on:</span>
                 {['WhatsApp','Facebook','X','Telegram'].map(s => (
                   <span key={s} className="rounded-full border border-white/10 bg-white/[.03] px-3 py-1.5 hover:border-[rgba(216,180,90,0.40)] hover:text-[#f0d98b] cursor-default">{s}</span>
                 ))}
-                <button onClick={copyLink} className="rounded-full border border-[rgba(216,180,90,0.30)] bg-[rgba(216,180,90,0.06)] px-3 py-1.5 font-semibold text-[#f0d98b] hover:border-[rgba(216,180,90,0.60)]">
-                  {copied ? 'Copied!' : 'Copy Link'}
-                </button>
+                {signedIn && myCode ? (
+                  <button onClick={copyLink} className="rounded-full border border-[rgba(216,180,90,0.30)] bg-[rgba(216,180,90,0.06)] px-3 py-1.5 font-semibold text-[#f0d98b] hover:border-[rgba(216,180,90,0.60)]">
+                    {copied ? 'Copied!' : 'Copy Link'}
+                  </button>
+                ) : null}
               </div>
             </div>
           </div>
