@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
+
 import Link from 'next/link'
 
 /**
@@ -8,7 +9,6 @@ import Link from 'next/link'
  * through SpaceRemit. Payment verification happens server-side.
  */
 export default function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
-  const [invoiceId] = useMemo(() => [null as string | null], [])
   const [loading, setLoading] = useState(true)
   const [invoice, setInvoice] = useState<PublicInvoice | null>(null)
   const [notFound, setNotFound] = useState(false)
@@ -23,19 +23,26 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
 
   useEffect(() => {
     let cancelled = false
-    params.then(async (p) => {
-      const res = await fetch(`/api/invoices/public/${p.id}`)
-      if (cancelled) return
-      if (!res.ok) {
+    params
+      .then(async (p) => {
+        const res = await fetch(`/api/invoices/public/${p.id}`)
+        if (cancelled) return
+        if (!res.ok) {
+          setLoading(false)
+          setNotFound(true)
+          return
+        }
+        const json = await res.json()
+        if (cancelled) return
+        setInvoice(json.invoice)
         setLoading(false)
-        setNotFound(true)
-        return
-      }
-      const json = await res.json()
-      if (cancelled) return
-      setInvoice(json.invoice)
-      setLoading(false)
-    })
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLoading(false)
+          setNotFound(true)
+        }
+      })
     return () => {
       cancelled = true
     }
