@@ -627,6 +627,11 @@ export default function CreateProjectPage() {
                   </div>
                   <p className="font-display text-lg font-extrabold">Project Created</p>
                   <p className="mt-1.5 text-xs leading-5 text-[#9aaba6]">It is in <span className="font-bold text-[#f0d98b]">Payment Pending</span> status. You will be notified once the payment is confirmed and fulfillment can begin.</p>
+                  {paymentMethod === 'SELLER_COLLECTED' && (
+                    <p className="mt-3 rounded-xl bg-[#071f1d]/60 p-4 text-xs leading-5 text-[#8f9f9a]">
+                      To start the project, you still need to pay the DropVerse fulfillment amount of <span className="font-bold text-[#f0d98b]">{formatUsd(fc)}</span> (the rest of the client price stays with you). Go to the dashboard and pay it from your project page.
+                    </p>
+                  )}
                   <Link href="/dashboard" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#d8b45a] px-6 py-3 font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
                     Go to Dashboard <ArrowRight size={16} />
                   </Link>
