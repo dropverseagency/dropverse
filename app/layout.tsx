@@ -17,6 +17,7 @@ export const metadata: Metadata = {
   },
   twitter: { card: 'summary_large_image', title: 'DropVerse — Linking Talent to Sales', description: 'Access professional service samples, discover talented freelancers, and build your Drop Servicing business.' },
   robots: { index: true, follow: true },
+  other: { 'spaceremit-verification': 'JKERE77DSSYUMQPYU3FC9789U9H87T5DG5UUHBAPMBI574V800' },
 }
 
 export const viewport = { width: 'device-width', initialScale: 1, themeColor: '#071f1d' }
