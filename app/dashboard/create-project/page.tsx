@@ -257,6 +257,9 @@ export default function CreateProjectPage() {
                 placeholder="e.g. Video Editing Project for Acme Co."
                 className="mt-2 w-full rounded-2xl border border-white/10 bg-[#071f1d] px-5 py-3.5 text-sm text-[#e7edea] placeholder:text-[#5f726c] focus:border-[rgba(216,180,90,0.5)] focus:outline-none"
               />
+              <p className={`mt-1.5 text-xs leading-5 ${title.trim().length >= 3 ? 'text-[#6e817c]' : 'text-[#c78d7d]'}`}>
+                {title.trim().length >= 3 ? `${title.trim().length} characters — looks good` : `At least 3 characters needed (${title.trim().length}/3)`}
+              </p>
 
               <label className="mt-5 block text-sm font-semibold text-[#c1cbc7]">Description *</label>
               <textarea
@@ -266,6 +269,9 @@ export default function CreateProjectPage() {
                 rows={4}
                 className="mt-2 w-full rounded-2xl border border-white/10 bg-[#071f1d] px-5 py-3.5 text-sm text-[#e7edea] placeholder:text-[#5f726c] focus:border-[rgba(216,180,90,0.5)] focus:outline-none"
               />
+              <p className={`mt-1.5 text-xs leading-5 ${description.trim().length >= 5 ? 'text-[#6e817c]' : 'text-[#c78d7d]'}`}>
+                {description.trim().length >= 5 ? `${description.trim().length} characters — looks good` : `At least 5 characters needed (${description.trim().length}/5)`}
+              </p>
 
               <label className="mt-5 block text-sm font-semibold text-[#c1cbc7]">Client Contact Email (optional)</label>
               <input
@@ -350,7 +356,9 @@ export default function CreateProjectPage() {
                     />
                     <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-xs text-[#5f726c]">USD{labels.periodSuffix}</span>
                   </div>
-                  <p className="mt-1.5 text-xs leading-5 text-[#6e817c]">How much you charge your client{labels.periodSuffix}. Must be greater than zero.</p>
+                  <p className={`mt-1.5 text-xs leading-5 ${cp > 0 ? 'text-[#6e817c]' : 'text-[#c78d7d]'}`}>
+                    {cp > 0 ? `${labels.costLabel} and ${labels.profitLabel} are computed automatically` : `Enter the amount you charge your client${labels.periodSuffix} (must be greater than zero)`}
+                  </p>
                 </div>
 
                 <div className="rounded-2xl border border-[rgba(216,180,90,0.25)] bg-[rgba(216,180,90,0.06)] px-5 py-4">
@@ -441,8 +449,8 @@ export default function CreateProjectPage() {
                   </button>
                 </div>
                 {!billingValid && (
-                  <p className="mt-3 text-right text-xs leading-5 text-[#6e817c]">
-                    The review step unlocks when the client price is entered.
+                  <p className="mt-3 text-right text-xs leading-5 text-[#c78d7d]">
+                    Enter the client price above to unlock the review step.
                   </p>
                 )}
               </div>
