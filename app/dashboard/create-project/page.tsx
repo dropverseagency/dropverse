@@ -489,18 +489,7 @@ export default function CreateProjectPage() {
                 </div>
               )}
 
-              {created ? (
-                <div className="mt-6 rounded-2xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] p-5 text-center">
-                  <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(216,180,90,0.40)] bg-[#d8b45a] text-[#10221f]">
-                    <Check size={20} />
-                  </div>
-                  <p className="font-display text-lg font-extrabold">Project Created</p>
-                  <p className="mt-1.5 text-xs leading-5 text-[#9aaba6]">It is in <span className="font-bold text-[#f0d98b]">Payment Pending</span> status. You will be notified once the payment is confirmed and fulfillment can begin.</p>
-                  <Link href="/dashboard" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#d8b45a] px-6 py-3 font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
-                    Go to Dashboard <ArrowRight size={16} />
-                  </Link>
-                </div>
-              ) : (
+              {!created && (
                 <button
                   disabled={!basicsValid || !billingValid || typeBlocked || submitting}
                   onClick={handleSubmit}
