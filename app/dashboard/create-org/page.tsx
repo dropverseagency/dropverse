@@ -57,8 +57,9 @@ export default function CreateOrgPage() {
     setCreating(true)
     setError(null)
     const {
-      data: { session },
+      data: { session: initialSession },
     } = await supabase.auth.getSession()
+    let session = initialSession
     if (!session) {
       // Try refreshing the session in case the access token merely expired.
       const { data: refreshed } = await supabase.auth.refreshSession()
