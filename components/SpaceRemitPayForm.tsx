@@ -82,6 +82,7 @@ export default function SpaceRemitPayForm({
   submitLabel = 'Pay Now →',
 }: SpaceRemitPayFormProps) {
   const [ready, setReady] = useState(false)
+  const [iframeReady, setIframeReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const formRef = useRef<HTMLFormElement | null>(null)
@@ -122,6 +123,22 @@ export default function SpaceRemitPayForm({
       .then(() => {
         if (cancelled) return
         setReady(true)
+        // The iframe takes several seconds to paint the method grid;
+        // detect first content paint and remove the loading overlay.
+        const observer = new MutationObserver(() => {
+          const ifr = document.getElementById('sp_local_nethods_iframe') as HTMLIFrameElement | null
+          if (ifr && ifr.contentDocument && ifr.contentDocument.body && ifr.contentDocument.body.children.length > 0) {
+            setIframeReady(true)
+            observer.disconnect()
+          }
+        })
+        setTimeout(() => {
+          const ifr = document.getElementById('sp_local_nethods_iframe')
+          if (ifr) observer.observe(ifr, { childList: true, subtree: true })
+        }, 500)
+        setTimeout(() => observer.disconnect(), 30000)
+        // Fallback: clear overlay after a generous wait even if detection fails.
+        setTimeout(() => setIframeReady(true), 25000)
       })
       .catch(() => {
         if (!cancelled) setError('Unable to load the payment methods. Please refresh the page.')
@@ -151,8 +168,8 @@ export default function SpaceRemitPayForm({
   const showInputs = !hideBuyerInputs
 
   return (
-    <div className="w-full">
-      <form ref={formRef} id={FORM_ID}>
+    <div className="relative w-full">
+      <form ref={formRef} id={FORM_ID} className="relative">
         <input type="hidden" name="amount" value={Math.max(0, Math.round(amount * 100) / 100)} />
         <input type="hidden" name="currency" value={currency} />
         <input type="hidden" name="fullname" value={fullName} />
@@ -169,6 +186,15 @@ export default function SpaceRemitPayForm({
           <div id="dv-sp-local-methods-pay" />
         </div>
         <div id="dv-sp-card-pay" style={{ display: 'none' }} />
+        {!iframeReady && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-2xl bg-[#0b2a26]">
+            <svg className="h-8 w-8 animate-spin text-[#d8b45a]" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
+              <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+            </svg>
+            <span className="text-xs text-[#8f9f9a]">Loading payment methods from SpaceRemit...</span>
+          </div>
+        )}
       </form>
 
       {showInputs && (
@@ -190,6 +216,12 @@ export default function SpaceRemitPayForm({
       )}
       {ready && !error && (
         <>
+          {iframeReady && (
+            <div className="mt-1 flex items-start gap-2 rounded-xl border border-[#d8b45a]/30 bg-[#d8b45a]/10 px-4 py-3">
+              <span className="mt-0.5 text-xs leading-5 text-[#d8b45a]">1.</span>
+              <p className="text-xs leading-5 text-[#b8c4bf]">Choose your payment method in the list above (wallet, bank transfer, or card). <span className="font-bold text-[#e8dcb8]">2.</span> Press <span className="font-bold text-[#e8dcb8]">Pay Now</span> — SpaceRemit&apos;s secure checkout will open below the button to complete your payment.</p>
+            </div>
+          )}
           <button
             type="button"
             disabled={submitting || disabled}
@@ -198,9 +230,6 @@ export default function SpaceRemitPayForm({
           >
             {submitting ? 'Processing...' : submitLabel}
           </button>
-          <p className="mt-3 text-center text-[11px] leading-5 text-[#5f726c]">
-            Select your payment method above, then press <span className="font-bold text-[#9aabaa]">Pay Now</span> to continue to SpaceRemit&apos;s secure checkout.
-          </p>
           <style>{`
             #${FORM_ID} .sp-one-type-select { margin: 0 0 12px 0; }
             #${FORM_ID} { ${disabled ? 'pointer-events:none; opacity:.4' : ''} }

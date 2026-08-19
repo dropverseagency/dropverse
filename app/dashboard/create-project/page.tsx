@@ -555,7 +555,6 @@ export default function CreateProjectPage() {
                     }}
                     onMessage={(msg: string) => setPayError(msg)}
                   />
-                  <p className="mt-3 text-[11px] leading-5 text-[#5f726c]">Select a payment method below, then press Pay Now — as soon as your payment completes, we verify it automatically and confirm your project.</p>
                   <button onClick={() => { setPendingProjectId(null) }} className="mt-3 w-full text-center text-xs font-semibold text-[#8f9f9a] hover:text-[#d9e0dc]">Back to review</button>
                 </div>
               )}
