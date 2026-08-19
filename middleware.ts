@@ -14,7 +14,8 @@ import type { NextRequest } from 'next/server'
 const protectedPaths = ['/dashboard', '/admin']
 
 const SESSION_COOKIE_PREFIXES = [
-  'sb-ekarcueygmmpgdveryrp-auth-token', // default @supabase/ssr >= 0.5 cookie (may be chunked)
+  'sb-ekarcueygmmpgdveryrp.supabase.co-auth-token', // full-host cookie (current @supabase/ssr)
+  'sb-ekarcueygmmpgdveryrp-auth-token', // project-id cookie (may be chunked)
   'sb-access-token',
   'access-token',
 ]
