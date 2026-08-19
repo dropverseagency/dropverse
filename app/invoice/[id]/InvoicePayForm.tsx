@@ -1,12 +1,15 @@
 'use client'
 import { useState } from 'react'
 
+import SpaceRemitPayForm from '../../../components/SpaceRemitPayForm'
+
 interface Props {
   invoiceId: string
   due: string
+  amount: number
 }
 
-export default function InvoicePayForm({ invoiceId, due }: Props) {
+export default function InvoicePayForm({ invoiceId, due, amount }: Props) {
   const [fullName, setFullName] = useState('')
   const [payEmail, setPayEmail] = useState('')
   const [payPhone, setPayPhone] = useState('')
@@ -79,18 +82,50 @@ export default function InvoicePayForm({ invoiceId, due }: Props) {
         <Field label="Full name" placeholder="Your name" value={fullName} onChange={setFullName} />
         <Field label="Email address" type="email" placeholder="you@example.com" value={payEmail} onChange={setPayEmail} />
         <Field label="Phone" type="tel" placeholder="+1 555 000 0000" value={payPhone} onChange={setPayPhone} />
-        <Field
-          label="Transaction code"
-          placeholder="Code from your SpaceRemit payment"
-          value={transactionCode}
-          onChange={setTransactionCode}
-          accent
-        />
-        <p className="text-[11px] leading-relaxed text-[#687d76]">
-          Complete the payment on SpaceRemit first, then paste the transaction code you receive and click Verify.
-          You do not need an account to pay this invoice.
-        </p>
       </div>
+
+      <p className="mt-4 text-[11px] leading-relaxed text-[#687d76]">
+        Pay securely right here via SpaceRemit — card or 70+ local methods. Once your payment completes,
+        it is verified automatically and your invoice is marked paid. No account required.
+      </p>
+
+      <SpaceRemitPayForm
+        amount={amount}
+        fullName={fullName}
+        email={payEmail}
+        phone={payPhone}
+        notes={`Invoice payment — ${invoiceId}`}
+        publicKey={process.env.NEXT_PUBLIC_SPACEREMIT_PUBLIC_KEY ?? ''}
+        onPaid={async (code: string) => {
+          setPaying(true)
+          setPayError(null)
+          setTransactionCode(code)
+          const res = await fetch('/api/invoices/pay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              invoiceId,
+              paymentId: code,
+              clientName: String(fullName || '').trim() || undefined,
+              clientEmail: String(payEmail || '').trim() || undefined,
+            }),
+          })
+          const json = await res.json().catch(() => ({}))
+          setPaying(false)
+          if (!res.ok) {
+            if (json.error === 'SP_KEYS_MISSING') {
+              setPayError('Payment processing is being set up — please try again in a few minutes.')
+            } else if (json.error === 'SPACEREMIT_VERIFY_FAILED' || json.error === 'SP_VERIFY_FAILED') {
+              setPayError('We could not verify that payment. Please double-check it and try again.')
+            } else {
+              setPayError(String(json.error || json.detail || 'Payment verification failed — please try again.'))
+            }
+            return
+          }
+          setPaySuccess(true)
+        }}
+        onMessage={(msg: string) => setPayError(msg)}
+      />
 
       {payError && (
         <div className="mt-4 rounded-xl border border-[rgba(229,115,115,0.40)] bg-[rgba(229,115,115,0.10)] px-4 py-3 text-sm text-[#e57373]">
@@ -98,13 +133,9 @@ export default function InvoicePayForm({ invoiceId, due }: Props) {
         </div>
       )}
 
-      <button
-        onClick={handlePay}
-        disabled={paying}
-        className="mt-5 w-full rounded-full bg-[#d8b45a] px-6 py-3.5 text-sm font-bold text-[#10221f] transition hover:bg-[#e4c979] disabled:opacity-60"
-      >
-        {paying ? 'Verifying payment…' : `Verify & Pay ${due}`}
-      </button>
+      {paying && (
+        <div className="mt-4 text-center text-xs text-[#8f9f9a]">Verifying your payment…</div>
+      )}
     </div>
   )
 }

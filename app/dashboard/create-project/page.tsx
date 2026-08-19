@@ -14,6 +14,7 @@ import {
   type ProjectDraft, type ProjectType, type PaymentMethod,
 } from '../../../lib/projectConfig'
 import { createProjectServer } from '../../../lib/createProject'
+import SpaceRemitPayForm from '../../../components/SpaceRemitPayForm'
 
 type Step = 'basics' | 'billing' | 'summary'
 
@@ -530,23 +531,26 @@ export default function CreateProjectPage() {
                     <input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Full name on card" className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-sm text-[#e7edea] placeholder:text-[#5f726c] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
                     <input value={payEmail} onChange={e => setPayEmail(e.target.value)} type="email" placeholder="Email for receipt" className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-sm text-[#e7edea] placeholder:text-[#5f726c] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
                     <input value={payPhone} onChange={e => setPayPhone(e.target.value)} type="tel" placeholder="Phone (for local methods)" className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-sm text-[#e7edea] placeholder:text-[#5f726c] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
-                    <input placeholder="SpaceRemit transaction code"
-                      value={transactionCode}
-                      onChange={e => setTransactionCode(e.target.value)} className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-sm text-[#e7edea] placeholder:text-[#5f726c] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
                   </div>
-                  <p className="mt-3 text-[11px] leading-5 text-[#5f726c]">Open the payment link sent by SpaceRemit, complete the payment, then paste the transaction code above so we can verify it automatically.</p>
                   {payError && (
                     <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-xs leading-5 text-red-200">
                       <AlertTriangle size={14} className="mt-0.5 shrink-0" /> {payError}
                     </div>
                   )}
-                  <button
-                    disabled={!transactionCode.trim()}
-                    onClick={submitSpaceremitPayment}
-                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#d8b45a] px-6 py-3.5 font-bold text-[#10221f] transition hover:bg-[#f0d98b] disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {paying ? 'Verifying payment...' : 'I have paid — Verify my payment'} <ShieldCheck size={16} />
-                  </button>
+                  <SpaceRemitPayForm
+                    amount={fc}
+                    fullName={fullName}
+                    email={payEmail}
+                    phone={payPhone}
+                    notes={`DropVerse fulfillment — project ${pendingProjectId}`}
+                    publicKey={process.env.NEXT_PUBLIC_SPACEREMIT_PUBLIC_KEY ?? ''}
+                    onPaid={async (code: string) => {
+                      setTransactionCode(code)
+                      await handleSpaceRemitVerify(code)
+                    }}
+                    onMessage={(msg: string) => setPayError(msg)}
+                  />
+                  <p className="mt-3 text-[11px] leading-5 text-[#5f726c]">Pay securely through SpaceRemit right here — choose a card or one of 70+ local payment methods. As soon as your payment completes, we verify it automatically and confirm your project.</p>
                   <button onClick={() => { setPendingProjectId(null) }} className="mt-3 w-full text-center text-xs font-semibold text-[#8f9f9a] hover:text-[#d9e0dc]">Back to review</button>
                 </div>
               )}

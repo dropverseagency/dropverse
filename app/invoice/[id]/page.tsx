@@ -94,7 +94,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               <p className="mt-1.5 text-sm text-[#687d76]">Please contact the seller for an updated invoice.</p>
             </div>
           ) : (
-            <InvoicePayForm invoiceId={data.invoice.id} due={due} />
+            <InvoicePayForm invoiceId={data.invoice.id} due={due} amount={data.invoice.amount} />
           )}
 
           <div className="mt-6 flex items-center justify-between rounded-xl border border-white/5 bg-white/[.02] px-4 py-3">
