@@ -84,7 +84,9 @@ export default function SpaceRemitPayForm({
     window.SP_SELECT_RADIO_NAME = 'sp-pay-type-radio'
     window.LOCAL_METHODS_BOX_STATUS = true
     window.LOCAL_METHODS_PARENT_ID = '#dv-sp-local-methods-pay'
-    window.CARD_BOX_STATUS = true
+    // Card payments (way=card) are disabled on this SpaceRemit account
+    // ("This payments way is disabled"), so only local methods are shown.
+    window.CARD_BOX_STATUS = false
     window.CARD_BOX_PARENT_ID = '#dv-sp-card-pay'
     window.SP_FORM_AUTO_SUBMIT_WHEN_GET_CODE = false
     window.SP_SUCCESSFUL_PAYMENT = (code: string) => {
@@ -130,17 +132,11 @@ export default function SpaceRemitPayForm({
         <div className="sp-one-type-select">
           <input type="radio" name="sp-pay-type-radio" value="local-methods-pay" id="dv_sp_local_radio" defaultChecked />
           <label htmlFor="dv_sp_local_radio">
-            <div>Local payment methods</div>
+            <div>Pay with a local method (wallet, bank transfer, card, 70+ options)</div>
           </label>
           <div id="dv-sp-local-methods-pay" />
         </div>
-        <div className="sp-one-type-select">
-          <input type="radio" name="sp-pay-type-radio" value="card-pay" id="dv_sp_card_radio" />
-          <label htmlFor="dv_sp_card_radio">
-            <div>Card payment</div>
-          </label>
-          <div id="dv-sp-card-pay" />
-        </div>
+        <div id="dv-sp-card-pay" style={{ display: 'none' }} />
       </form>
 
       {!ready && !error && (
@@ -157,6 +153,8 @@ export default function SpaceRemitPayForm({
         <style>{`
           #${FORM_ID} .sp-one-type-select { margin: 0 0 12px 0; }
           #${FORM_ID} { ${disabled ? 'pointer-events:none; opacity:.4' : ''} }
+          #sp_local_nethods_iframe { height: 760px !important; border-radius: 12px; }
+          #${FORM_ID} .sp_local_nethods_iframe { height: 760px !important; }
         `}</style>
       )}
     </div>
