@@ -7,7 +7,7 @@ import { ArrowRight, Check, ChevronRight, Copy, Facebook, Share2, TrendingUp, Us
 import { REFERRAL_TIERS, referralLinkFor } from '../../lib/referralConfig'
 
 // Affiliate partnership deadline: on Jan 1, 2027 (UTC) the lifetime-partner offer closes.
-export const PARTNERSHIP_DEADLINE = '2027-01-01T00:00:00Z'
+const PARTNERSHIP_DEADLINE = '2027-01-01T00:00:00Z'
 
 function useCountdown() {
   const [now, setNow] = useState(() => Date.now())
