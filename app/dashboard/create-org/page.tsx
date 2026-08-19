@@ -63,6 +63,7 @@ export default function CreateOrgPage() {
           slug: slug + (i === 0 ? '' : '-' + Math.random().toString(36).slice(2, 8)),
           type: 'agency',
           plan,
+          owner_id: session.user.id,
           industry: type,
           team_size: teamSize,
           status: 'active',
