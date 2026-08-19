@@ -167,6 +167,7 @@ export default function CreateProjectPage() {
       setInvoiceId(invJson.invoiceId)
       setInvoiceUrl(`${window.location.origin}/invoice/${invJson.invoiceId}`)
       console.log('invoice card set:', invJson.invoiceId)
+      setCreated(true)
       return
     }
     setCreated(true)
