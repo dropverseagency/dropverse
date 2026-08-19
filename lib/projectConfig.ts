@@ -33,7 +33,7 @@ export const PROJECT_TYPES: { id: ProjectType; label: string; description: strin
   },
 ]
 
-export type PaymentMethod = 'CLIENT_PAYS_DROPVERSE' | 'SELLER_COLLECTED'
+export type PaymentMethod = 'CLIENT_PAYS_DROPVERSE' | 'SPACEREMIT' | 'SELLER_COLLECTED'
 
 export const PAYMENT_METHODS: { id: PaymentMethod; label: string; description: string; recommended?: boolean }[] = [
   {
@@ -41,6 +41,11 @@ export const PAYMENT_METHODS: { id: PaymentMethod; label: string; description: s
     label: 'Client Pays DropVerse',
     description: 'The client pays the required amount directly to DropVerse.',
     recommended: true,
+  },
+  {
+    id: 'SPACEREMIT',
+    label: 'Pay with SpaceRemit',
+    description: 'Pay securely through the SpaceRemit gateway (card or 70+ local payment methods).',
   },
   {
     id: 'SELLER_COLLECTED',
@@ -215,6 +220,8 @@ export interface ProjectDraft {
   paymentMethod: PaymentMethod
   deliveryNotes: string
   clientContactEmail: string
+  /** SpaceRemit transaction code returned by the checkout (server-verified). */
+  spaceremitPaymentId?: string
 }
 
 /** Required upfront payment for the current period (seller-facing "Payment Required Now"). */

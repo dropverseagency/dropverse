@@ -60,6 +60,7 @@ export async function createProjectServer(draft: ProjectDraft) {
     seller_profit: sellerProfit,
     payment_method: draft.paymentMethod,
     payment_status: 'PAYMENT_PENDING',
+    spaceremit_payment_id: draft.spaceremitPaymentId?.trim() || null,
     status: 'DRAFT',
     current_billing_period: 1,
     delivery_notes: String(draft.deliveryNotes || '').trim(),

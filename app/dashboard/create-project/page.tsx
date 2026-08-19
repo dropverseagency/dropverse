@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import {
   ArrowRight, Rocket, Check, Info, ShieldCheck, CreditCard,
-  HandCoins, AlertTriangle,
+  HandCoins, AlertTriangle, Wallet,
 } from 'lucide-react'
 import { createClient } from '../../../lib/supabase'
 import { useAuth } from '../../../lib/useAuth'
@@ -29,10 +29,20 @@ export default function CreateProjectPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CLIENT_PAYS_DROPVERSE')
   const [clientContactEmail, setClientContactEmail] = useState('')
   const [deliveryNotes, setDeliveryNotes] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [payEmail, setPayEmail] = useState('')
+  const [payPhone, setPayPhone] = useState('')
+  const [transactionCode, setTransactionCode] = useState('')
 
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [created, setCreated] = useState(false)
+
+  // Spaceremit checkout step (created project pending payment)
+  const [pendingProjectId, setPendingProjectId] = useState<string | null>(null)
+  const [paying, setPaying] = useState(false)
+  const [payError, setPayError] = useState<string | null>(null)
+  const [payConfirmed, setPayConfirmed] = useState(false)
 
   // Redirect unauthenticated visitors to login.
   useEffect(() => {
@@ -56,7 +66,7 @@ export default function CreateProjectPage() {
   const billingValid = cp > 0
 
   async function handleSubmit() {
-    if (submitting || created) return
+    if (submitting || created || pendingProjectId) return
     setSubmitting(true)
     setError(null)
     const res = await createProjectServer({
@@ -80,6 +90,57 @@ export default function CreateProjectPage() {
       setError(messages[res.error] ?? 'Something went wrong. Please try again.')
       return
     }
+    if (paymentMethod === 'SPACEREMIT') {
+      // Spaceremit creates the project in PAYMENT_PENDING, then we take the
+      // buyer to the checkout step before marking anything confirmed.
+      const supabase = createClient()
+      const { data: rows } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('user_id', auth.user?.id)
+        .eq('payment_method', 'SPACEREMIT')
+        .order('created_at', { ascending: false })
+        .limit(1)
+      if (rows?.[0]?.id) setPendingProjectId(rows[0].id)
+      return
+    }
+    setCreated(true)
+  }
+
+  async function submitSpaceremitPayment() {
+    const code = transactionCode.trim()
+    if (!code) return
+    await handleSpaceRemitVerify(code)
+  }
+
+  async function handleSpaceRemitVerify(paymentId: string) {
+    if (!pendingProjectId) return
+    setPaying(true)
+    setPayError(null)
+    const res = await fetch('/api/spaceremit/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentId, projectId: pendingProjectId }),
+    })
+    const data = (await res.json().catch(() => null)) as { error?: string } | null
+    setPaying(false)
+    if (!res.ok) {
+      const messages: Record<string, string> = {
+        NOT_AUTHENTICATED: 'You are no longer signed in. Please sign in again.',
+        SP_KEYS_MISSING: 'SpaceRemit payments are not enabled yet. Your project was saved as Payment Pending — DropVerse will confirm the payment manually.',
+        SP_VERIFY_FAILED: 'We could not verify that payment. Please contact support with your transaction code.',
+        SP_AMOUNT_MISMATCH: 'The paid amount does not match the project. Contact support.',
+        MISSING_PARAMS: 'Payment verification failed — missing information.',
+        PROJECT_NOT_FOUND: 'Project not found.',
+        NOT_ALLOWED: 'Not allowed for this project.',
+        WRONG_PAYMENT_METHOD: 'This project does not use SpaceRemit.',
+        ALREADY_CONFIRMED: 'Payment already confirmed.',
+        STATUS_BLOCKED: 'Project status cannot be updated right now. Contact support.',
+      }
+      setPayError(messages[data?.error ?? ''] ?? 'Payment verification failed. Your project is saved as Payment Pending.')
+      return
+    }
+    setPayConfirmed(true)
     setCreated(true)
   }
 
@@ -291,7 +352,7 @@ export default function CreateProjectPage() {
                       >
                         <div className="flex items-center justify-between gap-3">
                           <span className={`flex items-center gap-2.5 font-bold ${selected ? 'text-[#f0d98b]' : 'text-[#d9e0dc]'}`}>
-                            {m.id === 'CLIENT_PAYS_DROPVERSE' ? <CreditCard size={18} className="text-[#d8b45a]" /> : <HandCoins size={18} className="text-[#d8b45a]" />}
+                            {m.id === 'CLIENT_PAYS_DROPVERSE' ? <CreditCard size={18} className="text-[#d8b45a]" /> : m.id === 'SPACEREMIT' ? <Wallet size={18} className="text-[#d8b45a]" /> : <HandCoins size={18} className="text-[#d8b45a]" />}
                             {m.label}
                           </span>
                           {m.recommended ? (
@@ -416,8 +477,82 @@ export default function CreateProjectPage() {
                     : 'Enter the client price in step 2 — the DropVerse fulfillment cost is set by platform pricing.'}
                 </p>
               )}
+              {/* Spaceremit checkout step — shown after the project is saved in Payment Pending */}
+              {pendingProjectId && !payConfirmed && (
+                <div className="mt-6 rounded-2xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] p-5">
+                  <p className="font-display text-lg font-extrabold">Complete Payment — {formatUsd(fc)}</p>
+                  <p className="mt-1 text-xs leading-5 text-[#9aaba6]">Pay the DropVerse fulfillment amount securely via SpaceRemit (card or 70+ local methods). Fulfillment starts once the payment is confirmed on our side.</p>
+                  <p className="mt-3 rounded-xl bg-[#071f1d]/60 p-4 text-xs leading-5 text-[#8f9f9a]">This is the DropVerse fulfillment amount only. Your estimated profit of <span className="font-bold text-[#f0d98b]">{formatUsd(profit)}</span> stays with you.</p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Full name on card" className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-sm text-[#e7edea] placeholder:text-[#5f726c] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
+                    <input value={payEmail} onChange={e => setPayEmail(e.target.value)} type="email" placeholder="Email for receipt" className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-sm text-[#e7edea] placeholder:text-[#5f726c] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
+                    <input value={payPhone} onChange={e => setPayPhone(e.target.value)} type="tel" placeholder="Phone (for local methods)" className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-sm text-[#e7edea] placeholder:text-[#5f726c] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
+                    <input placeholder="SpaceRemit transaction code"
+                      value={transactionCode}
+                      onChange={e => setTransactionCode(e.target.value)} className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-sm text-[#e7edea] placeholder:text-[#5f726c] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
+                  </div>
+                  <p className="mt-3 text-[11px] leading-5 text-[#5f726c]">Open the payment link sent by SpaceRemit, complete the payment, then paste the transaction code above so we can verify it automatically.</p>
+                  {payError && (
+                    <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-xs leading-5 text-red-200">
+                      <AlertTriangle size={14} className="mt-0.5 shrink-0" /> {payError}
+                    </div>
+                  )}
+                  <button
+                    disabled={!transactionCode.trim()}
+                    onClick={submitSpaceremitPayment}
+                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#d8b45a] px-6 py-3.5 font-bold text-[#10221f] transition hover:bg-[#f0d98b] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {paying ? 'Verifying payment...' : 'I have paid — Verify my payment'} <ShieldCheck size={16} />
+                  </button>
+                  <button onClick={() => { setPendingProjectId(null) }} className="mt-3 w-full text-center text-xs font-semibold text-[#8f9f9a] hover:text-[#d9e0dc]">Back to review</button>
+                </div>
+              )}
+              {payConfirmed && (
+                <div className="mt-6 rounded-2xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] p-5 text-center">
+                  <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(216,180,90,0.40)] bg-[#d8b45a] text-[#10221f]">
+                    <Check size={20} />
+                  </div>
+                  <p className="font-display text-lg font-extrabold">Payment Confirmed</p>
+                  <p className="mt-1.5 text-xs leading-5 text-[#9aaba6]">Your payment was verified through SpaceRemit. The project is ready for fulfillment.</p>
+                  <Link href="/dashboard" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#d8b45a] px-6 py-3 font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
+                    Go to Dashboard <ArrowRight size={16} />
+                  </Link>
+                </div>
+              )}
+              {created && !pendingProjectId && (
+                <div className="mt-6 rounded-2xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] p-5 text-center">
+                  <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(216,180,90,0.40)] bg-[#d8b45a] text-[#10221f]">
+                    <Check size={20} />
+                  </div>
+                  <p className="font-display text-lg font-extrabold">Project Created</p>
+                  <p className="mt-1.5 text-xs leading-5 text-[#9aaba6]">It is in <span className="font-bold text-[#f0d98b]">Payment Pending</span> status. You will be notified once the payment is confirmed and fulfillment can begin.</p>
+                  <Link href="/dashboard" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#d8b45a] px-6 py-3 font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
+                    Go to Dashboard <ArrowRight size={16} />
+                  </Link>
+                </div>
+              )}
+              {!created && !pendingProjectId && (
+                <button
+                  disabled={!basicsValid || !billingValid || typeBlocked || submitting}
+                  onClick={handleSubmit}
+                  className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#d8b45a] px-6 py-4 font-bold text-[#10221f] transition hover:bg-[#f0d98b] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {submitting ? 'Creating...' : 'Create Project'} <ArrowRight size={17} />
+                </button>
+              )}
+              {!created && !pendingProjectId && (!basicsValid || !billingValid) && (
+                <p className="mt-3 text-center text-[11px] leading-5 text-[#5f726c]">
+                  {!basicsValid
+                    ? 'Add a project name (at least 3 characters) and a short description (at least 5 characters) in step 1.'
+                    : 'Enter the client price in step 2 — the DropVerse fulfillment cost is set by platform pricing.'}
+                </p>
+              )}
               <p className="mt-4 text-center text-[11px] leading-5 text-[#5f726c]">
-                No payment gateway is integrated yet. Submitting puts the project into Payment Pending.
+                {paymentMethod === 'SPACEREMIT' ? (
+                  <>SpaceRemit payments are processed securely on our servers. Submitting saves the project as <span className="font-bold text-[#f0d98b]">Payment Pending</span> until the payment is verified with SpaceRemit.</>
+                ) : (
+                  <>The fulfillment team is never instructed to start work until the required payment for the current period is confirmed.</>
+                )}
               </p>
             </div>
           </div>
