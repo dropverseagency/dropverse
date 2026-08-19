@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ArrowRight, Building2, CheckCircle2 } from 'lucide-react'
 import { createClient } from '../../../lib/supabase'
-import { AGENCY_TYPES, PLAN_CONFIG, TEAM_SIZES, type PlanId } from '../../../lib/planConfig'
+import { AGENCY_TYPES, PLAN_CONFIG, TEAM_SIZES, minTeamHeadcount, type PlanId } from '../../../lib/planConfig'
 import { slugify, type OrgRow } from '../../../lib/orgs'
 
 const STEPS = ['Agency Name', 'Agency Type', 'Team Size', 'Choose Plan', 'Confirm']
@@ -15,10 +15,23 @@ export default function CreateOrgPage() {
   const [type, setType] = useState<string>('')
   const [teamSize, setTeamSize] = useState<string>('')
   const [plan, setPlan] = useState<PlanId>('AGENCY')
+  // Plans whose capacity cannot hold the chosen team size are disabled.
+  const compatiblePlans = PLAN_CONFIG.filter(
+    (p) => p.maxMembers === null || p.maxMembers >= minTeamHeadcount(teamSize),
+  )
+  const isPlanCompatible = (id: PlanId) => compatiblePlans.some((p) => p.id === id)
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [authed, setAuthed] = useState(false)
+
+  // Auto-select a compatible plan whenever the team size or current plan changes.
+  useEffect(() => {
+    if (!teamSize) return
+    if (!compatiblePlans.some((p) => p.id === plan)) {
+      setPlan(compatiblePlans[0]?.id ?? 'AGENCY')
+    }
+  }, [teamSize, plan, compatiblePlans])
 
   useEffect(() => {
     const supabase = createClient()
@@ -200,27 +213,39 @@ export default function CreateOrgPage() {
             <div>
               <label className="text-sm font-semibold text-[#c1cbc7]">Choose Plan</label>
               <div className="mt-3 space-y-3">
-                {PLAN_CONFIG.map((p) => (
+                {PLAN_CONFIG.map((p) => {
+                  const compatible = isPlanCompatible(p.id)
+                  return (
                   <button
                     key={p.id}
                     type="button"
-                    onClick={() => setPlan(p.id)}
+                    disabled={!compatible}
+                    onClick={() => {
+                      if (!compatible) return
+                      setPlan(p.id)
+                    }}
+                    aria-disabled={!compatible}
                     className={`w-full rounded-xl border px-5 py-4 text-left transition ${
                       plan === p.id
                         ? 'border-[rgba(216,180,90,0.60)] bg-[rgba(216,180,90,0.10)]'
-                        : 'border-white/10 bg-white/[.03] hover:border-white/20'
-                    }`}
-                  >
+                        : compatible
+                          ? 'border-white/10 bg-white/[.03] hover:border-white/20'
+                          : 'cursor-not-allowed border-white/10 bg-white/[.02] opacity-40'
+                    }`}>
                     <div className="flex items-center justify-between">
                       <span className="font-display font-bold text-[#e8efe9]">{p.displayName}</span>
                       <span className={`text-sm font-bold ${p.enterprise ? 'text-[#849792]' : 'text-[#d8b45a]'}`}>
                         {p.enterprise ? 'Custom pricing' : p.price === 0 ? 'Free' : `$${p.price}/mo`}
                       </span>
                     </div>
-                    <p className="mt-1 text-xs text-[#849792]">{p.maxMembers === null ? 'Unlimited members' : p.maxMembers === 1 ? '1 user' : `Up to ${p.maxMembers} members`}</p>
+                    <p className="mt-1 text-xs text-[#849792]">{p.maxMembers === null ? 'Unlimited members' : p.maxMembers === 1 ? '1 user' : `Up to ${p.maxMembers} members`}{!compatible ? ' — too small for your team size' : ''}</p>
                   </button>
-                ))}
+                  )
+                })}
               </div>
+              {!compatiblePlans.some((p) => p.id === plan) && compatiblePlans.length > 0 && (
+                <p className="mt-3 text-xs text-[#849792]">Auto-selected a plan that fits your team size.</p>
+              )}
             </div>
           )}
 

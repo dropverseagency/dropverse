@@ -124,6 +124,17 @@ export const AGENCY_TYPES = [
 
 export const TEAM_SIZES = ['1–5', '6–20', '21–50', '50+'] as const
 
+/** Minimum team headcount implied by a team-size option. */
+export function minTeamHeadcount(size: string): number {
+  switch (size) {
+    case '1–5': return 1
+    case '6–20': return 6
+    case '21–50': return 21
+    case '50+': return 51
+    default: return 1
+  }
+}
+
 /** Roles permitted for invitations / assignment (owner/admin manage). */
 export const MANAGEABLE_ROLES: OrgRole[] = ['ADMIN', 'SALES', 'ACCOUNT_MANAGER', 'MEMBER']
 
