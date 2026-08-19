@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, ArrowRight, Building2, CheckCircle2 } from 'lucide-react'
 import { createClient } from '../../../lib/supabase'
 import { AGENCY_TYPES, PLAN_CONFIG, TEAM_SIZES, minTeamHeadcount, type PlanId } from '../../../lib/planConfig'
-import { slugify, type OrgRow } from '../../../lib/orgs'
 
 const STEPS = ['Agency Name', 'Agency Type', 'Team Size', 'Choose Plan', 'Confirm']
 
@@ -70,52 +69,30 @@ export default function CreateOrgPage() {
       }
       session = refreshed.session
     }
-    // Server-side (RLS) creates the org; slug uniqueness may fail → retry with hash suffix.
-    let slug = slugify(name)
-    const attempts = 3
-    let created: OrgRow | null = null
-    let retried = false
-    for (let i = 0; i < attempts; i++) {
-      const { data, error: e } = await supabase
-        .from('organizations')
-        .insert({
-          name: name.trim(),
-          slug: slug + (i === 0 ? '' : '-' + Math.random().toString(36).slice(2, 8)),
-          type: 'agency',
-          plan,
-          owner_id: session.user.id,
-          industry: type,
-          team_size: teamSize,
-          status: 'active',
-        })
-        .select('id')
-        .single()
-      if (e) {
-        if (e.code === '23505') { slug = slugify(name) + '-' + Math.random().toString(36).slice(2, 8); continue }
-        if (e.code === '45002') { setError('This plan does not support your selected team size. Please choose a different plan.'); break }
-        // 42501 (RLS denial) usually means the JWT was stale; refresh once and retry.
-        if (e.code === '42501' && !retried) {
-          retried = true
-          const { data: refreshed } = await supabase.auth.refreshSession()
-          if (refreshed?.session) continue
-        }
-        setError(e.message)
-        break
+    // Org + member + settings are created server-side (service role) to avoid
+    // PostgREST returning-select RLS denial: the SELECT policy only exposes
+    // rows the caller is already a member of, but at return time the member
+    // row hasn't been inserted yet.
+    const res = await fetch('/api/organizations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ name: name.trim(), plan, industry: type, teamSize }),
+    })
+    const json = await res.json()
+    if (!res.ok) {
+      if (json.error === 'ALREADY_MEMBER') {
+        setError('You already belong to an agency. Please use your existing workspace.')
+      } else {
+        setError(json.error || 'Something went wrong. Please try again.')
       }
-      const { data: mem } = await supabase
-        .from('organization_members')
-        .insert({ organization_id: (data as { id: string }).id, user_id: session.user.id, role: 'OWNER', status: 'active', joined_at: new Date().toISOString() })
-        .select()
-        .single()
-      if (mem) created = { id: (data as { id: string }).id, name: name.trim(), plan, type: 'agency' } as OrgRow
-      break
-    }
-    // Create default settings row
-    if (created) {
-      await supabase.from('organization_settings').upsert({ organization_id: created.id }, { onConflict: 'organization_id' })
+      setCreating(false)
+      return
     }
     setCreating(false)
-    if (created) router.push('/dashboard')
+    router.push('/dashboard')
   }
 
   if (loading) {
