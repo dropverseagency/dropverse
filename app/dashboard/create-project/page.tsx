@@ -240,7 +240,7 @@ export default function CreateProjectPage() {
             </div>
 
             {/* STEP 1 — PROJECT DETAILS */}
-            <section className={`rounded-3xl border border-white/5 bg-[#0a2926] p-8 ${step !== 'basics' ? 'opacity-50 pointer-events-none' : ''}`}>
+            <section className={`rounded-3xl border border-white/5 bg-[#0a2926] p-8 ${step !== 'basics' ? 'hidden' : ''}`}>
               <h2 className="font-display text-xl font-bold">1. Project Details</h2>
 
               <label className="mt-6 block text-sm font-semibold text-[#c1cbc7]">Project Title *</label>
@@ -290,7 +290,7 @@ export default function CreateProjectPage() {
             </section>
 
             {/* STEP 2 — BILLING */}
-            <section className={`mt-8 rounded-3xl border border-white/5 bg-[#0a2926] p-8 ${step !== 'billing' ? 'opacity-50 pointer-events-none' : ''}`}>
+            <section className={`mt-8 rounded-3xl border border-white/5 bg-[#0a2926] p-8 ${step !== 'billing' ? 'hidden' : ''}`}>
               <h2 className="font-display text-xl font-bold">2. Billing & Payment</h2>
 
               {/* PROJECT TYPE — premium radio cards */}
@@ -611,22 +611,6 @@ export default function CreateProjectPage() {
                   <AlertTriangle size={15} className="mt-0.5 shrink-0" /> {invoiceError}
                   <Link href="/dashboard" className="font-bold underline">Dashboard</Link>
                 </div>
-              )}
-              {!created && !pendingProjectId && (
-                <button
-                  disabled={!basicsValid || !billingValid || typeBlocked || submitting}
-                  onClick={handleSubmit}
-                  className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#d8b45a] px-6 py-4 font-bold text-[#10221f] transition hover:bg-[#f0d98b] disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {submitting ? 'Creating...' : 'Create Project'} <ArrowRight size={17} />
-                </button>
-              )}
-              {!created && !pendingProjectId && (!basicsValid || !billingValid) && (
-                <p className="mt-3 text-center text-[11px] leading-5 text-[#5f726c]">
-                  {!basicsValid
-                    ? 'Add a project name (at least 3 characters) and a short description (at least 5 characters) in step 1.'
-                    : 'Enter the client price in step 2 — the DropVerse fulfillment cost is set by platform pricing.'}
-                </p>
               )}
               <p className="mt-4 text-center text-[11px] leading-5 text-[#5f726c]">
                 {paymentMethod === 'SPACEREMIT' ? (
