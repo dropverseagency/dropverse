@@ -128,7 +128,8 @@ export default function SpaceRemitPayForm({
         <input type="hidden" name="fullname" value={fullName} />
         <input type="hidden" name="email" value={email} />
         <input type="hidden" name="phone" value={phone} />
-        <input type="hidden" name="notes" value={notes} />
+        {/* Do NOT pass notes: the SpaceRemit iframe shows its marketing landing
+            page whenever the `notes` query param is non-empty. */}
         <div className="sp-one-type-select">
           <input type="radio" name="sp-pay-type-radio" value="local-methods-pay" id="dv_sp_local_radio" defaultChecked />
           <label htmlFor="dv_sp_local_radio">
