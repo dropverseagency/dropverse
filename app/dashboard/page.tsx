@@ -48,6 +48,19 @@ interface Transaction {
   detail?: string
 }
 
+interface InvoiceRow {
+  id: string
+  invoiceNumber: string
+  clientName: string | null
+  currency: string
+  amount: number
+  status: string
+  createdAt: string
+  projectId: string
+  projectTitle: string
+  clientContactEmail: string | null
+}
+
 interface ProjectRow {
   id: string
   title: string
@@ -79,6 +92,11 @@ export default function Dashboard() {
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [dashLink, setDashLink] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [invoices, setInvoices] = useState<InvoiceRow[]>([])
+  const [copyingInvoice, setCopyingInvoice] = useState<string | null>(null)
+  const [creatingInvoice, setCreatingInvoice] = useState<string | null>(null)
+  const [invoiceError, setInvoiceError] = useState<string | null>(null)
+  const baseHost = typeof window !== 'undefined' ? window.location.origin : 'https://dropverse10v.vercel.app'
   const host = typeof window !== 'undefined' ? window.location.host : 'dropverse10v.vercel.app'
   useEffect(() => {
     const p = new URLSearchParams(window.location.search).get('plan')
@@ -207,6 +225,17 @@ export default function Dashboard() {
         .limit(25)
       if (!cancelled) setProjects((projRows as ProjectRow[] | null) ?? [])
 
+      // Invoices this user has issued (via service-read API)
+      try {
+        const invRes = await fetch('/api/invoices/me', { credentials: 'include' })
+        if (invRes.ok) {
+          const invJson = await invRes.json()
+          if (!cancelled && Array.isArray(invJson.invoices)) setInvoices(invJson.invoices)
+        }
+      } catch {
+        // Invoices are an enhancement; failure must not break the dashboard.
+      }
+
       if (!cancelled && projRows) {
         const projectRows: Transaction[] = (projRows as ProjectRow[]).map((p) => ({
           type: 'project' as const,
@@ -238,6 +267,45 @@ export default function Dashboard() {
     const mem = orgs.find((o) => o.id === id)
     void mem
     setSwitcherOpen(false)
+  }
+
+  async function createInvoice(projectId: string) {
+    setCreatingInvoice(projectId)
+    setInvoiceError(null)
+    const res = await fetch('/api/invoices/me', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId }),
+    })
+    const json = await res.json().catch(() => ({}))
+    setCreatingInvoice(null)
+    if (!res.ok) {
+      if (json.error === 'NOT_AUTHENTICATED') {
+        window.location.assign('/login?redirect=%2Fdashboard')
+        return
+      }
+      setInvoiceError(`Could not create invoice: ${String(json.error || 'unknown')}`)
+      return
+    }
+    // Refresh the invoice list.
+    const invRes = await fetch('/api/invoices/me', { credentials: 'include' })
+    if (invRes.ok) {
+      const invJson = await invRes.json()
+      if (Array.isArray(invJson.invoices)) setInvoices(invJson.invoices)
+    }
+  }
+
+  async function copyInvoiceLink(invoiceId: string) {
+    const url = `${baseHost}/invoice/${invoiceId}`
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      // clipboard unavailable — nothing to do
+      return
+    }
+    setCopyingInvoice(invoiceId)
+    setTimeout(() => setCopyingInvoice(null), 2000)
   }
 
   return (
@@ -411,7 +479,88 @@ export default function Dashboard() {
               ) : (
                 <div className="mt-5 space-y-3">
                   {projects.map((p) => (
-                    <ProjectCard key={p.id} project={p} />
+                    <ProjectCard
+                      key={p.id}
+                      project={p}
+                      onCreateInvoice={() => createInvoice(p.id)}
+                      creating={creatingInvoice === p.id}
+                    />
+                  ))}
+                </div>
+              )}
+              {invoiceError && (
+                <div className="mt-4 rounded-xl border border-[rgba(229,115,115,0.40)] bg-[rgba(229,115,115,0.10)] px-4 py-3 text-sm text-[#e57373]">
+                  {invoiceError}
+                </div>
+              )}
+            </div>
+
+            {/* Invoices issued to clients */}
+            <div className="card mt-8 rounded-3xl p-7">
+              <div className="flex items-center justify-between">
+                <h2 className="font-display text-xl font-bold">Invoices</h2>
+                <span className="text-xs text-[#687d76]">
+                  Send a payment link to your client — no account needed to pay.
+                </span>
+              </div>
+              {invoices.length === 0 ? (
+                <div className="mt-8 text-center">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[.03] text-[#536963]">
+                    <Receipt size={22} />
+                  </div>
+                  <p className="mt-4 text-sm font-semibold text-[#8fa29c]">No invoices yet</p>
+                  <p className="mt-1.5 text-sm text-[#687d76]">
+                    Create an invoice from any project above — the client receives a payment page
+                    with the service details and pays through SpaceRemit.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-5 space-y-2.5">
+                  {invoices.map((inv) => (
+                    <div
+                      key={inv.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/5 bg-white/[.025] px-4 py-3"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-[#d9e0dc]">
+                          <span className="h-2 w-2 rounded-full bg-[#d8b45a]" />
+                          <span className="font-mono text-[11px] text-[#e4c979]">{inv.invoiceNumber}</span>
+                          <span className="hidden sm:inline truncate text-xs text-[#687d76]">· {inv.projectTitle}</span>
+                        </div>
+                        <div className="mt-0.5 pl-4 text-xs text-[#687d76]">
+                          {inv.clientName || inv.clientContactEmail || 'No client info'} · {formatDate(inv.createdAt)}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className={`whitespace-nowrap rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[.12em] ${
+                            inv.status === 'PAID'
+                              ? 'border border-[rgba(111,191,115,0.45)] bg-[rgba(111,191,115,0.10)] text-[#6fbf73]'
+                              : inv.status === 'CANCELLED'
+                                ? 'border border-white/15 bg-white/[.04] text-[#849792]'
+                                : 'border border-[rgba(228,201,121,0.45)] bg-[rgba(228,201,121,0.10)] text-[#e4c979]'
+                          }`}
+                        >
+                          {inv.status === 'PAID' ? 'Paid' : inv.status === 'CANCELLED' ? 'Cancelled' : 'Pending'}
+                        </span>
+                        <span className="font-bold text-[#d9e0dc]">{formatUSD(Number(inv.amount || 0))}</span>
+                        {inv.status === 'PENDING' ? (
+                          <button
+                            onClick={() => copyInvoiceLink(inv.id)}
+                            className="rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.10)] px-3 py-1.5 text-[11px] font-bold text-[#e4c979] transition hover:bg-[rgba(216,180,90,0.18)]"
+                          >
+                            {copyingInvoice === inv.id ? 'Link copied!' : 'Copy payment link'}
+                          </button>
+                        ) : (
+                          <Link
+                            href={`/invoice/${inv.id}`}
+                            className="rounded-full border border-white/15 bg-white/[.04] px-3 py-1.5 text-[11px] font-bold text-[#849792] transition hover:border-[rgba(216,180,90,0.35)] hover:text-[#e4c979]"
+                          >
+                            View invoice
+                          </Link>
+                        )}
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
@@ -558,7 +707,15 @@ export default function Dashboard() {
   )
 }
 
-function ProjectCard({ project }: { project: ProjectRow }) {
+function ProjectCard({
+  project,
+  onCreateInvoice,
+  creating,
+}: {
+  project: ProjectRow
+  onCreateInvoice: () => void
+  creating: boolean
+}) {
   const type = PROJECT_TYPES.find((t) => t.id === project.project_type)
   const method = PAYMENT_METHODS.find((m) => m.id === project.payment_method)
   const isPending = project.payment_status === 'PAYMENT_PENDING'
@@ -573,16 +730,26 @@ function ProjectCard({ project }: { project: ProjectRow }) {
             {method ? ` · ${method.label}` : ''}
           </p>
         </div>
-        <span
-          className={`whitespace-nowrap rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[.12em] ${
-            isPending
-              ? 'border border-[rgba(228,201,121,0.45)] bg-[rgba(228,201,121,0.10)] text-[#e4c979]'
-              : 'border border-[rgba(111,191,115,0.45)] bg-[rgba(111,191,115,0.10)] text-[#6fbf73]'
-          }`}
-        >
-          {STATUS_LABELS[project.status as keyof typeof STATUS_LABELS] ?? project.status}
-          {isPending ? ' · Payment pending' : ''}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={onCreateInvoice}
+            disabled={creating}
+            className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.10)] px-3.5 py-1.5 text-[11px] font-bold text-[#e4c979] transition hover:bg-[rgba(216,180,90,0.18)] disabled:opacity-60"
+            title="Create a public invoice & payment link for this project"
+          >
+            <Receipt size={12} /> {creating ? 'Creating…' : 'Create Invoice'}
+          </button>
+          <span
+            className={`whitespace-nowrap rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[.12em] ${
+              isPending
+                ? 'border border-[rgba(228,201,121,0.45)] bg-[rgba(228,201,121,0.10)] text-[#e4c979]'
+                : 'border border-[rgba(111,191,115,0.45)] bg-[rgba(111,191,115,0.10)] text-[#6fbf73]'
+            }`}
+          >
+            {STATUS_LABELS[project.status as keyof typeof STATUS_LABELS] ?? project.status}
+            {isPending ? ' · Payment pending' : ''}
+          </span>
+        </div>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <MiniMetric label="Client price" value={formatUsd(Number(project.client_price || 0))} />
