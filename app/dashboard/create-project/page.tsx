@@ -57,6 +57,13 @@ export default function CreateProjectPage() {
     }
   }, [auth.loading, auth.user])
 
+  // On mobile the form is one long column — scroll to the top of the
+  // current step whenever the user advances so the next section is in view.
+  useEffect(() => {
+    const form = document.getElementById('cp-form-top')
+    if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [step])
+
   const labels = useMemo(() => moneyLabels(projectType), [projectType])
   const cp = Number(clientPrice) || 0
   // The DropVerse fulfillment cost is computed automatically from platform pricing —
@@ -229,7 +236,7 @@ export default function CreateProjectPage() {
         <div className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-[1.35fr_1fr]">
           {/* LEFT — form */}
           <div>
-            <div className="mb-8 flex items-center gap-4">
+            <div id="cp-form-top" className="mb-8 flex items-center gap-4 scroll-mt-24">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[rgba(216,180,90,0.30)] bg-[rgba(216,180,90,0.08)] text-[#d8b45a]">
                 <Rocket size={22} />
               </div>
@@ -414,7 +421,7 @@ export default function CreateProjectPage() {
                 <div className="flex items-start gap-3 rounded-2xl border border-[rgba(216,180,90,0.25)] bg-[rgba(216,180,90,0.05)] p-4">
                   <Info size={16} className="mt-0.5 shrink-0 text-[#d8b45a]" />
                   <p className="text-xs leading-5 text-[#9aaba6]">
-                    No payment gateway is active yet. When you submit, the project starts in <span className="font-bold text-[#f0d98b]">Payment Pending</span>. The fulfillment team is never instructed to start work until the required payment for the current period is confirmed.
+                    SpaceRemit is available for <span className="font-bold text-[#d9e0dc]">SpaceRemit</span> and <span className="font-bold text-[#d9e0dc]">Invoice Send</span> payments. When you submit, the project starts in <span className="font-bold text-[#f0d98b]">Payment Pending</span>. The fulfillment team is never instructed to start work until the required payment for the current period is confirmed.
                   </p>
                 </div>
 
