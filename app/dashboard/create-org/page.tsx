@@ -60,14 +60,20 @@ export default function CreateOrgPage() {
       data: { session },
     } = await supabase.auth.getSession()
     if (!session) {
-      setError('Your session expired. Please sign in again.')
-      setCreating(false)
-      return
+      // Try refreshing the session in case the access token merely expired.
+      const { data: refreshed } = await supabase.auth.refreshSession()
+      if (!refreshed?.session) {
+        setError('Your session expired. Please sign in again.')
+        setCreating(false)
+        return
+      }
+      session = refreshed.session
     }
     // Server-side (RLS) creates the org; slug uniqueness may fail → retry with hash suffix.
     let slug = slugify(name)
     const attempts = 3
     let created: OrgRow | null = null
+    let retried = false
     for (let i = 0; i < attempts; i++) {
       const { data, error: e } = await supabase
         .from('organizations')
@@ -86,6 +92,12 @@ export default function CreateOrgPage() {
       if (e) {
         if (e.code === '23505') { slug = slugify(name) + '-' + Math.random().toString(36).slice(2, 8); continue }
         if (e.code === '45002') { setError('This plan does not support your selected team size. Please choose a different plan.'); break }
+        // 42501 (RLS denial) usually means the JWT was stale; refresh once and retry.
+        if (e.code === '42501' && !retried) {
+          retried = true
+          const { data: refreshed } = await supabase.auth.refreshSession()
+          if (refreshed?.session) continue
+        }
         setError(e.message)
         break
       }
