@@ -9,6 +9,10 @@ import { createClient } from '../../lib/supabase'
 import { COUNTRIES, type Country } from '../../lib/countries'
 import { applyPendingReferral } from '../../lib/attributeReferralAction'
 
+// Google OAuth is wired in Supabase but kept hidden from the UI until Google
+// verification is complete. Flip to true (or NEXT_PUBLIC_GOOGLE_SIGN_IN=true) to restore.
+const GOOGLE_SIGN_IN_ENABLED = process.env.NEXT_PUBLIC_GOOGLE_SIGN_IN === 'true'
+
 export default function LoginPage() {
   return (
     <Suspense fallback={null}>
@@ -146,18 +150,22 @@ function LoginPageInner() {
           <h1 className="font-display mt-2 text-3xl font-extrabold">{mode === 'login' ? 'Sign in to DropVerse' : 'Create your account'}</h1>
           <p className="mt-3 text-sm leading-6 text-[#8fa29c]">Access services, work samples and the tools you need to build your Drop Servicing business.</p>
 
-          <div className="mt-7 grid gap-3">
-            <ProviderButton
-              provider="google"
-              label="Google"
-              loading={providerLoading === 'google'}
-              onClick={() => handleProvider('google')}
-              logo={
-                <svg viewBox="0 0 48 48" className="h-5 w-5" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.01 24.01 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-              }
-            />
-          </div>
-          <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-[.16em] text-[#718781]"><span className="h-px flex-1 bg-white/10" />or email<span className="h-px flex-1 bg-white/10" /></div>
+          {GOOGLE_SIGN_IN_ENABLED ? (
+            <>
+              <div className="mt-7 grid gap-3">
+                <ProviderButton
+                  provider="google"
+                  label="Google"
+                  loading={providerLoading === 'google'}
+                  onClick={() => handleProvider('google')}
+                  logo={
+                    <svg viewBox="0 0 48 48" className="h-5 w-5" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.01 24.01 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+                  }
+                />
+              </div>
+              <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-[.16em] text-[#718781]"><span className="h-px flex-1 bg-white/10" />or email<span className="h-px flex-1 bg-white/10" /></div>
+            </>
+          ) : null}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'signup' && <>
