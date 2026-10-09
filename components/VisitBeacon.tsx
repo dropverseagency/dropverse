@@ -2,10 +2,12 @@
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 
+const SKIP = [/^\/admin(?:\/|$)/, /^\/dashboard(?:\/|$)/, /^\/login(?:\/|$)/, /^\/signup(?:\/|$)/, /^\/register(?:\/|$)/, /^\/auth(?:\/|$)/, /^\/api(?:\/|$)/, /^\/pay(?:\/|$)/, /^\/invoice(?:\/|$)/]
+
 export default function VisitBeacon() {
   const path = usePathname()
   useEffect(() => {
-    if (!path) return
+    if (!path || SKIP.some((rule) => rule.test(path))) return
     const key = `dv-visit:${path}`
     try {
       if (sessionStorage.getItem(key)) return
