@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install ESLint tooling
+        run: pnpm add --no-save eslint eslint-config-next@15.5.23
+
       - name: Lint
         run: pnpm run lint
 
