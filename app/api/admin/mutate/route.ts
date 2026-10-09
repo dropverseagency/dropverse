@@ -257,6 +257,44 @@ export async function POST(request: NextRequest) {
         return { ok: true }
       }
 
+      case 'create_service': {
+        const title = String(body.title ?? '').trim()
+        const description = String(body.description ?? '').trim()
+        if (!title) return { error: 'MISSING_TITLE' }
+        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'service'
+        const admin = adminClient()
+        const { data, error } = await admin.from('services').insert({
+          title,
+          description,
+          slug,
+          active: body.active !== false,
+          base_cost_one_time: Number(body.baseCostOneTime ?? 0) || 0,
+          updated_by: ctx.userId,
+        }).select('id').single()
+        if (error) return { error: error.message }
+        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'service_created', entity: 'services', entityId: data?.id, newValue: { title, slug } })
+        invalidate()
+        return { ok: true, id: data?.id }
+      }
+
+      case 'create_sample': {
+        const title = String(body.title ?? '').trim()
+        const mediaUrl = String(body.mediaUrl ?? '').trim()
+        if (!title || !mediaUrl) return { error: 'MISSING_SAMPLE' }
+        const admin = adminClient()
+        const { data, error } = await admin.from('work_samples').insert({
+          title,
+          description: String(body.description ?? '').trim(),
+          media_url: mediaUrl,
+          thumbnail_url: mediaUrl,
+          featured: true,
+        }).select('id').single()
+        if (error) return { error: error.message }
+        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'sample_created', entity: 'work_samples', entityId: data?.id, newValue: { title } })
+        invalidate()
+        return { ok: true, id: data?.id }
+      }
+
       default:
         return { error: 'UNKNOWN_ACTION' }
     }
