@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -36,6 +36,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   outline-offset: 3px;
 }
 .font-display { font-family: 'Manrope', sans-serif; letter-spacing: -.03em; }
+.font-brand { font-family: 'Space Grotesk', sans-serif; }
 .container { width: min(1180px, calc(100% - 40px)); margin: auto; }
 .gold-gradient {
   background: linear-gradient(110deg, var(--gold-bright), var(--gold) 55%, #b6842e);
@@ -85,6 +86,22 @@ input, select, textarea {
   background: #0b1614;
   border: 1px solid rgba(226, 182, 86, .18);
   color: var(--text);
+}
+[class~="bg-[#0a2926]"],
+[class~="bg-[#071f1d]"],
+[class~="bg-[#071915]"],
+[class~="bg-[#0b2420]"],
+[class~="bg-[#061512]"] {
+  background-color: #0c1916 !important;
+}
+[class~="text-[#849792]"],
+[class~="text-[#8fa29c]"],
+[class~="text-[#91a39e]"],
+[class~="text-[#95a7a1]"],
+[class~="text-[#7f918c]"],
+[class~="text-[#718781]"],
+[class~="text-[#6e817c]"] {
+  color: #c9d5d0 !important;
 }
 @media (max-width: 700px) {
   .container { width: min(100% - 28px, 1180px); }
