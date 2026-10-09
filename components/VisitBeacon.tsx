@@ -10,16 +10,28 @@ export default function VisitBeacon() {
     if (!path || SKIP.some((rule) => rule.test(path))) return
     const key = `dv-visit:${path}`
     try {
-      if (sessionStorage.getItem(key)) return
-      sessionStorage.setItem(key, '1')
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, '1')
+        fetch('/api/public/visit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path }),
+        }).catch(() => undefined)
+      }
     } catch {
-      return
+      /* private mode still gets a live heartbeat */
     }
-    fetch('/api/public/visit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path }),
-    }).catch(() => undefined)
+    const beat = () => {
+      fetch('/api/public/presence', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path }),
+      }).catch(() => undefined)
+    }
+    beat()
+    const timer = window.setInterval(beat, 20000)
+    return () => window.clearInterval(timer)
   }, [path])
   return null
 }
