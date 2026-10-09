@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { DM_Sans, Manrope, Noto_Sans_Arabic } from 'next/font/google'
 import './globals.css'
 import Motion from '../components/Motion'
-import ThemeToggle from '../components/ThemeToggle'
 
 const bodyFont = DM_Sans({ subsets: ['latin'], variable: '--font-body', display: 'swap' })
 const headingFont = Manrope({ subsets: ['latin'], variable: '--font-heading', display: 'swap' })
@@ -21,5 +20,5 @@ export const metadata: Metadata = {
 export const viewport={width:'device-width',initialScale:1,themeColor:'#091917'}
 const themeInitScript=`(function(){try{var s=localStorage.getItem('dropverse-theme');var d=s==='dark'||(!s&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);document.documentElement.style.colorScheme=d?'dark':'light'}catch(e){}})()`
 export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){
- return <html lang="en" suppressHydrationWarning className={`${bodyFont.variable} ${headingFont.variable} ${arabicFont.variable}`}><head><script dangerouslySetInnerHTML={{__html:themeInitScript}} /></head><body><Motion />{children}<div className="fixed bottom-5 right-5 z-[100]"><ThemeToggle /></div></body></html>
+ return <html lang="en" suppressHydrationWarning className={`${bodyFont.variable} ${headingFont.variable} ${arabicFont.variable}`}><head><script dangerouslySetInnerHTML={{__html:themeInitScript}} /></head><body><Motion />{children}</body></html>
 }
