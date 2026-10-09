@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import Motion from '../components/Motion'
 
 export const metadata: Metadata = {
   title: { default: 'DropVerse — Linking Talent to Sales', template: '%s | DropVerse' },
@@ -23,5 +24,5 @@ export const metadata: Metadata = {
 export const viewport = { width: 'device-width', initialScale: 1, themeColor: '#071f1d' }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}</body></html>
+  return <html lang="en"><body><Motion />{children}</body></html>
 }
