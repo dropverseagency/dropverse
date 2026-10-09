@@ -101,25 +101,23 @@ export default function AdminShell({ children, title }: { children: React.ReactN
         </aside>
 
         {/* Mobile section picker */}
-        <div className="sticky top-16 z-30 h-14 shrink-0 overflow-x-auto border-b border-white/5 bg-[#071f1d] md:hidden">
-          <div className="flex gap-1 p-2">
-            {ADMIN_SECTIONS.map((s) => {
-              const active = current === s.id
-              const Icon = s.icon
-              return (
-                <Link
-                  key={s.id}
-                  href={`/admin/${s.id === 'overview' ? '' : s.id}`}
-                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition ${
-                    active ? 'border border-[rgba(216,180,90,0.45)] bg-[rgba(216,180,90,0.16)] text-[#f0d98b]' : 'border border-white/8 text-[#91a39e] hover:bg-white/5'
-                  }`}
-                >
-                  <Icon size={14} className={active ? 'text-[#d8b45a]' : 'text-[#7f918c]'} />
-                  {s.label}
-                </Link>
-              )
-            })}
-          </div>
+        <div className="sticky top-16 z-30 border-b border-white/5 bg-[#071f1d] p-3 md:hidden">
+          <label className="mb-1 block text-[11px] uppercase tracking-wider text-[#7f918c]">Section</label>
+          <select
+            value={current}
+            onChange={(e) => { window.location.assign(e.target.value === 'overview' ? '/admin' : `/admin/${e.target.value}`) }}
+            className="w-full rounded-xl border border-white/10 bg-[#071210] px-3 py-2 text-sm text-[#f0f4f2] outline-none"
+          >
+            <optgroup label="Work">
+              {ADMIN_SECTIONS.filter((s) => ['overview','projects','payments','services','freelancers'].includes(s.id)).map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+            </optgroup>
+            <optgroup label="People">
+              {ADMIN_SECTIONS.filter((s) => ['users','agencies','affiliates'].includes(s.id)).map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+            </optgroup>
+            <optgroup label="Money and system">
+              {ADMIN_SECTIONS.filter((s) => ['commissions','audit','settings'].includes(s.id)).map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+            </optgroup>
+          </select>
         </div>
 
         <main className="min-w-0 w-full flex-1">
