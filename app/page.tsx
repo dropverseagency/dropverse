@@ -8,7 +8,7 @@ import { createClient } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
 import { ctaFor } from '../lib/authCta'
 
-const services = [
+const fallbackServices = [
   ['Video Editing','Reels, TikTok, Shorts, ads & long-form content.'],
   ['Graphic Design','Branding, social creatives, ads & marketing assets.'],
   ['Web Design','Modern landing pages, stores and conversion-focused websites.'],
@@ -19,10 +19,10 @@ const services = [
   ['Motion Graphics','Animated visuals, promos and high-impact content.'],
 ]
 
-const samples = [
-  ['Short-Form Video','Video Editing','01'],
-  ['Luxury Brand Creative','Graphic Design','02'],
-  ['SaaS Landing Page','Web Design','03'],
+const fallbackSamples = [
+  { title: 'Short-Form Video', category: 'Video Editing', media_url: '' },
+  { title: 'Luxury Brand Creative', category: 'Graphic Design', media_url: '' },
+  { title: 'SaaS Landing Page', category: 'Web Design', media_url: '' },
 ]
 
 function UserMenu({ user, isAdmin = false }: { user: { name?: string | null; email?: string }; isAdmin?: boolean }) {
@@ -67,11 +67,22 @@ function UserMenu({ user, isAdmin = false }: { user: { name?: string | null; ema
 export default function Home() {
   const [menu,setMenu]=useState(false)
   const [isAdmin,setIsAdmin]=useState(false)
+  const [liveServices,setLiveServices]=useState<[string,string][] | null>(null)
+  const [liveSamples,setLiveSamples]=useState<{title:string,category?:string,media_url?:string}[] | null>(null)
   const auth = useAuth()
+  const services = liveServices ?? fallbackServices
+  const samples = liveSamples ?? fallbackSamples
   const signedIn = !auth.loading && Boolean(auth.user)
     // Admin check derived DIRECTLY from the signed-in session + profile role.
   useEffect(() => {
     let cancelled = false
+    fetch('/api/public/catalog').then((r) => r.json()).then((j) => {
+      if (cancelled) return
+      if (Array.isArray(j.services) && j.services.length) {
+        setLiveServices(j.services.map((s: { title: string; description?: string }) => [s.title, s.description || 'Published service']))
+      }
+      if (Array.isArray(j.samples) && j.samples.length) setLiveSamples(j.samples)
+    }).catch(() => undefined)
     const supa = createClient()
     supa.auth.getUser().then(({ data: { user } }) => {
       if (cancelled || !user) return
@@ -138,9 +149,9 @@ return <main className="overflow-hidden">
 
     <section id="how" className="container py-24"><div className="max-w-2xl"><p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">Simple by design</p><h2 className="font-display mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">From talent to transaction.</h2><p className="mt-5 text-[#91a39e]">Everything you need to turn a great service into a client-ready offer.</p></div><div className="mt-14 grid gap-px overflow-hidden rounded-3xl border border-white/5 bg-white/5 md:grid-cols-4">{[['01','Join DropVerse','Create your account and access the platform.'],['02','Choose a Service','Browse professional services and work samples.'],['03','Get Clients','Use samples to market services and approach prospects.'],['04','Make Sales','Close clients and use talent to fulfill the work.']].map(([n,t,d])=><div key={n} className="bg-[#071f1d] p-7"><div className="text-sm font-bold text-[#d8b45a]">{n}</div><h3 className="font-display mt-10 text-xl font-bold">{t}</h3><p className="mt-3 text-sm leading-6 text-[#83958f]">{d}</p></div>)}</div></section>
 
-    <section id="services" className="bg-[#0a2926] py-24"><div className="container"><div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end"><div><p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">Explore the ecosystem</p><h2 className="font-display mt-4 text-4xl font-extrabold sm:text-5xl">Services built to sell.</h2></div><a href="#services" className="flex items-center gap-2 text-sm font-bold text-[#d8b45a]">Explore all services <ArrowRight size={16}/></a></div><div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{services.map(([title,text],i)=><div key={title} className="card group rounded-2xl p-6 transition duration-300 hover:-translate-y-1 hover:border-[rgba(216,180,90,0.40)]"><div className="flex items-center justify-between"><span className="text-xs font-bold text-[#667c75]">0{i+1}</span><ArrowRight size={17} className="text-[#6e817c] transition group-hover:translate-x-1 group-hover:text-[#d8b45a]"/></div><h3 className="font-display mt-10 text-lg font-bold">{title}</h3><p className="mt-2 text-sm leading-6 text-[#849792]">{text}</p></div>)}</div></div></section>
+    <section id="services" className="bg-[#0a2926] py-24"><div className="container"><div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end"><div><p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">Explore the ecosystem</p><h2 className="font-display mt-4 text-4xl font-extrabold sm:text-5xl">Services built to sell.</h2></div><a href="#services" className="flex items-center gap-2 text-sm font-bold text-[#d8b45a]">Explore all services <ArrowRight size={16}/></a></div><div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{services.map(([title,text],i)=><div key={title+String(i)} className="card group rounded-2xl p-6 transition duration-300 hover:-translate-y-1 hover:border-[rgba(216,180,90,0.40)]"><div className="flex items-center justify-between"><span className="text-xs font-bold text-[#667c75]">0{i+1}</span><ArrowRight size={17} className="text-[#6e817c] transition group-hover:translate-x-1 group-hover:text-[#d8b45a]"/></div><h3 className="font-display mt-10 text-lg font-bold">{title}</h3><p className="mt-2 text-sm leading-6 text-[#849792]">{text}</p></div>)}</div></div></section>
 
-    <section id="samples" className="container py-24"><div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end"><div><p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">The work library</p><h2 className="font-display mt-4 text-4xl font-extrabold sm:text-5xl">See what you can sell.</h2><p className="mt-5 max-w-xl text-[#8fa29c]">These cards are service formats, not finished client jobs. Real samples are added when a project is published.</p></div><a href="#samples" className="flex items-center gap-2 text-sm font-bold text-[#d8b45a]">Format preview library <ArrowRight size={16}/></a></div><div className="mt-12 grid gap-5 md:grid-cols-3">{samples.map(([title,cat,n])=><div key={title} className="group overflow-hidden rounded-3xl border border-white/10 bg-white/[.025]"><div className="relative aspect-[16/10] overflow-hidden bg-[#102d29]"><div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(216,180,90,.22),transparent_35%),linear-gradient(135deg,#153d37,#071f1d)]"/><div className="absolute inset-0 flex items-center justify-center"><div className="flex h-14 w-14 items-center justify-center rounded-full border border-[rgba(216,180,90,0.30)] bg-[rgba(7,31,29,0.70)] text-[#d8b45a] backdrop-blur"><Play size={19} fill="currentColor"/></div></div><span className="absolute left-4 top-4 rounded-full bg-[rgba(7,31,29,0.80)] px-3 py-1 text-xs font-semibold text-[#e5d08c] backdrop-blur">{cat}</span></div><div className="p-5"><div className="flex items-center justify-between"><h3 className="font-display font-bold">{title}</h3><span className="text-xs text-[#667c75]">Format</span></div><button className="mt-5 flex items-center gap-2 text-sm font-bold text-[#d8b45a]">Format preview <ArrowRight size={15}/></button></div></div>)}</div></section>
+    <section id="samples" className="container py-24"><div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end"><div><p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">The work library</p><h2 className="font-display mt-4 text-4xl font-extrabold sm:text-5xl">See what you can sell.</h2><p className="mt-5 max-w-xl text-[#8fa29c]">These cards are service formats, not finished client jobs. Real samples are added when a project is published.</p></div><a href="#samples" className="flex items-center gap-2 text-sm font-bold text-[#d8b45a]">Format preview library <ArrowRight size={16}/></a></div><div className="mt-12 grid gap-5 md:grid-cols-3">{samples.map((sample,i)=>{ const title=Array.isArray(sample)?sample[0]:sample.title; const cat=Array.isArray(sample)?sample[1]:(sample.category||'Sample'); const media=Array.isArray(sample)?'':sample.media_url; return <div key={title+String(i)} className="group overflow-hidden rounded-3xl border border-white/10 bg-white/[.025]"><div className="relative aspect-[16/10] overflow-hidden bg-[#102d29]">{media ? <img src={media} alt="" className="h-full w-full object-cover"/> : <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(216,180,90,.22),transparent_35%),linear-gradient(135deg,#153d37,#071f1d)]"/>}<div className="absolute inset-0 flex items-center justify-center"><div className="flex h-14 w-14 items-center justify-center rounded-full border border-[rgba(216,180,90,0.30)] bg-[rgba(7,31,29,0.70)] text-[#d8b45a] backdrop-blur"><Play size={19} fill="currentColor"/></div></div><span className="absolute left-4 top-4 rounded-full bg-[rgba(7,31,29,0.80)] px-3 py-1 text-xs font-semibold text-[#e5d08c] backdrop-blur">{cat}</span></div><div className="p-5"><div className="flex items-center justify-between"><h3 className="font-display font-bold">{title}</h3><span className="text-xs text-[#667c75]">{media ? 'Live' : 'Format'}</span></div></div></div>})}</div></section>
 
     <section id="start" className="relative overflow-hidden border-y border-[rgba(216,180,90,0.10)] bg-[#0a2926] py-24"><div className="absolute left-1/2 top-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[rgba(216,180,90,0.05)] blur-[100px]"/><div className="container relative text-center"><p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">Start building</p><h2 className="font-display mx-auto mt-4 max-w-3xl text-4xl font-extrabold tracking-tight sm:text-6xl">Your next sale starts with the right service.</h2><p className="mx-auto mt-6 max-w-xl text-[#95a7a1]">Join DropVerse and turn professional talent into a business.</p><Link href={ctaFor(signedIn, '/login')} className="mt-9 inline-flex items-center gap-3 rounded-full bg-[#d8b45a] px-7 py-4 font-bold text-[#10221f] hover:bg-[#f0d98b]">{signedIn ? 'Create Project' : 'Get Started'} <ArrowRight size={18}/></Link></div></section>
 
