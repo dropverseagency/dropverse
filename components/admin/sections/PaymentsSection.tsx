@@ -55,7 +55,10 @@ export default function PaymentsSection() {
           <BucketTable title="Confirmed" icon={<CheckCircle2 size={15} />} rows={data.confirmed ?? []} />
           <BucketTable title="Failed" icon={<XCircle size={15} />} rows={data.failed ?? []} />
           <BucketTable title="Disputed" icon={<AlertTriangle size={15} />} rows={data.disputed ?? []} />
-          <p className="text-xs text-[#7f918c]">No real payment processor is connected yet. Payments become "confirmed" manually via Confirm & Pay out on the Projects tab.</p>
+          <p className="text-xs text-[#c9d5d0]">Confirmed volume {fmtUsd(Number(data.confirmedVolume || 0))} · pending {fmtUsd(Number(data.pendingVolume || 0))}. SpaceRemit marks a payment confirmed as soon as the callback succeeds. This list refreshes on its own.</p>
+          {(data.invoices ?? []).length ? (
+            <div className="text-xs text-[#c9d5d0]">Invoices: {(data.invoices as {status:string}[]).filter((i) => i.status === 'PAID').length} paid · {(data.invoices as {status:string}[]).filter((i) => i.status !== 'PAID').length} open</div>
+          ) : null}
         </div>
       ) : null}
     </div>
