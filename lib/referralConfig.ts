@@ -1,10 +1,7 @@
 // Centralized configuration layer for the DropVerse Partner Program.
-// All business rules live here (and later in the Supabase program_config table),
-// NOT in UI components, so admin can change them without touching the frontend.
-// NOTE: commission amounts must ALWAYS be calculated server-side (e.g., in a Supabase
-// database function or server route) — never trusted from the client.
+// Commission amounts must always be calculated server-side, never trusted from the client.
 
-export const REFERRAL_HOST = 'dropverse.com'
+export const REFERRAL_HOST = 'dropverse-nu.vercel.app'
 export const REFERRAL_PATH_PREFIX = '/r'
 
 export const REFERRAL_ELIGIBILITY_MONTHS = 12
@@ -27,15 +24,11 @@ export function referralLinkFor(code: string, baseHost?: string): string {
   return `https://${baseHost ?? REFERRAL_HOST}${REFERRAL_PATH_PREFIX}/${code}`
 }
 
-// Commission statuses enforced server-side
 export type CommissionStatus = 'pending' | 'approved' | 'paid' | 'cancelled'
 export const COMMISSION_STATUSES: CommissionStatus[] = ['pending', 'approved', 'paid', 'cancelled']
 
-// Referral statuses
 export type ReferralStatus = 'active' | 'expired' | 'cancelled'
 export const REFERRAL_STATUSES: ReferralStatus[] = ['active', 'expired', 'cancelled']
 
-// Separate commission architecture for user referrals vs client referrals,
-// so both can be configured independently later (e.g., different rates/pools).
 export type ReferralKind = 'user' | 'client'
 export const REFERRAL_KINDS: ReferralKind[] = ['user', 'client']
