@@ -148,23 +148,48 @@ return <main className="overflow-hidden">
       </div>
     </header>
 
-    <section className="grid-bg relative flex min-h-screen items-center pt-20">
-      <div className="absolute left-1/2 top-1/3 h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-[rgba(216,180,90,0.05)] blur-[100px]"/>
-      <div className="container relative grid items-center gap-14 py-24 lg:grid-cols-[1.05fr_.95fr]">
-        <motion.div variants={reveal} initial={reduceMotion ? false : "hidden"} animate="show">
-          <motion.div variants={reveal} className="mb-7 inline-flex items-center gap-2 rounded-full border border-[rgba(216,180,90,0.20)] bg-[rgba(216,180,90,0.05)] px-4 py-2 text-xs font-semibold uppercase tracking-[.2em] text-[#e4c979]"><Sparkles size={14}/> Linking talent to sales</motion.div>
-          <motion.h1 variants={reveal} className="font-display text-5xl font-extrabold leading-[1.02] tracking-[-.04em] sm:text-6xl lg:text-[76px]">Turn Great Work<br/><span className="gold-gradient">Into Real Sales.</span></motion.h1>
-          <motion.p variants={reveal} className="mt-7 max-w-xl text-lg leading-8 text-[#aebcb7]">Access professional service samples, discover talented freelancers, and build your own Drop Servicing business with DropVerse.</motion.p>
-          <motion.div variants={reveal} className="mt-9 flex flex-wrap gap-3"><Link href={ctaFor(signedIn, '/login')} className="brand-button-primary group flex items-center gap-3 rounded-full bg-[#d8b45a] px-6 py-3.5 font-bold text-[#10221f] transition hover:bg-[#f0d98b]">{signedIn ? 'Create Project' : 'Start Your Journey'} <ArrowRight size={18} className="transition group-hover:translate-x-1"/></Link><a href="#services" className="flex items-center gap-2 rounded-full border border-white/10 px-6 py-3.5 font-semibold text-white transition hover:border-[rgba(216,180,90,0.40)]">Explore Services <ChevronRight size={18}/></a><Link href="/earn" className="brand-button-secondary flex items-center gap-2 rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] px-6 py-3.5 font-semibold text-[#e4c979] transition hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.14)]">Earn With DropVerse <ChevronRight size={18}/></Link></motion.div>
-          <motion.div variants={reveal} className="mt-12 flex flex-wrap gap-x-8 gap-y-3 text-sm text-[#879b95]"><span className="flex items-center gap-2"><Check size={15} className="text-[#d8b45a]"/> Curated talent</span><span className="flex items-center gap-2"><Check size={15} className="text-[#d8b45a]"/> Ready-to-sell services</span><span className="flex items-center gap-2"><Check size={15} className="text-[#d8b45a]"/> Built for entrepreneurs</span></motion.div>
+    <section className="relative isolate flex min-h-[88svh] items-center overflow-hidden bg-background pt-10 sm:pt-16">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,rgb(var(--primary)/.16),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgb(var(--accent)/.07),transparent_45%)]" />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(to_bottom,rgb(var(--background)/.15),rgb(var(--background)/.8))]" />
+      <div className="container relative grid items-center gap-14 py-20 sm:py-28 lg:grid-cols-[1.05fr_.95fr] lg:gap-16">
+        <motion.div variants={reveal} initial={reduceMotion ? false : "hidden"} animate="show" className="max-w-2xl">
+          <motion.div variants={reveal} className="mb-7 inline-flex items-center gap-2 rounded-full border border-border bg-card/80 px-4 py-2 text-xs font-semibold uppercase tracking-[.16em] text-accent shadow-soft">
+            <Sparkles size={14} aria-hidden="true" /> Linking talent to sales
+          </motion.div>
+          <motion.h1 variants={reveal} className="font-display text-5xl font-extrabold leading-[1.02] tracking-[-.04em] text-foreground sm:text-6xl lg:text-7xl">
+            Turn Great Work<br /><span className="text-primary">Into Real Sales.</span>
+          </motion.h1>
+          <motion.p variants={reveal} className="mt-7 max-w-xl text-lg leading-8 text-muted-foreground sm:text-xl">
+            Access professional service samples, discover talented freelancers, and build your own Drop Servicing business with DropVerse.
+          </motion.p>
+          <motion.div variants={reveal} className="mt-9 flex flex-wrap gap-3">
+            <Link href={ctaFor(signedIn, '/login')} className="brand-button-primary group inline-flex min-h-12 items-center gap-3 rounded-full px-6 py-3.5 font-bold">
+              {signedIn ? 'Create Project' : 'Start Your Journey'}
+              <ArrowRight size={18} aria-hidden="true" className="transition-transform group-hover:translate-x-1 motion-reduce:transition-none" />
+            </Link>
+            <a href="#services" className="inline-flex min-h-12 items-center gap-2 rounded-full border border-border bg-transparent px-6 py-3.5 font-semibold text-foreground transition-colors hover:bg-muted">
+              Explore Services <ChevronRight size={18} aria-hidden="true" />
+            </a>
+          </motion.div>
+          <motion.div variants={reveal} className="mt-10 flex flex-wrap gap-x-7 gap-y-3 text-sm text-muted-foreground sm:mt-12">
+            <span className="flex items-center gap-2"><Check size={15} className="text-accent" aria-hidden="true" /> Curated talent</span>
+            <span className="flex items-center gap-2"><Check size={15} className="text-accent" aria-hidden="true" /> Ready-to-sell services</span>
+            <span className="flex items-center gap-2"><Check size={15} className="text-accent" aria-hidden="true" /> Built for entrepreneurs</span>
+          </motion.div>
         </motion.div>
-        <motion.div className="relative mx-auto w-full max-w-[500px]" initial={reduceMotion ? false : { opacity: 0, x: 26, scale: .97 }} animate={{ opacity: 1, x: 0, scale: 1 }} transition={{ duration: .9, delay: .18, ease: luxuryEase }}>
-          <motion.div className="card glow relative overflow-hidden rounded-[28px] p-5" animate={reduceMotion ? undefined : { y: [0, -7, 0] }} transition={reduceMotion ? undefined : { duration: 6, repeat: Infinity, ease: "easeInOut" }}>
-            <div className="mb-5 flex items-center justify-between border-b border-white/10 pb-4"><div><div className="text-xs uppercase tracking-[.18em] text-[#718781]">DropVerse platform</div><div className="mt-1 font-display font-bold">Your service engine</div></div><div className="flex h-9 w-9 items-center justify-center rounded-full bg-[rgba(216,180,90,0.10)] text-[#d8b45a]"><Zap size={17}/></div></div>
-            <div className="space-y-3">
-              {[['Talent','Skilled freelancers','01'],['Service','Ready-to-sell offers','02'],['Client','Your next opportunity','03'],['Sale','Revenue generated','04']].map(([a,b,n],i)=><div key={a} className="flex items-center gap-4 rounded-2xl border border-white/5 bg-white/[.025] p-4"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[rgba(216,180,90,0.10)] text-xs font-bold text-[#d8b45a]">{n}</div><div className="flex-1"><div className="font-semibold">{a}</div><div className="text-sm text-[#81948e]">{b}</div></div>{i<3&&<ArrowRight size={16} className="text-[#536963]"/>}{i===3&&<Sparkles size={16} className="text-[#d8b45a]"/>}</div>)}
+        <motion.div className="relative mx-auto w-full max-w-[500px]" initial={reduceMotion ? false : { opacity: 0, x: 26, scale: .97 }} animate={{ opacity: 1, x: 0, scale: 1 }} transition={{ duration: reduceMotion ? 0 : .9, delay: reduceMotion ? 0 : .18, ease: luxuryEase }}>
+          <motion.div className="card relative overflow-hidden rounded-3xl p-5 shadow-elevated sm:p-6" animate={reduceMotion ? undefined : { y: [0, -5, 0] }} transition={reduceMotion ? undefined : { duration: 7, repeat: Infinity, ease: "easeInOut" }}>
+            <div className="mb-5 flex items-center justify-between border-b border-border pb-4">
+              <div><div className="text-xs uppercase tracking-[.16em] text-muted-foreground">DropVerse platform</div><div className="mt-1 font-display font-bold text-foreground">Your service engine</div></div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-accent"><Zap size={17} aria-hidden="true" /></div>
             </div>
-            <div className="mt-5 rounded-2xl border border-[rgba(216,180,90,0.15)] bg-[rgba(216,180,90,0.05)] p-4"><div className="flex items-center justify-between text-xs text-[#9aaba6]"><span>Business momentum</span><span className="text-[#d8b45a]">Growing</span></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-white/5"><div className="h-full w-[78%] rounded-full bg-[#d8b45a]"/></div></div>
+            <div className="space-y-3">
+              {[['Talent','Skilled freelancers','01'],['Service','Ready-to-sell offers','02'],['Client','Your next opportunity','03'],['Sale','Revenue generated','04']].map(([a,b,n],i)=><div key={a} className="flex items-center gap-4 rounded-2xl border border-border bg-background/70 p-4"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-xs font-bold text-accent">{n}</div><div className="min-w-0 flex-1"><div className="font-semibold text-card-foreground">{a}</div><div className="text-sm text-muted-foreground">{b}</div></div>{i<3&&<ArrowRight size={16} className="text-muted-foreground" aria-hidden="true"/>}{i===3&&<Sparkles size={16} className="text-accent" aria-hidden="true"/>}</div>)}
+            </div>
+            <div className="mt-5 rounded-2xl border border-border bg-muted/60 p-4">
+              <div className="flex items-center justify-between text-xs text-muted-foreground"><span>Business momentum</span><span className="font-semibold text-accent">Growing</span></div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-border"><div className="h-full w-[78%] rounded-full bg-accent" /></div>
+            </div>
           </motion.div>
         </motion.div>
       </div>
