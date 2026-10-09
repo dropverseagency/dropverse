@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { fmtUsd, fmtDate, Card, useAdminData, LoadingOrError, Badge } from '@/components/admin/shared'
 import { Users, Building2, FolderKanban, Package, CreditCard, Users2, Coins, Wallet, TrendingUp } from 'lucide-react'
 import LiveVisits from '@/components/admin/LiveVisits'
+import AnalyticsBoard from '@/components/admin/AnalyticsBoard'
 
 function GroupCard({ icon: Icon, label, value, sub, href }: { icon: any; label: string; value: string; sub?: string; href: string }) {
   return (
@@ -29,6 +30,7 @@ export default function OverviewSection() {
   return (
     <div>
       <LiveVisits />
+      <AnalyticsBoard />
       {loading || error ? <LoadingOrError loading={loading} error={error} /> : null}
       {data ? (
         <>
