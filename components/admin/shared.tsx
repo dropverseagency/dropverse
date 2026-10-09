@@ -54,9 +54,9 @@ export function StatCard({ label, value, sub }: { label: string; value: string; 
 
 export function Card({ title, className = '', children }: { title?: string; className?: string; children: React.ReactNode }) {
   return (
-    <section className={`rounded-xl border border-white/5 bg-[rgba(255,255,255,0.02)] ${className}`}>
-      {title ? <h2 className="border-b border-white/5 px-4 py-3 text-sm font-bold tracking-wide text-[#e8edea]">{title}</h2> : null}
-      <div className="p-4">{children}</div>
+    <section className={`rounded-2xl border border-white/10 bg-[#0c2420] shadow-[0_12px_40px_rgba(0,0,0,0.18)] ${className}`}>
+      {title ? <h2 className="border-b border-white/10 px-4 py-3.5 text-sm font-bold tracking-wide text-white sm:px-5">{title}</h2> : null}
+      <div className="p-4 sm:p-5">{children}</div>
     </section>
   )
 }
@@ -75,7 +75,7 @@ export function TableControls(props: {
   const maxPage = Math.max(1, Math.ceil((props.count || 0) / props.limit))
   return (
     <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="relative max-w-xs flex-1">
+      <div className="relative w-full flex-1 sm:max-w-xs">
         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7f918c]" />
         <input
           value={props.q}
