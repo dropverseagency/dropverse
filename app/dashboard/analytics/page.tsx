@@ -5,6 +5,7 @@ import { ArrowLeft, BarChart3, TrendingUp, Users } from 'lucide-react'
 import { createClient } from '../../../lib/supabase'
 import { type OrgRow } from '../../../lib/orgs'
 import { planById } from '../../../lib/planConfig'
+import MyCharts from '../../../components/dashboard/MyCharts'
 
 export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true)
@@ -66,7 +67,7 @@ export default function AnalyticsPage() {
 
   return (
     <main className="min-h-screen grid-bg px-5 py-10 sm:py-14">
-      <div className="mx-auto w-full max-w-4xl">
+      <div className="mx-auto w-full max-w-5xl">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="/dashboard" className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-[#9aaca6] transition hover:border-[rgba(216,180,90,0.40)] hover:text-[#e4c979]" aria-label="Back to dashboard">
@@ -95,40 +96,13 @@ export default function AnalyticsPage() {
           <div className="mt-24 text-center text-sm text-[#718781]">Loading analytics…</div>
         ) : (
           <>
-            {advanced && (
-              <div className="card mt-8 rounded-3xl border-[rgba(216,180,90,0.45)] p-5">
-                <div className="flex items-center gap-3">
-                  <BarChart3 size={18} className="text-[#d8b45a]" />
-                  <div>
-                    <p className="text-sm font-bold text-[#e4c979]">Advanced analytics unlocked</p>
-                    <p className="mt-0.5 text-xs text-[#849792]">
-                      Team performance, sales tracking and revenue analytics arrive with the next update — your workspace is ready.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
+            <MyCharts />
             <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-3">
               <MetricCard icon={<TrendingUp />} label="Total earned" value={`$${stats.commissions.toFixed(2)}`} />
               <MetricCard icon={<Users />} label="Referrals" value={String(stats.referralUsers)} />
               <MetricCard icon={<BarChart3 />} label="Paid out" value={`$${stats.payouts.toFixed(2)}`} />
               <MetricCard icon={<BarChart3 />} label="Confirmed payments" value={`$${stats.confirmed.toFixed(2)}`} />
               <MetricCard icon={<TrendingUp />} label="Pending payments" value={`$${stats.pending.toFixed(2)}`} />
-            </div>
-
-            <div className="card mt-8 rounded-3xl p-7">
-              <h2 className="font-display text-lg font-bold">Performance summary</h2>
-              <p className="mt-2 text-sm leading-6 text-[#849792]">
-                {advanced
-                  ? 'Sales performance tracking, project assignment and team revenue analytics are being rolled out for Pro workspaces. This panel will update automatically.'
-                  : 'You are on the basic analytics tier. Upgrade to Agency Pro to unlock sales performance tracking, team revenue analytics and project assignment insights.'}
-              </p>
-              {!advanced && (
-                <Link href="/pricing" className="mt-5 inline-flex items-center gap-2 rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] px-5 py-2.5 text-sm font-bold text-[#e4c979] transition hover:border-[rgba(216,180,90,0.60)]">
-                  Compare plans <ArrowLeft size={15} />
-                </Link>
-              )}
             </div>
           </>
         )}
