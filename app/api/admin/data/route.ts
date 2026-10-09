@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
       case 'overview': {
         const [
           users, projects, agencies, paymentsConfirmed, paymentsPending,
-          affiliatesActive, commissionsPending, commissionsPaid,
+          affiliatesActive, commissionsPending, commissionsPaid, publishedServices, openProjects,
         ] = await Promise.all([
           countOf('profiles', null),
           countOf('projects', null),
@@ -35,6 +35,8 @@ export async function GET(request: NextRequest) {
           countOf('referrals', { column: 'status', value: 'active' }),
           countOf('referral_commissions', { column: 'status', value: 'pending' }),
           countOf('referral_commissions', { column: 'status', value: 'paid' }),
+          countOf('services', { column: 'active', value: 'true' }),
+          countOf('projects', { column: 'payment_status', value: 'PAYMENT_PENDING' }),
         ])
         // Revenue: sum of base_amount of approved/paid commissions (ledger-grade, never client-supplied)
         const { data: revRows } = await admin
@@ -67,6 +69,8 @@ export async function GET(request: NextRequest) {
             activeReferrals: affiliatesActive,
             commissionsPending: commissionsPending,
             commissionsPaid: commissionsPaid,
+            publishedServices: publishedServices,
+            openProjects: openProjects,
             dvRevenue: Math.round(dvRevenue * 100) / 100,
             totalPayouts: Math.round(payouts * 100) / 100,
           },
@@ -255,6 +259,16 @@ export async function GET(request: NextRequest) {
         const { data, count, error } = await query.range(offset, offset + limit - 1)
         if (error) throw error
         return { section: 'services', rows: data ?? [], count: count ?? 0, offset, limit }
+      }
+
+      case 'samples': {
+        const { data, error } = await admin
+          .from('work_samples')
+          .select('id, title, description, media_url, thumbnail_url, featured, created_at')
+          .order('created_at', { ascending: false })
+          .limit(50)
+        if (error) return { section: 'samples', rows: [], error: error.message }
+        return { section: 'samples', rows: data ?? [] }
       }
 
       case 'freelancers': {
