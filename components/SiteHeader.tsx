@@ -37,10 +37,10 @@ const nav = (
   )
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[rgba(7,31,29,0.80)] backdrop-blur-xl">
+    <header className="fixed top-0 left-0 right-0 z-50 brand-header border-b border-white/5 bg-[rgba(7,31,29,0.80)] backdrop-blur-xl">
       <div className="container flex h-20 items-center justify-between">
         <Link href="/" className="inline-flex items-center gap-3" aria-label="DropVerse home">
-          <Image src="/dropverse-logo.jpeg" alt="DropVerse" width={42} height={42} className="rounded-xl object-cover" priority />
+          <Image src="/dropverse-logo.jpeg" alt="DropVerse" width={42} height={42} className="brand-logo-mark rounded-xl object-cover" priority />
           <span className="font-display text-xl font-extrabold tracking-[.16em]">
             DROP<span className="text-[#d8b45a]">VERSE</span>
           </span>
@@ -62,15 +62,15 @@ const nav = (
               {auth.loading ? '' : 'Login'}
             </Link>
           )}
-          <Link href="/pricing" className="rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] px-4 py-2 text-sm font-bold text-[#e4c979] transition hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.14)]">
+          <Link href="/pricing" className="brand-button-secondary rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] px-4 py-2 text-sm font-bold text-[#e4c979] transition hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.14)]">
             Pricing
           </Link>
           {signedIn ? (
-            <Link href="/dashboard" className="rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
+            <Link href="/dashboard" className="brand-button-primary rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
               Dashboard
             </Link>
           ) : (
-            <Link href="/login" className="rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
+            <Link href="/login" className="brand-button-primary rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
               Get Started
             </Link>
           )}

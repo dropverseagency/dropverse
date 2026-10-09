@@ -1,60 +1,29 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --bg:#071f1d;
-  --bg2:#0c2e2a;
-  --gold:#d8b45a;
-  --gold2:#f0d98b;
-  --text:#f4f7f5;
-  --muted:#c5d2cc;
-  --line:rgba(216,180,90,.24);
-}
+:root { --bg:#061916; --bg-deep:#041310; --bg2:#0a2521; --surface:rgba(16,46,41,.72); --surface-solid:#0d2b26; --gold:#d6ad58; --gold-bright:#f3d58a; --gold-soft:#e6c477; --text:#f6f2e9; --muted:#9eafa9; --muted-soft:#738781; --line:rgba(230,196,119,.18); --line-soft:rgba(255,255,255,.085); --ease-out:cubic-bezier(.23,1,.32,1); }
 * { box-sizing:border-box; }
-html { scroll-behavior:smooth; }
-body { margin:0; background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; }
+html { scroll-behavior:smooth; background:var(--bg-deep); }
+body { margin:0; min-width:320px; background:radial-gradient(circle at 82% -12%,rgba(214,173,88,.12),transparent 28rem),radial-gradient(circle at 4% 28%,rgba(28,111,88,.12),transparent 30rem),var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+::selection { background:rgba(214,173,88,.34); color:#fffaf0; }
 a { color:inherit; text-decoration:none; }
-.font-display { font-family:'Manrope',sans-serif; }
+button,a { -webkit-tap-highlight-color:transparent; }
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline:2px solid var(--gold-bright); outline-offset:3px; }
+.font-display { font-family:'Manrope',sans-serif; letter-spacing:-.025em; }
+.font-brand { font-family:'Space Grotesk',sans-serif; }
 .container { width:min(1180px,calc(100% - 40px)); margin:auto; }
-.gold-gradient { background:linear-gradient(135deg,var(--gold2),var(--gold)); -webkit-background-clip:text; background-clip:text; color:transparent; }
-.grid-bg { background-image:linear-gradient(rgba(216,180,90,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(216,180,90,.055) 1px,transparent 1px); background-size:48px 48px; }
-.glow { box-shadow:0 0 80px rgba(216,180,90,.12); }
-.card {
-  background:linear-gradient(160deg,rgba(255,255,255,.075),rgba(255,255,255,.028));
-  border:1px solid var(--line);
-  transition:transform .28s ease,border-color .28s ease,box-shadow .28s ease;
-}
-.card:hover {
-  transform:translateY(-4px);
-  border-color:rgba(216,180,90,.5);
-  box-shadow:0 18px 40px rgba(0,0,0,.28);
-}
-a[class*="bg-[#d8b45a]"], button[class*="bg-[#d8b45a]"] {
-  transition:transform .2s ease,background-color .2s ease,box-shadow .2s ease;
-}
-a[class*="bg-[#d8b45a]"]:hover, button[class*="bg-[#d8b45a]"]:hover {
-  transform:translateY(-1px);
-  box-shadow:0 10px 24px rgba(216,180,90,.28);
-}
-@keyframes rise {
-  from { opacity:0; transform:translateY(16px); }
-  to { opacity:1; transform:none; }
-}
-@keyframes fillbar {
-  from { width:0; }
-  to { width:78%; }
-}
-.bar-grow { width:0; animation:fillbar 1.15s ease .35s forwards; }
-@media (prefers-reduced-motion:no-preference) {
-  .reveal { opacity:0; transform:translateY(16px); }
-  .reveal.in { opacity:1; transform:none; transition:opacity .65s ease,transform .65s ease; }
-}
-@media (prefers-reduced-motion:reduce) {
-  html { scroll-behavior:auto; }
-  .bar-grow { width:78%; animation:none; }
-  .card, a[class*="bg-[#d8b45a]"], button[class*="bg-[#d8b45a]"] { transition:none; }
-  .card:hover, a[class*="bg-[#d8b45a]"]:hover, button[class*="bg-[#d8b45a]"]:hover { transform:none; box-shadow:none; }
-}
-@media(max-width:700px){ .container{width:min(100% - 28px,1180px)} }
+.gold-gradient { background:linear-gradient(110deg,var(--gold-bright) 0%,var(--gold) 52%,#ad7b2f 100%); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.grid-bg { background-color:var(--bg); background-image:linear-gradient(rgba(230,196,119,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(230,196,119,.045) 1px,transparent 1px),radial-gradient(circle at 70% 22%,rgba(214,173,88,.11),transparent 22rem); background-size:56px 56px,56px 56px,auto; mask-image:linear-gradient(to bottom,#000 75%,transparent 100%); }
+.glow { box-shadow:0 24px 100px rgba(0,0,0,.26),0 0 90px rgba(214,173,88,.08); }
+.card { background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.018) 58%,rgba(214,173,88,.025)); border:1px solid var(--line-soft); box-shadow:inset 0 1px 0 rgba(255,255,255,.045); backdrop-filter:blur(16px); }
+.brand-header { background:linear-gradient(180deg,rgba(4,19,16,.92),rgba(4,19,16,.68)) !important; border-color:rgba(230,196,119,.13) !important; box-shadow:0 12px 40px rgba(0,0,0,.12); }
+.brand-logo-mark { box-shadow:0 0 0 1px rgba(230,196,119,.18),0 8px 24px rgba(0,0,0,.2); }
+.brand-button-primary { background:linear-gradient(135deg,var(--gold-bright),var(--gold)) !important; box-shadow:0 10px 24px rgba(214,173,88,.16); transition:transform .18s var(--ease-out),box-shadow .18s var(--ease-out),filter .18s var(--ease-out); }
+.brand-button-primary:hover { filter:brightness(1.07); box-shadow:0 14px 32px rgba(214,173,88,.24); transform:translateY(-1px); }
+.brand-button-primary:active { transform:scale(.975); }
+.brand-button-secondary { border-color:rgba(230,196,119,.27) !important; background:rgba(214,173,88,.055) !important; transition:transform .18s var(--ease-out),border-color .18s var(--ease-out),background .18s var(--ease-out); }
+.brand-button-secondary:hover { background:rgba(214,173,88,.12) !important; border-color:rgba(230,196,119,.5) !important; transform:translateY(-1px); }
+@media (prefers-reduced-motion:no-preference) { .card { transition:border-color .25s var(--ease-out),transform .25s var(--ease-out),box-shadow .25s var(--ease-out); } .card:hover { box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 18px 44px rgba(0,0,0,.16); } }
+@media (max-width:700px) { .container { width:min(100% - 28px,1180px); } .grid-bg { background-size:42px 42px,42px 42px,auto; } }
