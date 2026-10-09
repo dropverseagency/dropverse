@@ -195,9 +195,32 @@ return <main className="overflow-hidden">
       </div>
     </section>
 
-    <section id="about" className="border-y border-white/5 bg-[#0a2926] py-20"><div className="container grid gap-12 lg:grid-cols-[.8fr_1.2fr]"><div><p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">The DropVerse advantage</p><h2 className="font-display mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">You sell the vision.<br/>We help power the delivery.</h2></div><div className="grid gap-8 sm:grid-cols-2"><Feature icon={<Users/>} title="Professional Talent" text="Access skilled freelancers across the digital services clients already need."/><Feature icon={<Layers/>} title="Ready-to-Sell Services" text="Turn proven work into compelling offers without building every capability yourself."/><Feature icon={<Globe/>} title="Build Your Business" text="Create a scalable Drop Servicing operation around services with real demand."/><Feature icon={<Zap/>} title="One Platform" text="Keep talent, services and work samples organized as you grow."/></div></div></section>
+    <section id="about" className="border-y border-border bg-card/60 py-20 sm:py-24">
+      <div className="container grid gap-12 lg:grid-cols-[.8fr_1.2fr] lg:gap-16">
+        <div className="max-w-xl">
+          <p className="text-sm font-bold uppercase tracking-[.18em] text-accent">The DropVerse advantage</p>
+          <h2 className="font-display mt-4 text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">You sell the vision.<br />We help power the delivery.</h2>
+          <p className="mt-5 max-w-lg leading-7 text-muted-foreground">Build your offer around real services and skilled people—without having to do every part of the work yourself.</p>
+        </div>
+        <motion.div variants={stagger} initial={reduceMotion ? false : "hidden"} whileInView="show" viewport={{ once: true, amount: .12 }} className="grid gap-x-8 gap-y-10 sm:grid-cols-2">
+          <motion.div variants={staggerItem}><Feature icon={<Users />} title="Professional Talent" text="Access skilled freelancers across the digital services clients already need." /></motion.div>
+          <motion.div variants={staggerItem}><Feature icon={<Layers />} title="Ready-to-Sell Services" text="Turn proven work into compelling offers without building every capability yourself." /></motion.div>
+          <motion.div variants={staggerItem}><Feature icon={<Globe />} title="Build Your Business" text="Create a scalable Drop Servicing operation around services with real demand." /></motion.div>
+          <motion.div variants={staggerItem}><Feature icon={<Zap />} title="One Platform" text="Keep talent, services and work samples organized as you grow." /></motion.div>
+        </motion.div>
+      </div>
+    </section>
 
-    <section id="how" className="container py-24"><div className="max-w-2xl"><p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">Simple by design</p><h2 className="font-display mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">From talent to transaction.</h2><p className="mt-5 text-[#91a39e]">Everything you need to turn a great service into a client-ready offer.</p></div><div className="mt-14 grid gap-px overflow-hidden rounded-3xl border border-white/5 bg-white/5 md:grid-cols-4">{[['01','Join DropVerse','Create your account and access the platform.'],['02','Choose a Service','Browse professional services and work samples.'],['03','Get Clients','Use samples to market services and approach prospects.'],['04','Make Sales','Close clients and use talent to fulfill the work.']].map(([n,t,d])=><div key={n} className="bg-[#071f1d] p-7"><div className="text-sm font-bold text-[#d8b45a]">{n}</div><h3 className="font-display mt-10 text-xl font-bold">{t}</h3><p className="mt-3 text-sm leading-6 text-[#83958f]">{d}</p></div>)}</div></section>
+    <section id="how" className="container py-20 sm:py-24">
+      <div className="max-w-2xl">
+        <p className="text-sm font-bold uppercase tracking-[.18em] text-accent">Simple by design</p>
+        <h2 className="font-display mt-4 text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">From talent to transaction.</h2>
+        <p className="mt-5 text-lg leading-8 text-muted-foreground">Everything you need to turn a great service into a client-ready offer.</p>
+      </div>
+      <motion.div variants={stagger} initial={reduceMotion ? false : "hidden"} whileInView="show" viewport={{ once: true, amount: .12 }} className="mt-12 grid gap-4 sm:grid-cols-2 lg:mt-14 lg:grid-cols-4">
+        {[['01','Join DropVerse','Create your account and access the platform.'],['02','Choose a Service','Browse professional services and work samples.'],['03','Get Clients','Use samples to market services and approach prospects.'],['04','Make Sales','Close clients and use talent to fulfill the work.']].map(([n,t,d])=><motion.div variants={staggerItem} key={n} className="card rounded-2xl p-6 transition-transform duration-300 hover:-translate-y-1 motion-reduce:transform-none sm:p-7"><div className="text-sm font-bold text-accent">{n}</div><h3 className="font-display mt-7 text-xl font-bold text-card-foreground sm:mt-10">{t}</h3><p className="mt-3 text-sm leading-6 text-muted-foreground">{d}</p></motion.div>)}
+      </motion.div>
+    </section>
 
     <section id="services" className="bg-[#0a2926] py-24"><div className="container"><div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end"><div><p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">Explore the ecosystem</p><h2 className="font-display mt-4 text-4xl font-extrabold sm:text-5xl">Services built to sell.</h2></div><a href="#services" className="flex items-center gap-2 text-sm font-bold text-[#d8b45a]">Explore all services <ArrowRight size={16}/></a></div><motion.div variants={stagger} initial={reduceMotion ? false : "hidden"} whileInView="show" viewport={{ once: true, amount: .12 }} className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{services.map(([title,text],i)=><motion.div variants={staggerItem} key={title+String(i)} className="card group rounded-2xl p-6 transition duration-300 hover:-translate-y-1 hover:border-[rgba(216,180,90,0.40)]"><div className="flex items-center justify-between"><span className="text-xs font-bold text-[#667c75]">0{i+1}</span><ArrowRight size={17} className="text-[#6e817c] transition group-hover:translate-x-1 group-hover:text-[#d8b45a]"/></div><h3 className="font-display mt-10 text-lg font-bold">{title}</h3><p className="mt-2 text-sm leading-6 text-[#849792]">{text}</p></motion.div>)}</motion.div></div></section>
 
