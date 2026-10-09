@@ -8,6 +8,7 @@ import { ArrowRight, Check, ChevronRight, Menu, Play, Sparkles, Users, Zap, Glob
 import { createClient } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
 import { ctaFor } from '../lib/authCta'
+import ThemeToggle from '../components/ThemeToggle'
 
 const fallbackServices = [
   ['Video Editing','Reels, TikTok, Shorts, ads & long-form content.'],
@@ -100,34 +101,51 @@ export default function Home() {
     return () => { cancelled = true }
   }, [signedIn])
 return <main className="overflow-hidden">
-    <header className="fixed top-0 left-0 right-0 z-50 brand-header border-b border-white/5 bg-[rgba(7,31,29,0.80)] backdrop-blur-xl">
-      <div className="container flex h-20 items-center justify-between">
-        <Link href="/" className="inline-flex items-center gap-3" aria-label="DropVerse home"><Image src="/dropverse-logo.jpeg" alt="DropVerse" width={42} height={42} className="brand-logo-mark rounded-xl object-cover" priority/><span className="font-display text-xl font-extrabold tracking-[.16em]">DROP<span className="text-[#d8b45a]">VERSE</span></span></Link>
-        <nav className="hidden items-center gap-8 text-sm text-[#c1cbc7] md:flex">
-          <a href="#services" className="hover:text-[#f0d98b]">Services</a><a href="#how" className="hover:text-[#f0d98b]">How It Works</a><a href="#samples" className="hover:text-[#f0d98b]">Work Samples</a><a href="#about" className="hover:text-[#f0d98b]">About</a><Link href="/earn" className="font-semibold text-[#e4c979] hover:text-[#f0d98b]">Earn <span className="hidden lg:inline">With DropVerse</span></Link>
+    <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-xl">
+      <div className="container flex min-h-20 items-center justify-between gap-4">
+        <Link href="/" className="inline-flex shrink-0 items-center gap-3 rounded-lg" aria-label="DropVerse home">
+          <Image src="/dropverse-logo.jpeg" alt="" width={42} height={42} className="rounded-xl object-cover shadow-soft" priority />
+          <span className="font-display text-lg font-extrabold tracking-[.12em] sm:text-xl">DROP<span className="text-accent">VERSE</span></span>
+        </Link>
+        <nav aria-label="Main navigation" className="hidden items-center gap-6 text-sm text-muted-foreground lg:flex xl:gap-8">
+          <a href="#services" className="transition-colors hover:text-foreground">Services</a>
+          <a href="#how" className="transition-colors hover:text-foreground">How It Works</a>
+          <a href="#samples" className="transition-colors hover:text-foreground">Work Samples</a>
+          <a href="#about" className="transition-colors hover:text-foreground">About</a>
+          <Link href="/earn" className="font-semibold text-accent transition-colors hover:opacity-80">Earn With DropVerse</Link>
         </nav>
-        <div className="hidden items-center gap-3 md:flex">
+        <div className="hidden items-center gap-3 lg:flex">
+          <ThemeToggle />
           {signedIn && auth.user ? (
             <>
-              {isAdmin && <Link href="/admin" className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] px-3.5 py-2 text-sm font-bold text-[#f0d98b] transition hover:bg-[rgba(216,180,90,0.22)]"><ShieldCheck size={16} className="shrink-0 md:hidden" aria-label="Admin Panel" /><span className="hidden md:inline">Admin</span></Link>}
+              {isAdmin && <Link href="/admin" className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-2 text-sm font-bold text-foreground transition-colors hover:bg-muted"><ShieldCheck size={16} /><span>Admin</span></Link>}
               <UserMenu user={auth.user} isAdmin={isAdmin} />
             </>
           ) : (
-            <Link href="/login" className="px-4 py-2 text-sm text-[#d9e0dc]">{auth.loading ? '' : 'Login'}</Link>
+            <Link href="/login" className="rounded-full px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">{auth.loading ? '' : 'Login'}</Link>
           )}
-          <Link href="/earn" className="rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] px-4 py-2 text-sm font-bold text-[#e4c979] transition hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.14)]">Earn</Link>
-          <a href="#start" className="brand-button-primary rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]">Get Started</a>
+          <Link href="/earn" className="rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted">Earn</Link>
+          <a href="#start" className="brand-button-primary rounded-full px-5 py-2.5 text-sm font-bold">Get Started</a>
         </div>
-        <div className="flex items-center gap-2.5 md:hidden">
-          {isAdmin ? (
-            <Link href="/admin" className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] text-[#f0d98b] transition hover:bg-[rgba(216,180,90,0.22)]" aria-label="Admin Panel" title="Admin Panel">
-              <ShieldCheck size={17} />
-            </Link>
-          ) : null}
-          <button onClick={()=>setMenu(!menu)} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-[#c1cbc7]" aria-label="Menu">{menu?<X size={17}/>:<Menu size={17}/>}</button>
+        <div className="flex items-center gap-2 lg:hidden">
+          <ThemeToggle />
+          {isAdmin ? <Link href="/admin" className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-foreground" aria-label="Open admin panel" title="Admin Panel"><ShieldCheck size={17} /></Link> : null}
+          <button type="button" onClick={() => setMenu((open) => !open)} className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-muted" aria-label={menu ? "Close navigation menu" : "Open navigation menu"} aria-expanded={menu} aria-controls="mobile-navigation">
+            {menu ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
+          </button>
         </div>
       </div>
-      {menu&&<div className="border-t border-white/5 bg-[#071f1d] p-5 md:hidden"><div className="container flex flex-col gap-5 text-[#d9e0dc]"><a href="#services" onClick={()=>setMenu(false)}>Services</a><a href="#how" onClick={()=>setMenu(false)}>How It Works</a><a href="#samples" onClick={()=>setMenu(false)}>Work Samples</a><a href="#about" onClick={()=>setMenu(false)}>About</a><Link href="/earn" className="text-[#d8b45a]" onClick={()=>setMenu(false)}>Earn With DropVerse →</Link>{isAdmin ? <Link href="/admin" className="font-bold text-[#f0d98b]" onClick={()=>setMenu(false)}>Admin Panel →</Link> : null}{signedIn ? <Link href="/dashboard" className="text-[#d8b45a]" onClick={()=>setMenu(false)}>Dashboard →</Link> : <Link href="/login" className="text-[#d8b45a]">Get Started →</Link>}</div></div>}
+      <div id="mobile-navigation" hidden={!menu} className="border-t border-border bg-background/95 p-5 backdrop-blur-xl lg:hidden">
+        <nav aria-label="Mobile navigation" className="container flex flex-col gap-1 text-foreground">
+          <a href="#services" onClick={() => setMenu(false)} className="rounded-lg px-3 py-3 hover:bg-muted">Services</a>
+          <a href="#how" onClick={() => setMenu(false)} className="rounded-lg px-3 py-3 hover:bg-muted">How It Works</a>
+          <a href="#samples" onClick={() => setMenu(false)} className="rounded-lg px-3 py-3 hover:bg-muted">Work Samples</a>
+          <a href="#about" onClick={() => setMenu(false)} className="rounded-lg px-3 py-3 hover:bg-muted">About</a>
+          <Link href="/earn" onClick={() => setMenu(false)} className="rounded-lg px-3 py-3 font-semibold text-accent hover:bg-muted">Earn With DropVerse</Link>
+          {signedIn ? <Link href="/dashboard" onClick={() => setMenu(false)} className="rounded-lg px-3 py-3 hover:bg-muted">Dashboard</Link> : <Link href="/login" onClick={() => setMenu(false)} className="rounded-lg px-3 py-3 hover:bg-muted">Login</Link>}
+          <a href="#start" onClick={() => setMenu(false)} className="brand-button-primary mt-3 rounded-full px-5 py-3 text-center font-bold">Get Started</a>
+        </nav>
+      </div>
     </header>
 
     <section className="grid-bg relative flex min-h-screen items-center pt-20">
