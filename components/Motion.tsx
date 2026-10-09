@@ -4,20 +4,18 @@ import { useEffect } from 'react'
 export default function Motion() {
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const nodes = Array.from(document.querySelectorAll('main section, main .card'))
-    const seen = new Set<Element>()
+    const nodes = Array.from(document.querySelectorAll('main section'))
     const io = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
-        if (!entry.isIntersecting || seen.has(entry.target)) return
-        seen.add(entry.target)
-        entry.target.classList.add('in')
-        io.unobserve(entry.target)
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in')
+          io.unobserve(entry.target)
+          return
+        }
+        if (!entry.target.classList.contains('in')) entry.target.classList.add('reveal')
       })
-    }, { threshold: 0.16, rootMargin: '0px 0px -8% 0px' })
-    nodes.forEach((node) => {
-      node.classList.add('reveal')
-      io.observe(node)
-    })
+    }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' })
+    nodes.forEach((node) => io.observe(node))
     return () => io.disconnect()
   }, [])
   return null
