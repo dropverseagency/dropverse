@@ -48,3 +48,7 @@ input,select,textarea{accent-color:rgb(var(--primary))}::placeholder{color:rgb(v
 @media(prefers-reduced-motion:no-preference){.card{transition:border-color .22s var(--ease-out),transform .22s var(--ease-out),box-shadow .22s var(--ease-out),background-color .2s ease}.card:hover{box-shadow:var(--shadow-md)}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 @media(max-width:700px){.container{width:min(100% - 28px,1180px)}.grid-bg{background-size:42px 42px,42px 42px,auto}}
+
+
+/* Use the bundled Arabic typeface whenever content declares Arabic or RTL direction. */
+:lang(ar), [dir="rtl"] { font-family: var(--font-arabic), var(--font-body), Arial, sans-serif; }
