@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import Brand from '../../components/Brand'
 import PlanUpgradeBanner from '../../components/PlanUpgradeBanner'
+import MyCharts from '../../components/dashboard/MyCharts'
 import { createClient } from '../../lib/supabase'
 import { canViewFinancials, isManager, type OrgRow } from '../../lib/orgs'
 import { PLAN_CONFIG, planById, type OrgRole } from '../../lib/planConfig'
@@ -431,6 +432,7 @@ export default function Dashboard() {
                 sales and earnings overview. Sell services, grow your referral network and track
                 your payouts.
               </p>
+              <MyCharts />
               {chosenPlan && chosenPlan !== orgPlan?.id ? (
                 <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.08)] px-4 py-3 text-sm text-[#e4c979]">
                   <span>
