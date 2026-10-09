@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
+import { motion, useReducedMotion } from 'framer-motion'
 import Link from 'next/link'
 import {
   Layers,
@@ -78,6 +79,8 @@ interface ProjectRow {
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true)
+  const reduceMotion = useReducedMotion()
+  const luxuryEase = [0.23, 1, 0.32, 1] as const
   const [profile, setProfile] = useState<Profile | null>(null)
   const [signingOut, setSigningOut] = useState(false)
   const [totalEarnings, setTotalEarnings] = useState(0)
@@ -449,14 +452,14 @@ export default function Dashboard() {
             </div>
 
             {/* Earnings stats */}
-            <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-3">
-              <Stat icon={<TrendingUp />} label="Total earnings" value={formatUSD(totalEarnings)} accent />
-              <Stat icon={<Wallet />} label="Pending payout" value={formatUSD(pendingPayout)} />
-              <Stat icon={<CheckCircle2 />} label="Paid out" value={formatUSD(paidPayout)} />
-            </div>
+            <motion.div initial="hidden" animate="show" variants={{ hidden: {}, show: { transition: { staggerChildren: .09 } } }} className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-3">
+              <motion.div variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { duration: .5, ease: luxuryEase } } }}><Stat icon={<TrendingUp />} label="Total earnings" value={formatUSD(totalEarnings)} accent /></motion.div>
+              <motion.div variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { duration: .5, ease: luxuryEase } } }}><Stat icon={<Wallet />} label="Pending payout" value={formatUSD(pendingPayout)} /></motion.div>
+              <motion.div variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { duration: .5, ease: luxuryEase } } }}><Stat icon={<CheckCircle2 />} label="Paid out" value={formatUSD(paidPayout)} /></motion.div>
+            </motion.div>
 
               {/* Projects */}
-            <div className="card mt-8 rounded-3xl border-[rgba(216,180,90,0.30)] bg-[rgba(216,180,90,0.03)] p-7">
+            <motion.div initial={reduceMotion ? false : { opacity: 0, y: 18 }} whileInView="show" viewport={{ once: true, amount: .1 }} animate="show" variants={{ show: { opacity: 1, y: 0, transition: { duration: .6, ease: luxuryEase } } }} className="card mt-8 rounded-3xl border-[rgba(216,180,90,0.30)] bg-[rgba(216,180,90,0.03)] p-7">
               <div className="flex items-center justify-between">
                 <h2 className="font-display text-xl font-bold">Projects</h2>
                 <Link
@@ -499,10 +502,10 @@ export default function Dashboard() {
                   {invoiceError}
                 </div>
               )}
-            </div>
+            </motion.div>
 
             {/* Invoices issued to clients */}
-            <div className="card mt-8 rounded-3xl p-7">
+            <motion.div initial={reduceMotion ? false : { opacity: 0, y: 18 }} whileInView="show" viewport={{ once: true, amount: .1 }} animate="show" variants={{ show: { opacity: 1, y: 0, transition: { duration: .6, ease: luxuryEase } } }} className="card mt-8 rounded-3xl p-7">
               <div className="flex items-center justify-between">
                 <h2 className="font-display text-xl font-bold">Invoices</h2>
                 <span className="text-xs text-[#687d76]">
@@ -570,7 +573,7 @@ export default function Dashboard() {
                   ))}
                 </div>
               )}
-            </div>
+            </motion.div>
 
             {/* Transactions */}
             <div className="card mt-8 rounded-3xl p-7">

@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
@@ -262,7 +263,7 @@ export default function CreateProjectPage() {
             </div>
 
             {/* STEP 1 — PROJECT DETAILS */}
-            <section className={`rounded-3xl border border-white/5 bg-[#0a2926] p-8 ${step !== 'basics' ? 'hidden' : ''}`}>
+            <AnimatePresence mode="wait"><motion.section key="basics" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: .28, ease: [0.23, 1, 0.32, 1] }} className={`rounded-3xl border border-white/5 bg-[#0a2926] p-8 ${step !== 'basics' ? 'hidden' : ''}`}>
               <h2 className="font-display text-xl font-bold">1. Project Details</h2>
 
               <label className="mt-6 block text-sm font-semibold text-[#c1cbc7]">Project Title *</label>
@@ -315,10 +316,10 @@ export default function CreateProjectPage() {
                   Next: Billing <ArrowRight size={16} />
                 </button>
               </div>
-            </section>
+            </motion.section></AnimatePresence>
 
             {/* STEP 2 — BILLING */}
-            <section className={`mt-8 rounded-3xl border border-white/5 bg-[#0a2926] p-8 ${step !== 'billing' ? 'hidden' : ''}`}>
+            <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .3, ease: [0.23, 1, 0.32, 1] }} className={`mt-8 rounded-3xl border border-white/5 bg-[#0a2926] p-8 ${step !== 'billing' ? 'hidden' : ''}`}>
               <h2 className="font-display text-xl font-bold">2. Billing & Payment</h2>
 
               {/* PROJECT TYPE — premium radio cards */}
@@ -469,7 +470,7 @@ export default function CreateProjectPage() {
                   </p>
                 )}
               </div>
-            </section>
+            </motion.section>
           </div>
 
           {/* RIGHT — live summary sticky card */}

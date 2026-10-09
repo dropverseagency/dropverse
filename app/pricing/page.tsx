@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState } from 'react'
+import { motion, useReducedMotion } from 'framer-motion'
 import { ArrowRight, Check, Star, Zap, Users, Target } from 'lucide-react'
 import { PLAN_CONFIG, membersLabelFor } from '../../lib/planConfig'
 import SiteHeader from '../../components/SiteHeader'
@@ -72,6 +73,8 @@ function perMonth(plan: (typeof PLAN_CONFIG)[number]): string {
 export default function PricingPage() {
   const auth = useAuth()
   const signedIn = !auth.loading && Boolean(auth.user)
+  const reduceMotion = useReducedMotion()
+  const luxuryEase = [0.23, 1, 0.32, 1] as const
   return (
     <main className="overflow-hidden">
       <SiteHeader highlightEarn={false} />
@@ -79,7 +82,7 @@ export default function PricingPage() {
       {/* Hero */}
       <section className="grid-bg relative flex min-h-[55vh] items-center pt-20">
         <div className="absolute left-1/2 top-1/3 h-[380px] w-[380px] -translate-x-1/2 rounded-full bg-[rgba(216,180,90,0.05)] blur-[100px]" />
-        <div className="container relative py-24 text-center">
+        <motion.div initial={reduceMotion ? false : { opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .72, ease: luxuryEase }} className="container relative py-24 text-center">
           <p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">Plans &amp; Pricing</p>
           <h1 className="font-display mx-auto mt-5 max-w-3xl text-4xl font-extrabold tracking-tight sm:text-6xl">
             Choose the workspace that fits <span className="gold-gradient">your business.</span>
@@ -87,14 +90,16 @@ export default function PricingPage() {
           <p className="mx-auto mt-6 max-w-xl text-[#95a7a1]">
             From solo sellers to full agencies — DropVerse scales with you. Start free and upgrade the moment your team grows.
           </p>
-        </div>
+        </motion.div>
       </section>
 
       {/* Cards */}
       <section className="container pb-24">
-        <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-4">
+        <motion.div initial="hidden" whileInView="show" viewport={{ once: true, amount: .12 }} variants={{ hidden: {}, show: { transition: { staggerChildren: .08 } } }} className="grid gap-6 lg:grid-cols-2 xl:grid-cols-4">
           {PLAN_CONFIG.map((plan) => (
-            <div
+            <motion.div
+              variants={{ hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0, transition: { duration: .55, ease: luxuryEase } } }}
+              whileHover={reduceMotion ? undefined : { y: -6, transition: { duration: .22, ease: luxuryEase } }}
               key={plan.id}
               className={`relative flex flex-col rounded-3xl border p-7 transition duration-300 ${
                 plan.highlight
@@ -139,9 +144,9 @@ export default function PricingPage() {
                   {signedIn ? `Choose ${plan.displayName}` : plan.cta} <ArrowRight size={16} />
                 </Link>
               )}
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </section>
 
       {/* Comparison table */}
