@@ -1,0 +1,44 @@
+name: Landing PR checks
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install ESLint tooling
+        run: pnpm add --save-dev eslint@8.57.1 eslint-config-next@15.5.23
+
+      - name: Lint Landing Page
+        run: pnpm run lint --file app/page.tsx
+
+      - name: Remove temporary lint tooling
+        if: always()
+        run: pnpm remove eslint eslint-config-next
+
+      - name: Production build
+        run: pnpm run build
