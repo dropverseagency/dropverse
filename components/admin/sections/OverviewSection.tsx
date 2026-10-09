@@ -34,14 +34,15 @@ export default function OverviewSection() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <GroupCard icon={Users} label="Users" value={String(t.users ?? 0)} sub={t.users ? undefined : 'No signups yet'} href="/admin/users" />
             <GroupCard icon={Building2} label="Agencies" value={String(t.agencies ?? 0)} sub={t.agencies ? undefined : 'No agency workspace yet'} href="/admin/agencies" />
+            <GroupCard icon={TrendingUp} label="Page visits, 30 days" value={t.visitors30d == null ? '—' : String(t.visitors30d)} sub={t.visitors30d == null ? 'Tracking table is not ready' : 'Dashboard, admin and public pages'} href="/admin" />
           </div>
 
           <h2 className="mb-3 mt-8 font-display text-xs font-extrabold uppercase tracking-[0.18em] text-[#e4c979]">Work and payments</h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <GroupCard icon={FolderKanban} label="Open projects" value={String(t.openProjects ?? 0)} sub={t.openProjects ? `${t.projects ?? 0} total` : 'No open projects yet'} href="/admin/projects" />
             <GroupCard icon={Package} label="Published services" value={String(t.publishedServices ?? 0)} sub={t.publishedServices ? 'Showing on the landing page' : 'Landing is using built-in services'} href="/admin/services" />
-            <GroupCard icon={CreditCard} label="Payments confirmed" value={String(t.paymentsConfirmed ?? 0)} sub={`Pending: ${t.paymentsPending ?? 0}`} href="/admin/payments" />
-            <GroupCard icon={Wallet} label="DV revenue" value={fmtUsd(t.dvRevenue)} sub="Commission base" href="/admin/commissions" />
+            <GroupCard icon={CreditCard} label="Payments confirmed" value={String(t.paymentsConfirmed ?? 0)} sub={`Pending: ${t.paymentsPending ?? 0} · invoices paid ${fmtUsd(t.paidInvoiceVolume)}`} href="/admin/payments" />
+            <GroupCard icon={Wallet} label="Confirmed payments" value={fmtUsd(t.dvRevenue)} sub={t.pendingPaymentVolume ? `${fmtUsd(t.pendingPaymentVolume)} still pending` : 'Paid project volume'} href="/admin/payments" />
             <GroupCard icon={Coins} label="Total payouts" value={fmtUsd(t.totalPayouts)} sub={`${t.commissionsPending ?? 0} commissions pending`} href="/admin/commissions" />
           </div>
 
