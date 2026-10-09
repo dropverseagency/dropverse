@@ -244,9 +244,31 @@ return <main className="overflow-hidden">
       </div>
     </motion.section>
 
-    <section id="start" className="relative overflow-hidden border-y border-[rgba(216,180,90,0.10)] bg-[#0a2926] py-24"><div className="absolute left-1/2 top-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[rgba(216,180,90,0.05)] blur-[100px]"/><div className="container relative text-center"><p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">Start building</p><h2 className="font-display mx-auto mt-4 max-w-3xl text-4xl font-extrabold tracking-tight sm:text-6xl">Your next sale starts with the right service.</h2><p className="mx-auto mt-6 max-w-xl text-[#95a7a1]">Join DropVerse and turn professional talent into a business.</p><Link href={ctaFor(signedIn, '/login')} className="mt-9 inline-flex items-center gap-3 rounded-full bg-[#d8b45a] px-7 py-4 font-bold text-[#10221f] hover:bg-[#f0d98b]">{signedIn ? 'Create Project' : 'Get Started'} <ArrowRight size={18}/></Link></div></section>
+    <section id="start" className="relative isolate overflow-hidden border-y border-border bg-background py-20 sm:py-28">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_center,rgb(var(--primary)/.13),transparent_65%),radial-gradient(ellipse_at_top_right,rgb(var(--accent)/.07),transparent_45%)]" />
+      <div className="container relative mx-auto max-w-4xl text-center">
+        <p className="text-sm font-bold uppercase tracking-[.18em] text-accent">Start building</p>
+        <h2 className="font-display mx-auto mt-4 max-w-3xl text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl lg:text-6xl">Your next sale starts with the right service.</h2>
+        <p className="mx-auto mt-6 max-w-xl text-lg leading-8 text-muted-foreground">Join DropVerse and turn professional talent into a business.</p>
+        <Link href={ctaFor(signedIn, '/login')} className="brand-button-primary mt-9 inline-flex min-h-12 items-center gap-3 rounded-full px-7 py-4 font-bold">
+          {signedIn ? 'Create Project' : 'Get Started'} <ArrowRight size={18} aria-hidden="true" />
+        </Link>
+      </div>
+    </section>
 
-    <footer className="py-12"><div className="container flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between"><div><div className="inline-flex items-center gap-3"><Image src="/dropverse-logo.jpeg" alt="DropVerse" width={42} height={42} className="brand-logo-mark rounded-xl object-cover"/><div className="font-display text-xl font-extrabold tracking-[.16em]">DROP<span className="text-[#d8b45a]">VERSE</span></div></div><p className="mt-2 text-xs uppercase tracking-[.2em] text-[#6f827c]">Linking talent to sales</p><a href="mailto:dropverseagency@gmail.com" className="mt-2 block text-sm font-semibold text-[#d8b45a] hover:text-[#f0d98b]">dropverseagency@gmail.com</a></div><div className="flex flex-wrap gap-6 text-sm text-[#80938d]"><a href="#services">Services</a><a href="#how">How It Works</a><a href="#samples">Work Samples</a><Link href="/earn">Earn With DropVerse</Link><a href="mailto:dropverseagency@gmail.com">Contact</a><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link></div><p className="text-xs text-[#5f726c]">© 2026 DropVerse. All rights reserved.</p></div></footer>
+    <footer className="border-t border-border bg-background py-10 sm:py-12">
+      <div className="container flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="inline-flex items-center gap-3"><Image src="/dropverse-logo.jpeg" alt="DropVerse" width={42} height={42} className="rounded-xl object-cover shadow-soft"/><div className="font-display text-xl font-extrabold tracking-[.12em] text-foreground">DROP<span className="text-accent">VERSE</span></div></div>
+          <p className="mt-2 text-xs uppercase tracking-[.16em] text-muted-foreground">Linking talent to sales</p>
+          <a href="mailto:dropverseagency@gmail.com" className="mt-3 inline-block text-sm font-semibold text-foreground transition-colors hover:text-accent">dropverseagency@gmail.com</a>
+        </div>
+        <nav aria-label="Footer navigation" className="flex flex-wrap gap-x-6 gap-y-3 text-sm text-muted-foreground">
+          <a href="#services" className="transition-colors hover:text-foreground">Services</a><a href="#how" className="transition-colors hover:text-foreground">How It Works</a><a href="#samples" className="transition-colors hover:text-foreground">Work Samples</a><Link href="/earn" className="transition-colors hover:text-foreground">Earn With DropVerse</Link><a href="mailto:dropverseagency@gmail.com" className="transition-colors hover:text-foreground">Contact</a><Link href="/privacy" className="transition-colors hover:text-foreground">Privacy</Link><Link href="/terms" className="transition-colors hover:text-foreground">Terms</Link>
+        </nav>
+        <p className="text-xs text-muted-foreground">© 2026 DropVerse. All rights reserved.</p>
+      </div>
+    </footer>
   </main>
 }
 
