@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { fmtUsd, fmtDate, Card, useAdminData, LoadingOrError, Badge } from '@/components/admin/shared'
-import { Users, Building2, FolderKanban, CreditCard, Users2, Coins, Wallet, TrendingUp } from 'lucide-react'
+import { Users, Building2, FolderKanban, Package, CreditCard, Users2, Coins, Wallet, TrendingUp } from 'lucide-react'
 
 function GroupCard({ icon: Icon, label, value, sub, href }: { icon: any; label: string; value: string; sub?: string; href: string }) {
   return (
@@ -31,14 +31,15 @@ export default function OverviewSection() {
           {/* People */}
           <h2 className="mb-2 font-display text-xs font-extrabold uppercase tracking-[0.18em] text-[#7f918c]">People</h2>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-2">
-            <GroupCard icon={Users} label="Users" value={String(t.users ?? 0)} href="/admin/users" />
-            <GroupCard icon={Building2} label="Agencies" value={String(t.agencies ?? 0)} href="/admin/agencies" />
+            <GroupCard icon={Users} label="Users" value={String(t.users ?? 0)} sub={t.users ? undefined : 'No signups yet'} href="/admin/users" />
+            <GroupCard icon={Building2} label="Agencies" value={String(t.agencies ?? 0)} sub={t.agencies ? undefined : 'No agency workspace yet'} href="/admin/agencies" />
           </div>
 
           {/* Work & Money */}
           <h2 className="mb-2 mt-6 font-display text-xs font-extrabold uppercase tracking-[0.18em] text-[#7f918c]">Work & Payments</h2>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <GroupCard icon={FolderKanban} label="Projects" value={String(t.projects ?? 0)} href="/admin/projects" />
+            <GroupCard icon={FolderKanban} label="Open projects" value={String(t.openProjects ?? 0)} sub={t.openProjects ? `${t.projects ?? 0} total` : 'No open projects yet'} href="/admin/projects" />
+            <GroupCard icon={Package} label="Published services" value={String(t.publishedServices ?? 0)} sub={t.publishedServices ? 'Showing on the landing page' : 'Landing is using built-in services'} href="/admin/services" />
             <GroupCard icon={CreditCard} label="Payments confirmed" value={String(t.paymentsConfirmed ?? 0)} sub={`Pending: ${t.paymentsPending ?? 0}`} href="/admin/payments" />
             <GroupCard icon={Wallet} label="DV Revenue" value={fmtUsd(t.dvRevenue)} sub="Commission base" href="/admin/commissions" />
             <GroupCard icon={Coins} label="Total payouts" value={fmtUsd(t.totalPayouts)} sub={`${t.commissionsPending ?? 0} commissions pending`} href="/admin/commissions" />
