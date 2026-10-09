@@ -29,6 +29,19 @@ export default function CommissionsSection() {
       {loading || error ? <LoadingOrError loading={loading} error={error} /> : null}
       {data ? (
         <>
+          <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-sm text-[#c5d2cc]">
+            <div className="font-semibold text-[#f0f4f2]">Payout cycle</div>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+              <span className="rounded-full bg-white/5 px-3 py-1">Pending</span>
+              <span>→</span>
+              <span className="rounded-full bg-white/5 px-3 py-1">Approved</span>
+              <span>→</span>
+              <span className="rounded-full bg-white/5 px-3 py-1">Available</span>
+              <span>→</span>
+              <span className="rounded-full bg-[rgba(216,180,90,0.16)] px-3 py-1 text-[#f0d98b]">Paid</span>
+            </div>
+            <p className="mt-2 text-xs text-[#7f918c]">A row appears only after a referred project payment is confirmed. Use the action on each row to move it one step. Reverse stays available until it is reversed.</p>
+          </div>
           <TableControls
             q={q} onQ={(v) => { setQ(v); setPage(1) }}
             page={page} count={0} limit={limit}
