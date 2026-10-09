@@ -64,7 +64,7 @@ export default function BillingPage() {
             </Link>
             <div>
               <h1 className="font-display text-2xl font-extrabold sm:text-3xl">Billing</h1>
-              <p className="text-sm text-[#849792]">Plan &amp; usage overview</p>
+              <p className="text-sm text-[#849792]">Plan and usage</p>
             </div>
           </div>
           {orgs.length > 1 && (
@@ -93,7 +93,6 @@ export default function BillingPage() {
           </div>
         ) : (
           <>
-            {/* Current plan */}
             <div className={`card mt-8 rounded-3xl p-7 ${plan.highlight ? 'border-[rgba(216,180,90,0.50)]' : ''}`}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -108,7 +107,7 @@ export default function BillingPage() {
                 <div className="text-right">
                   <p className="font-display text-2xl font-extrabold text-[#d8b45a]">
                     {plan.enterprise ? 'Custom' : `$${plan.price}`}
-                    {!plan.enterprise && <span className="text-sm font-semibold text-[#849792]">/{plan.price === 0 ? 'month' : 'month'}</span>}
+                    {!plan.enterprise && <span className="text-sm font-semibold text-[#849792]">/month</span>}
                   </p>
                 </div>
               </div>
@@ -121,16 +120,15 @@ export default function BillingPage() {
                 </div>
                 <div className="rounded-2xl border border-white/5 bg-white/[.025] px-4 py-3.5">
                   <div className="text-xs text-[#718781]">Billing status</div>
-                  <div className="mt-1 text-sm font-bold text-[#6fbf73]">Active · payment coming soon</div>
+                  <div className="mt-1 text-sm font-bold text-[#d9e0dc]">Free plan · no charge</div>
                 </div>
               </div>
               <div className="mt-5 rounded-lg border border-[rgba(216,180,90,0.25)] bg-[rgba(216,180,90,0.06)] px-4 py-3 text-xs text-[#b9a76f]">
-                Payment processing is not live yet — no charges are applied. You can upgrade and your
-                workspace configuration is saved; billing will activate when payments launch.
+                Paid upgrades are not open yet. Solo stays free and nothing is charged from this page.
+                Email dropverseagency@gmail.com if you need an Agency workspace before checkout launches.
               </div>
             </div>
 
-            {/* What's included */}
             <div className="card mt-8 rounded-3xl p-7">
               <h2 className="font-display text-lg font-bold">What&rsquo;s included</h2>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -142,7 +140,6 @@ export default function BillingPage() {
               </div>
             </div>
 
-            {/* Upgrade options */}
             <div className="mt-8 mb-8 grid gap-4 sm:grid-cols-2">
               {otherPlans.map((p) => (
                 <div key={p.id} className="card rounded-3xl p-6">
@@ -161,8 +158,8 @@ export default function BillingPage() {
                       Contact Sales
                     </a>
                   ) : (
-                    <div className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-3 text-sm font-semibold text-[#687d76]" title="Payments coming soon">
-                      Upgrade — coming soon
+                    <div className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-3 text-sm font-semibold text-[#687d76]">
+                      Paid upgrade not open
                     </div>
                   )}
                 </div>
