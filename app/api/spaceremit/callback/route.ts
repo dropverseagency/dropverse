@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-import { STATUS_TRANSITIONS, type ProjectStatus } from '../../../../lib/projectConfig'
+import { type ProjectStatus } from '../../../../lib/projectConfig'
 
 const SPACEREMIT_INFO = 'https://spaceremit.com/api/v2/payment_info/'
 
@@ -32,20 +32,17 @@ async function confirmProject(supabase: ReturnType<typeof serviceClient>, paymen
     .limit(1)
     .maybeSingle()
   if (!project) return false
-  const path: ProjectStatus[] = [
-    (project.status || 'DRAFT') as ProjectStatus,
-    'PAYMENT_PENDING',
-    'PAYMENT_CONFIRMED',
-  ]
-  for (let i = 0; i < path.length - 1; i++) {
-    if (path[i] === path[i + 1]) continue
-    if (!STATUS_TRANSITIONS[path[i]].includes(path[i + 1])) return false
-    await supabase.from('projects').update({ status: path[i + 1], payment_status: path[i + 1] }).eq('id', project.id)
-  }
-  await supabase
-    .from('projects')
-    .update({ payment_status: 'PAYMENT_CONFIRMED', spaceremit_payment_id: paymentId })
-    .eq('id', project.id)
+  const now = new Date().toISOString()
+  const status = (project.status || 'DRAFT') as ProjectStatus
+  const nextStatus = status === 'DRAFT' || status === 'PAYMENT_PENDING' || status === 'PAST_DUE'
+    ? 'PAYMENT_CONFIRMED'
+    : status
+  await supabase.from('projects').update({
+    payment_status: 'PAYMENT_CONFIRMED',
+    payment_confirmed_at: now,
+    spaceremit_payment_id: paymentId,
+    status: nextStatus,
+  }).eq('id', project.id)
   await supabase.from('audit_logs').insert({
     actor_id: project.user_id,
     actor_email: null,
@@ -75,7 +72,7 @@ async function confirmInvoice(supabase: ReturnType<typeof serviceClient>, paymen
   if (invoice.project_id) {
     await supabase
       .from('projects')
-      .update({ payment_status: 'PAYMENT_CONFIRMED' })
+      .update({ payment_status: 'PAYMENT_CONFIRMED', payment_confirmed_at: new Date().toISOString() })
       .eq('id', invoice.project_id)
       .eq('payment_status', 'PAYMENT_PENDING')
   }
