@@ -10,19 +10,22 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true)
   const [orgs, setOrgs] = useState<OrgRow[]>([])
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null)
-  const [stats, setStats] = useState({ commissions: 0, referralUsers: 0, payouts: 0 })
+  const [stats, setStats] = useState({ commissions: 0, referralUsers: 0, payouts: 0, confirmed: 0, pending: 0 })
 
   useEffect(() => {
     const supabase = createClient()
     let cancelled = false
-    ;(async () => {
+    async function run(initial: boolean) {
       let session = null
       for (let i = 0; i < 5; i++) {
         const { data } = await supabase.auth.getSession()
         if (data.session) { session = data.session; break }
         if (i < 4) await new Promise((r) => setTimeout(r, 800))
       }
-      if (!session || cancelled) { window.location.assign('/login?redirect=%2Fdashboard%2Fanalytics'); return }
+      if (!session || cancelled) {
+        if (initial) window.location.assign('/login?redirect=%2Fdashboard%2Fanalytics')
+        return
+      }
       const { data: orgRows } = await supabase
         .from('organizations')
         .select('id, name, slug, type, plan, owner_id, logo_url, description, industry, team_size, status, created_at, updated_at')
@@ -34,19 +37,27 @@ export default function AnalyticsPage() {
       setOrgs(orgList)
       if (orgList.length > 0) setActiveOrgId(orgList[0].id)
 
-      // Basic overview for the user's personal stats
-      const [comRes, refRes, payRes] = await Promise.all([
-        supabase.from('referral_commissions').select('commission_amount').eq('referral_id', session.user.id).eq('status', 'approved'),
+      const { data: myRefs } = await supabase.from('referrals').select('id').eq('referrer_id', session.user.id)
+      const refIds = (myRefs ?? []).map((r) => r.id)
+      const [comRes, refRes, payRes, projRes] = await Promise.all([
+        refIds.length
+          ? supabase.from('referral_commissions').select('commission_amount, status').in('referral_id', refIds).in('status', ['approved', 'available', 'paid'])
+          : Promise.resolve({ data: [] as { commission_amount: number }[] }),
         supabase.from('referrals').select('referred_user_id', { count: 'exact', head: true }).eq('referrer_id', session.user.id),
         supabase.from('payout_requests').select('amount').eq('user_id', session.user.id).eq('status', 'paid'),
+        supabase.from('projects').select('client_price, payment_status').eq('user_id', session.user.id),
       ])
       if (cancelled) return
       const coms = (comRes.data || []).reduce((s, c) => s + Number(c.commission_amount || 0), 0)
       const pays = (payRes.data || []).reduce((s, p) => s + Number(p.amount || 0), 0)
-      setStats({ commissions: coms, referralUsers: refRes.count ?? 0, payouts: pays })
+      const confirmed = (projRes.data || []).filter((p) => p.payment_status === 'PAYMENT_CONFIRMED').reduce((s, p) => s + Number(p.client_price || 0), 0)
+      const pending = (projRes.data || []).filter((p) => p.payment_status === 'PAYMENT_PENDING').reduce((s, p) => s + Number(p.client_price || 0), 0)
+      setStats({ commissions: coms, referralUsers: refRes.count ?? 0, payouts: pays, confirmed, pending })
       if (!cancelled) setLoading(false)
-    })()
-    return () => { cancelled = true }
+    }
+    run(true)
+    const timer = window.setInterval(() => run(false), 20000)
+    return () => { cancelled = true; window.clearInterval(timer) }
   }, [])
 
   const org = orgs.find((o) => o.id === activeOrgId) ?? null
@@ -102,6 +113,8 @@ export default function AnalyticsPage() {
               <MetricCard icon={<TrendingUp />} label="Total earned" value={`$${stats.commissions.toFixed(2)}`} />
               <MetricCard icon={<Users />} label="Referrals" value={String(stats.referralUsers)} />
               <MetricCard icon={<BarChart3 />} label="Paid out" value={`$${stats.payouts.toFixed(2)}`} />
+              <MetricCard icon={<BarChart3 />} label="Confirmed payments" value={`$${stats.confirmed.toFixed(2)}`} />
+              <MetricCard icon={<TrendingUp />} label="Pending payments" value={`$${stats.pending.toFixed(2)}`} />
             </div>
 
             <div className="card mt-8 rounded-3xl p-7">
