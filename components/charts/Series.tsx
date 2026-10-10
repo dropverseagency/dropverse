@@ -2,6 +2,9 @@
 
 export function RangeTabs({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const ranges = [
+    { id: 'live', label: 'Live' },
+    { id: 'today', label: 'Today' },
+    { id: 'yesterday', label: 'Yesterday' },
     { id: '7', label: '7 days' },
     { id: '30', label: '30 days' },
     { id: '90', label: '90 days' },
@@ -40,6 +43,7 @@ export function SeriesChart({ points, color = '#d8b45a' }: { points: { label: st
   })
   const line = coords.map((p, i) => `${i ? 'L' : 'M'}${p.x},${p.y}`).join(' ')
   const area = `${line} L${width - pad},${height - pad} L${pad},${height - pad} Z`
+  const dots = coords.length <= 24
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="h-44 w-full" role="img">
       {[0, 0.5, 1].map((n) => (
@@ -47,7 +51,7 @@ export function SeriesChart({ points, color = '#d8b45a' }: { points: { label: st
       ))}
       <path d={area} fill={color} opacity="0.16" />
       <path d={line} fill="none" stroke={color} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
-      {coords.map((p) => <circle key={p.label} cx={p.x} cy={p.y} r="3.5" fill="#0c1916" stroke={color} strokeWidth="2" />)}
+      {dots && coords.map((p) => <circle key={p.label} cx={p.x} cy={p.y} r="3.5" fill="#0c1916" stroke={color} strokeWidth="2" />)}
     </svg>
   )
 }
