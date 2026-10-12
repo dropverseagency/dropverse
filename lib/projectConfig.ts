@@ -40,6 +40,9 @@ export type PaymentMethod =
   | 'INVOICE_SEND'
   | 'SELLER_COLLECTED'
 
+/** SpaceRemit / local payment hard cap per single transaction (USD). */
+export const SPACEREMIT_MAX_USD = 300
+
 export const PAYMENT_METHODS: { id: PaymentMethod; label: string; description: string; recommended?: boolean }[] = [
   {
     id: 'CLIENT_PAYS_DROPVERSE',
@@ -55,12 +58,12 @@ export const PAYMENT_METHODS: { id: PaymentMethod; label: string; description: s
   {
     id: 'SPACEREMIT',
     label: 'Local payment',
-    description: 'Pay securely with wallets, bank transfer, and 70+ local payment methods.',
+    description: 'Pay securely with wallets, bank transfer, and 70+ local methods. Maximum $300 per payment.',
   },
   {
     id: 'INVOICE_SEND',
     label: 'Send Invoice to Client',
-    description: 'Create a payment invoice and send the link to your client. They pay securely (no account needed) and the project is confirmed automatically.',
+    description: 'Create a payment link for your client. Choose International or Local for them. Local max $300 per payment.',
   },
   {
     id: 'SELLER_COLLECTED',
