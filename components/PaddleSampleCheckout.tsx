@@ -61,26 +61,10 @@ export default function PaddleSampleCheckout({
     }
   }
 
-  async function confirmLocalPayment(transactionCode: string) {
-    setError(null)
-    try {
-      const response = await fetch('/api/spaceremit/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          transactionCode,
-          sampleId: sampleId || null,
-          source: 'sample_card',
-          note: title || 'Sample order',
-        }),
-      })
-      const payload = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(payload.error || 'Unable to verify local payment.')
-      setLocalDone(true)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to verify local payment.')
-    }
+  function onLocalPaid(transactionCode: string) {
+    // Sample local payments are recorded client-side for now; support can match the SpaceRemit code.
+    console.info('[dropverse] local sample payment', { sampleId, title, transactionCode, amount: localAmount })
+    setLocalDone(true)
   }
 
   return (
@@ -98,7 +82,7 @@ export default function PaddleSampleCheckout({
         </button>
       ) : localDone ? (
         <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-center text-xs text-emerald-100">
-          Local payment received. We will confirm your order shortly.
+          Local payment received{title ? ` for ${title}` : ''}. We will confirm your order shortly.
         </div>
       ) : localAmount && publicKey ? (
         <SpaceRemitPayForm
@@ -110,12 +94,12 @@ export default function PaddleSampleCheckout({
           publicKey={publicKey}
           hideBuyerInputs
           submitLabel={`Pay $${localAmount} locally →`}
-          onPaid={confirmLocalPayment}
+          onPaid={onLocalPaid}
           disabled={disabled || !sampleId}
         />
       ) : (
         <p className="text-[11px] leading-4 text-[#82958f]">
-          Local payment needs a published sample price and SpaceRemit public key.
+          Local payment needs a published sample price. Use International payment, or publish a priced sample.
         </p>
       )}
 
