@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { adminClient, sessionClient } from '@/lib/adminCore'
-import { paddleApiBase, paddleApprovedCheckoutUrl } from '@/lib/paddle'
+import { paddleApiBase, paddleCheckoutPayload } from '@/lib/paddle'
 
 export const runtime = 'nodejs'
 
@@ -8,10 +8,10 @@ function paddleErrorMessage(payload: unknown): string {
   const error = (payload as { error?: { code?: string; detail?: string } })?.error
   if (!error) return 'PADDLE_TRANSACTION_FAILED'
   if (error.code === 'transaction_default_checkout_url_not_set') {
-    return 'Paddle needs a Default payment link. In Paddle → Checkout → Checkout settings, set Default payment link to https://dropverse.js.org/dashboard'
+    return 'Set Default payment link in Paddle → Checkout → Checkout settings to https://dropverse-nu.vercel.app/dashboard then retry.'
   }
   if (error.code === 'transaction_checkout_url_domain_is_not_approved' || /domain that has been approved/i.test(error.detail || '')) {
-    return 'Paddle rejected the return URL domain. Approve dropverse.js.org (and dropverse-nu.vercel.app if needed) under Paddle → Checkout → Website approval, then retry.'
+    return 'Paddle rejected the return URL domain. Leave checkout.url empty (code default) and set Default payment link in Paddle, or approve the domain under Website approval.'
   }
   return error.detail || error.code || 'PADDLE_TRANSACTION_FAILED'
 }
@@ -55,8 +55,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'INVALID_AMOUNT' }, { status: 422 })
   }
 
-  // Always use a domain approved in the Paddle dashboard (never a preview alias).
-  const checkoutUrl = paddleApprovedCheckoutUrl('/dashboard')
+  const checkout = paddleCheckoutPayload()
 
   const transactionResponse = await fetch(`${paddleApiBase()}/transactions`, {
     method: 'POST',
@@ -67,7 +66,7 @@ export async function POST(request: Request) {
     },
     body: JSON.stringify({
       collection_mode: 'automatic',
-      checkout: { url: checkoutUrl },
+      ...(checkout ? { checkout } : {}),
       items: [{
         quantity: 1,
         price: {
