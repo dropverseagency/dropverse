@@ -17,7 +17,6 @@ export function paddleClientTokenConfigured() {
  * Optional checkout.url for Paddle transactions.
  * By default we OMIT it so Paddle uses the account "Default payment link".
  * Only set NEXT_PUBLIC_PADDLE_CHECKOUT_URL if that domain is already approved in Paddle.
- * Example: NEXT_PUBLIC_PADDLE_CHECKOUT_URL=https://dropverse-nu.vercel.app/dashboard
  */
 export function paddleCheckoutPayload(): { url: string } | undefined {
   const configured = (process.env.NEXT_PUBLIC_PADDLE_CHECKOUT_URL || '').trim()
@@ -33,7 +32,7 @@ export function paddleCheckoutPayload(): { url: string } | undefined {
   return { url }
 }
 
-/** @deprecated use paddleCheckoutPayload — kept for any remaining callers */
+/** @deprecated use paddleCheckoutPayload */
 export function paddleApprovedCheckoutUrl(path = '/dashboard') {
   const payload = paddleCheckoutPayload()
   if (payload) return payload.url
@@ -41,6 +40,19 @@ export function paddleApprovedCheckoutUrl(path = '/dashboard') {
 }
 
 let paddlePromise: Promise<Paddle | undefined> | null = null
+
+async function confirmTransactionClient(transactionId: string) {
+  try {
+    await fetch('/api/paddle/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transactionId }),
+      credentials: 'include',
+    })
+  } catch {
+    // Webhook may still complete; ignore client confirm network errors.
+  }
+}
 
 /** Browser-only Paddle.js instance for overlay checkout. */
 export function getPaddleClient() {
@@ -52,10 +64,23 @@ export function getPaddleClient() {
       environment: isPaddleSandbox() ? 'sandbox' : 'production',
       eventCallback: (event) => {
         if (event.name === 'checkout.completed') {
-          const id = event.data?.transaction_id ?? ''
-          window.location.assign(`/payment/success?transaction_id=${encodeURIComponent(id)}`)
+          const id = String(event.data?.transaction_id ?? '')
+          if (id) {
+            void confirmTransactionClient(id).finally(() => {
+              window.location.assign(`/payment/success?transaction_id=${encodeURIComponent(id)}`)
+            })
+          } else {
+            window.location.assign('/payment/success')
+          }
+        }
+        if (event.name === 'checkout.error') {
+          console.error('[paddle] checkout.error', event)
         }
       },
+    }).catch((err) => {
+      console.error('[paddle] initialize failed', err)
+      paddlePromise = null
+      return undefined
     })
   }
   return paddlePromise
