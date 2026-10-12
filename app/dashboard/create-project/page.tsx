@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
@@ -59,10 +59,6 @@ export default function CreateProjectPage() {
     if (!auth.loading && !auth.user) window.location.assign('/login')
   }, [auth.loading, auth.user])
 
-  useEffect(() => {
-    document.getElementById('cp-form-top')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [step])
-
   const labels = useMemo(() => moneyLabels(projectType), [projectType])
   const cp = Number(clientPrice) || 0
   const fc = useMemo(() => Math.round(cp * (FULFILLMENT_RATES[projectType] ?? 0) * 100) / 100, [cp, projectType])
@@ -108,6 +104,7 @@ export default function CreateProjectPage() {
     if (submitting || created || pendingProjectId) return
     setSubmitting(true)
     setError(null)
+    setInvoiceError(null)
     let res: { error?: string; detail?: string; projectId?: string; success?: boolean }
     try {
       res = await createProjectServer({
@@ -147,24 +144,42 @@ export default function CreateProjectPage() {
       }
       if (!projectId) {
         setInvoiceError('Could not locate the created project. Please open the dashboard.')
+        setError('Project may have been saved, but we could not find it to create the invoice.')
         setCreated(true)
         return
       }
-      const invRes = await fetch('/api/invoices/me', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, clientName: '', clientEmail: clientContactEmail?.trim() || undefined }),
-      })
-      const invJson = (await invRes.json().catch(() => ({}))) as { invoiceId?: string; error?: string }
-      if (!invRes.ok || !invJson.invoiceId) {
-        setInvoiceError('Could not create the invoice. You can create it from the dashboard instead.')
+      try {
+        const invRes = await fetch('/api/invoices/me', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ projectId, clientName: clientContactEmail?.trim() || '' }),
+        })
+        const invJson = (await invRes.json().catch(() => ({}))) as { invoiceId?: string; error?: string }
+        if (!invRes.ok || !invJson.invoiceId) {
+          const reason = invJson.error ? ` (${invJson.error})` : ` (HTTP ${invRes.status})`
+          setInvoiceError(`Could not create the invoice${reason}. Project was saved — open Dashboard.`)
+          setError(`Invoice creation failed${reason}. The project was saved.`)
+          setCreated(true)
+          return
+        }
+        const url = `${window.location.origin}/invoice/${invJson.invoiceId}?method=${invoicePayRail}`
+        setInvoiceId(invJson.invoiceId)
+        setInvoiceUrl(url)
+        setCreated(true)
+        setStep('summary')
+        window.open(url, '_blank', 'noopener,noreferrer')
+        requestAnimationFrame(() => {
+          document.getElementById('invoice-success-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        })
+        return
+      } catch (e) {
+        console.error('invoice create failed', e)
+        setInvoiceError('Network error while creating invoice. Project was saved.')
+        setError('Network error while creating invoice. Project was saved — try again from Dashboard.')
         setCreated(true)
         return
       }
-      setInvoiceId(invJson.invoiceId)
-      setInvoiceUrl(`${window.location.origin}/invoice/${invJson.invoiceId}?method=${invoicePayRail}`)
-      setCreated(true)
-      return
     }
     setCreated(true)
   }
@@ -178,7 +193,6 @@ export default function CreateProjectPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ paymentId, projectId: pendingProjectId }),
     })
-    const data = (await res.json().catch(() => null)) as { error?: string } | null
     setPaying(false)
     if (!res.ok) {
       setPayError('Payment verification failed. Your project is saved as Payment Pending.')
@@ -227,6 +241,46 @@ export default function CreateProjectPage() {
                 <p className="mt-1 text-sm text-[#8f9f9a]">Set up a new client project and its billing arrangement.</p>
               </div>
             </div>
+
+            {created && invoiceId && invoiceUrl && (
+              <div id="invoice-success-panel" className="mb-8 rounded-3xl border border-[rgba(216,180,90,0.45)] bg-[rgba(216,180,90,0.10)] p-6 sm:p-8">
+                <p className="font-display text-xl font-extrabold text-[#f0d98b]">Invoice ready — send this link to your client</p>
+                <p className="mt-2 text-sm leading-6 text-[#b8c4bf]">
+                  Project is Payment Pending. Client pays on a separate page ({invoicePayRail === 'local' ? 'Local · max $300' : 'International'}). You do not pay now.
+                </p>
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3">
+                    <p className="break-all font-mono text-xs text-[#e7edea] sm:text-sm">{invoiceUrl}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(invoiceUrl).then(() => {
+                        setInvoiceCopied(true)
+                        setTimeout(() => setInvoiceCopied(false), 2000)
+                      }).catch(() => {})
+                    }}
+                    className="shrink-0 rounded-full border border-[rgba(216,180,90,0.45)] bg-[rgba(216,180,90,0.14)] px-5 py-3 text-sm font-bold text-[#f0d98b]"
+                  >
+                    {invoiceCopied ? 'Copied!' : 'Copy link'}
+                  </button>
+                  <a href={invoiceUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-full bg-[#d8b45a] px-5 py-3 text-center text-sm font-bold text-[#10221f]">
+                    Open invoice page
+                  </a>
+                </div>
+                <Link href="/dashboard" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/15 px-6 py-3 text-sm font-bold text-[#cfd8d3]">
+                  Go to Dashboard
+                </Link>
+              </div>
+            )}
+
+            {created && !invoiceId && invoiceError && (
+              <div className="mb-8 rounded-3xl border border-red-400/30 bg-red-500/10 p-6">
+                <p className="font-bold text-red-200">Project saved, but invoice was not created</p>
+                <p className="mt-2 text-sm text-red-100/90">{invoiceError}</p>
+                <Link href="/dashboard" className="mt-4 inline-flex rounded-full bg-[#d8b45a] px-6 py-3 text-sm font-bold text-[#10221f]">Open Dashboard</Link>
+              </div>
+            )}
 
             <motion.section className={`rounded-3xl border border-white/5 bg-[#0a2926] p-8 ${step !== 'basics' ? 'hidden' : ''}`}>
               <h2 className="font-display text-xl font-bold">1. Project Details</h2>
@@ -297,7 +351,7 @@ export default function CreateProjectPage() {
               {paymentMethod === 'INVOICE_SEND' && (
                 <div className="mt-6 rounded-2xl border border-[rgba(216,180,90,0.30)] bg-[rgba(216,180,90,0.06)] p-5">
                   <p className="text-sm font-bold text-[#f0d98b]">Client payment method on the invoice</p>
-                  <p className="mt-1 text-xs leading-5 text-[#9aaba6]">Choose what your client will see on the payment page. You will send them a link.</p>
+                  <p className="mt-1 text-xs leading-5 text-[#9aaba6]">Choose what your client will see. You will send them a link — no payment from you now.</p>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <button type="button" onClick={() => setInvoicePayRail('international')} className={`rounded-xl border p-4 text-left ${invoicePayRail === 'international' ? 'border-[rgba(216,180,90,0.55)] bg-[rgba(216,180,90,0.12)]' : 'border-white/10 bg-[#071f1d]'}`}>
                       <div className={`text-sm font-bold ${invoicePayRail === 'international' ? 'text-[#f0d98b]' : 'text-[#d9e0dc]'}`}>International payment</div>
@@ -309,7 +363,7 @@ export default function CreateProjectPage() {
                     </button>
                   </div>
                   {invoicePayRail === 'local' && (
-                    <p className="mt-3 text-xs leading-5 text-[#e4c979]">Local payment is limited to <span className="font-bold">$300 per transaction</span>. For larger invoices use International.</p>
+                    <p className="mt-3 text-xs leading-5 text-[#e4c979]">Local payment max <span className="font-bold">$300 per transaction</span>. Larger invoices → International.</p>
                   )}
                 </div>
               )}
@@ -333,7 +387,7 @@ export default function CreateProjectPage() {
               {error && <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-xs text-red-200"><AlertTriangle size={14} className="mt-0.5 shrink-0" />{error}</div>}
               <div className="mt-8 flex justify-between gap-3">
                 <button onClick={() => setStep('billing')} className="rounded-full border border-white/10 px-6 py-3 text-sm font-bold text-[#c1cbc7]">Back</button>
-                <button disabled={submitting || created || typeBlocked} onClick={handleSubmit} className="inline-flex min-h-[48px] items-center gap-2 rounded-full bg-[#d8b45a] px-7 py-3 font-bold text-[#10221f] disabled:opacity-40">{submitting ? 'Saving…' : 'Submit Project'}</button>
+                <button disabled={submitting || created || typeBlocked} onClick={handleSubmit} className="inline-flex min-h-[48px] items-center gap-2 rounded-full bg-[#d8b45a] px-7 py-3 font-bold text-[#10221f] disabled:opacity-40">{submitting ? 'Saving…' : paymentMethod === 'INVOICE_SEND' ? 'Create project & invoice' : 'Submit Project'}</button>
               </div>
             </motion.section>
           </div>
@@ -372,15 +426,11 @@ export default function CreateProjectPage() {
                 </div>
               )}
 
-              {created && !pendingProjectId && invoiceId && invoiceUrl && (
+              {created && invoiceId && invoiceUrl && (
                 <div className="mt-6 rounded-2xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] p-5">
-                  <p className="text-center font-display text-lg font-extrabold">Invoice Ready to Send</p>
-                  <p className="mt-1.5 text-center text-xs text-[#9aaba6]">Share this link with your client. They pay on a separate page ({invoicePayRail === 'local' ? 'Local · max $300' : 'International'}).</p>
-                  <div className="mt-4 flex items-center gap-2 rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3">
-                    <p className="min-w-0 flex-1 truncate text-xs font-mono text-[#e7edea]">{invoiceUrl}</p>
-                    <button onClick={() => { navigator.clipboard.writeText(invoiceUrl).then(() => { setInvoiceCopied(true); setTimeout(() => setInvoiceCopied(false), 2000) }).catch(() => {}) }} className="shrink-0 rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] px-3.5 py-1.5 text-[11px] font-bold text-[#f0d98b]">{invoiceCopied ? 'Copied!' : 'Copy'}</button>
-                  </div>
-                  <Link href="/dashboard" className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#d8b45a] px-6 py-3 font-bold text-[#10221f]">Go to Dashboard</Link>
+                  <p className="text-center font-display text-lg font-extrabold">Invoice Ready</p>
+                  <p className="mt-1.5 text-center text-xs text-[#9aaba6]">Copy the link above and send it to your client.</p>
+                  <a href={invoiceUrl} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#d8b45a] px-6 py-3 font-bold text-[#10221f]">Open invoice page</a>
                 </div>
               )}
 
