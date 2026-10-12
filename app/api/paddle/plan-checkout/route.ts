@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { adminClient, sessionClient } from '@/lib/adminCore'
 import { planById, type PlanId } from '@/lib/planConfig'
+import { paddleApiBase } from '@/lib/paddle'
 
 export const runtime = 'nodejs'
 
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
     if (!membership) return NextResponse.json({ error: 'BILLING_OWNER_REQUIRED' }, { status: 403 })
   }
 
-  const transactionResponse = await fetch('https://api.paddle.com/transactions', {
+  const transactionResponse = await fetch(`${paddleApiBase()}/transactions`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
   const transactionPayload = await transactionResponse.json().catch(() => ({}))
   if (!transactionResponse.ok) {
     console.error('[paddle] plan transaction creation failed', transactionPayload)
-    return NextResponse.json({ error: 'PADDLE_TRANSACTION_FAILED' }, { status: 502 })
+    return NextResponse.json({ error: 'PADDLE_TRANSACTION_FAILED', detail: transactionPayload }, { status: 502 })
   }
 
   const transaction = transactionPayload.data
