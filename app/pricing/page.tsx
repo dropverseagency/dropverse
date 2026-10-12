@@ -16,36 +16,36 @@ function planHref(signedIn: boolean, planId: string): string {
 }
 
 const ALL_FEATURES = [
-  'Access DropVerse services',
-  'Browse work samples',
-  'Access freelancer marketplace',
-  'Personal projects',
-  'Client management',
-  'Referral program',
-  'Personal dashboard',
-  'Agency workspace',
-  'Team members',
-  'Team management',
-  'Shared clients',
-  'Shared projects',
-  'Team performance dashboard',
-  'Agency referral tracking',
-  'Shared work samples',
-  'Basic analytics',
-  'Advanced team permissions',
-  'Advanced analytics',
-  'Sales performance tracking',
-  'Project assignment',
-  'Team revenue analytics',
-  'Priority support',
-  'Advanced referral analytics',
-  'Custom team limits',
-  'Multiple workspaces',
-  'Dedicated support',
-  'Custom onboarding',
-  'Custom integrations',
-  'White-label infrastructure',
-  'Custom billing',
+  'B2B workspace license',
+  'Digital asset library access',
+  'Asset management tools',
+  'Project workspace',
+  'Client operations templates',
+  'Partner referral tools',
+  'Workspace dashboard',
+  'Multi-user workspace license',
+  'Licensed team members',
+  'Team access management',
+  'Shared client records',
+  'Collaborative project boards',
+  'Team performance analytics',
+  'Partner referral tracking',
+  'Shared digital asset library',
+  'Basic workspace analytics',
+  'Advanced workspace permissions',
+  'Advanced workspace analytics',
+  'Workflow performance tracking',
+  'Project assignment tools',
+  'Operational performance analytics',
+  'Priority workspace support',
+  'Advanced partner analytics',
+  'Custom license limits',
+  'Multiple workspace environments',
+  'Dedicated software support',
+  'Workspace onboarding',
+  'API & integration access',
+  'Enterprise workspace infrastructure',
+  'Custom software billing',
 ]
 
 function featureIn(planId: string, feature: string): boolean {
@@ -245,11 +245,11 @@ export default function PricingPage() {
               <Image src="/dropverse-logo.jpeg" alt="DropVerse" width={42} height={42} className="rounded-xl object-cover" />
               <div className="font-display text-xl font-extrabold tracking-[.16em]">DROP<span className="text-[#d8b45a]">VERSE</span></div>
             </div>
-            <p className="mt-2 text-xs uppercase tracking-[.2em] text-[#6f827c]">Linking talent to sales</p>
+            <p className="mt-2 text-xs uppercase tracking-[.2em] text-[#6f827c]">B2B SaaS workflow management</p>
             <a href="mailto:dropverseagency@gmail.com" className="mt-2 block text-sm font-semibold text-[#d8b45a] hover:text-[#f0d98b]">dropverseagency@gmail.com</a>
           </div>
           <div className="flex flex-wrap gap-6 text-sm text-[#80938d]">
-            <a href="/#services">Services</a>
+            <a href="/#services">Platform Tools</a>
             <Link href="/earn">Earn</Link>
             <Link href="/pricing">Pricing</Link>
             <a href="mailto:dropverseagency@gmail.com">Contact</a><Link href="/terms">Terms of Service</Link><Link href="/privacy">Privacy Policy</Link><Link href="/refund">Refund Policy</Link>

@@ -1,6 +1,6 @@
 # DropVerse
 
-Drop-servicing platform. Next.js 15 App Router, React 19, Tailwind CSS 3, Supabase, deployed on Vercel.
+B2B SaaS project and workspace management platform. Next.js 15 App Router, React 19, Tailwind CSS 3, Supabase, deployed on Vercel.
 
 Live site: https://dropverse-nu.vercel.app
 

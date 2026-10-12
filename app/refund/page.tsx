@@ -14,12 +14,12 @@ export default function RefundPage() {
         <h1 className="font-display mt-6 text-4xl font-extrabold text-white">Refund Policy</h1>
         <p className="mt-3 text-sm text-[#849792]">Last updated 12 October 2026. Contact dropverseagency@gmail.com.</p>
         <div className="mt-8 space-y-6 text-sm leading-7 text-[#c5d2cc]">
-          <p>DropVerse connects customers and sellers with digital drop-servicing workflows. This policy explains when a payment may be cancelled, refunded, or revised. It applies to DropVerse platform plans and client orders processed through a DropVerse checkout.</p>
+          <p>DropVerse provides B2B workspace software for digital teams managing projects and client operations. This policy explains when a payment may be cancelled, refunded, or revised. It applies to DropVerse platform plans and software plans and platform transactions processed through a DropVerse checkout.</p>
           <h2 className="font-display text-xl font-bold text-white">Platform plan cancellations</h2>
           <p>You may cancel a recurring DropVerse plan at any time through the Paddle customer portal or by contacting us. Cancellation stops future renewals; access normally remains available through the paid billing period. A renewal that has already been processed is not automatically reversed, but we will review exceptional cases in good faith.</p>
           <h2 className="font-display text-xl font-bold text-white">14-day satisfaction review</h2>
           <p>For a first-time paid DropVerse platform plan, contact us within 14 calendar days of the initial charge if the service is materially different from the plan description. We may issue a full or partial refund after reviewing account use, deliverables, and any applicable Paddle transaction fees. This review is not a guarantee of a refund for completed or heavily used services.</p>
-          <h2 className="font-display text-xl font-bold text-white">Digital service orders</h2>
+          <h2 className="font-display text-xl font-bold text-white">Digital workflow purchases</h2>
           <p>Client orders are digital deliverables. If a deliverable is incomplete, materially inconsistent with the agreed brief, or technically unusable, notify the seller within 7 days of delivery with specific details. The seller may provide a reasonable revision first. If the issue cannot be corrected within the agreed scope, DropVerse may approve a partial or full refund.</p>
           <h2 className="font-display text-xl font-bold text-white">Non-refundable situations</h2>
           <p>Refunds generally do not apply to approved work that matches the brief, changes of mind after work has started, delays caused by missing client materials or feedback, third-party advertising spend, or work delivered outside the DropVerse checkout. Fraudulent, abusive, duplicate, or chargeback-related activity may suspend an account while it is reviewed.</p>

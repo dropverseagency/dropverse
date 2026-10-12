@@ -429,7 +429,7 @@ export default function Dashboard() {
               </div>
               <p className="mt-4 max-w-xl text-sm leading-6 text-[#8fa29c]">
                 Welcome{profile?.full_name ? `, ${profile.full_name}` : ''}. Here is your DropVerse
-                sales and earnings overview. Sell services, grow your referral network and track
+                workspace activity and earnings overview. Manage projects, grow your referral network and track
                 your payouts.
               </p>
               <MyCharts />
@@ -699,7 +699,7 @@ export default function Dashboard() {
                 </p>
                 <div className="mt-5 space-y-3">
                   <Action title="Explore services" text="Find services you can package and sell." href="/#services" />
-                  <Action title="Browse work samples" text="Discover examples from professional talent." href="/#samples" />
+                  <Action title="Browse digital assets" text="Discover reusable assets and workflow examples." href="/#samples" />
                   <Action title="Earn With DropVerse" text="Turn your network and sales into another revenue stream." href="/earn" />
                 </div>
               </div>

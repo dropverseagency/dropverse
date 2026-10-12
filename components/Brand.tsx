@@ -8,7 +8,7 @@ export default function Brand({ compact = false }: { compact?: boolean }) {
     <Link href="/" className="inline-flex items-center gap-3" aria-label="DropVerse home">
       <Image
         src="/dropverse-logo.jpeg"
-        alt="DropVerse — Linking Talent to Sales"
+        alt="DropVerse — B2B Project & Workspace Management"
         width={compact ? 42 : 52}
         height={compact ? 42 : 52}
         className="rounded-xl object-cover"

@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Terms of Service | DropVerse',
-  description: 'Terms for using the DropVerse drop-servicing platform, plans, services, and client orders.',
+  description: 'Terms for using the DropVerse B2B SaaS workspace platform, plans, software features, and project workflows.',
 }
 
 export default function TermsPage() {
@@ -14,12 +14,12 @@ export default function TermsPage() {
         <h1 className="font-display mt-6 text-4xl font-extrabold text-white">Terms of Service</h1>
         <p className="mt-3 text-sm text-[#849792]">Last updated 12 October 2026. Contact dropverseagency@gmail.com.</p>
         <div className="mt-8 space-y-6 text-sm leading-7 text-[#c5d2cc]">
-          <p>These Terms of Service govern your use of DropVerse, a platform that helps users discover digital services, organize drop-servicing work, connect with talent, manage client orders, and participate in referrals. By creating an account or using a paid feature, you agree to these terms.</p>
+          <p>These Terms of Service govern your use of DropVerse, a B2B SaaS workspace that helps digital teams organize projects, client operations, reusable assets, software workflows, and team collaboration. By creating an account or using a paid feature, you agree to these terms.</p>
           <h2 className="font-display text-xl font-bold text-white">Eligibility and accounts</h2>
           <p>You must provide accurate information, use an email address you control, and keep your credentials secure. You are responsible for activity under your account. One person may not create duplicate accounts to bypass limits, referral rules, or payment decisions. We may suspend or close accounts used for fraud, spam, impersonation, unlawful activity, abuse of payment systems, or interference with the platform.</p>
-          <h2 className="font-display text-xl font-bold text-white">Drop-servicing platform</h2>
-          <p>DropVerse provides tools and marketplace-style information. A work sample or service format is not a promise that a sale, freelancer, delivery date, or business result will occur. When you sell to your own client, you are responsible for the offer, client communications, permissions, deadlines, taxes, and final approval of the deliverable.</p>
-          <h2 className="font-display text-xl font-bold text-white">Client orders and deliverables</h2>
+          <h2 className="font-display text-xl font-bold text-white">B2B SaaS workspace</h2>
+          <p>DropVerse provides tools and marketplace-style information. A work sample or service format is not a promise that a sale, freelancer, delivery date, or business result will occur. When you use the workspace for client operations, you remain responsible for your communications, permissions, deadlines, taxes, and final approval of your work.</p>
+          <h2 className="font-display text-xl font-bold text-white">Projects and digital workflows</h2>
           <p>Before ordering, review the service description, scope, price, delivery estimate, and required client materials. Digital deliverables may require revisions within the agreed scope. You must not use a deliverable to infringe copyright, privacy, publicity, trademark, confidentiality, or other rights. Details of cancellations and refunds are described in our <Link href="/refund" className="text-[#e4c979] underline underline-offset-4">Refund Policy</Link>.</p>
           <h2 className="font-display text-xl font-bold text-white">Plans and payment</h2>
           <p>Starter is free. Paid plan names, features, and prices are shown on <Link href="/pricing" className="text-[#e4c979] underline underline-offset-4">Pricing</Link>. Paid subscriptions renew according to the checkout terms until cancelled. Paddle may process payments, taxes, receipts, renewals, and refunds as our authorized payment provider. We do not store full card numbers. Access to paid features may be limited or suspended after failed payment.</p>

@@ -148,7 +148,7 @@ function LoginPageInner() {
         <div className="card mt-8 rounded-3xl p-7 sm:p-8">
           <p className="text-sm text-[#d8b45a]">{mode === 'login' ? 'Welcome back' : 'Start your journey'}</p>
           <h1 className="font-display mt-2 text-3xl font-extrabold">{mode === 'login' ? 'Sign in to DropVerse' : 'Create your account'}</h1>
-          <p className="mt-3 text-sm leading-6 text-[#8fa29c]">Access services, work samples and the tools you need to build your Drop Servicing business.</p>
+          <p className="mt-3 text-sm leading-6 text-[#8fa29c]">Access workflow tools, client management templates, and collaborative workspaces for digital teams.</p>
 
           {GOOGLE_SIGN_IN_ENABLED ? (
             <>

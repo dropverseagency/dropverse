@@ -5,20 +5,20 @@ import VisitBeacon from '../components/VisitBeacon'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://dropverse.js.org'),
-  title: { default: 'DropVerse — Linking Talent to Sales', template: '%s | DropVerse' },
-  description: 'Access professional service samples, discover talented freelancers, and build your Drop Servicing business with DropVerse.',
-  keywords: ['drop servicing', 'freelancers', 'video editing', 'graphic design', 'web design', 'UGC content', 'copywriting'],
+  title: { default: 'DropVerse — B2B Project & Workspace Management', template: '%s | DropVerse' },
+  description: 'Access automated digital workflow tools, client management templates, and collaborative workspaces.',
+  keywords: ['B2B SaaS', 'workspace management', 'project management', 'workflow automation', 'team collaboration', 'client operations', 'digital asset management'],
   authors: [{ name: 'DropVerse' }],
   icons: { icon: '/dropverse-logo.jpeg', apple: '/dropverse-logo.jpeg' },
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    title: 'DropVerse — Linking Talent to Sales',
-    description: 'Access professional service samples, discover talented freelancers, and build your Drop Servicing business with DropVerse.',
+    title: 'DropVerse — B2B Project & Workspace Management',
+    description: 'Access automated digital workflow tools, client management templates, and collaborative workspaces.',
     siteName: 'DropVerse',
     images: [{ url: '/dropverse-logo.jpeg', width: 500, height: 500, alt: 'DropVerse logo' }],
   },
-  twitter: { card: 'summary_large_image', title: 'DropVerse — Linking Talent to Sales', description: 'Access professional service samples, discover talented freelancers, and build your Drop Servicing business.' },
+  twitter: { card: 'summary_large_image', title: 'DropVerse — B2B Project & Workspace Management', description: 'Access automated digital workflow tools, client management templates, and collaborative workspaces.' },
   robots: { index: true, follow: true },
   other: { 'spaceremit-verification': 'JKERE77DSSYUMQPYU3FC9789U9H87T5DG5UUHBAPMBI574V800' },
 }

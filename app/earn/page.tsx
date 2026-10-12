@@ -209,7 +209,7 @@ function copyLink() {
               Build Active Income.<br/>Build Passive Income.<br/><span className="gold-gradient">Or Build Both.</span>
             </h1>
             <p className="mt-7 max-w-xl text-lg leading-8 text-[#aebcb7]">
-              Sell digital services to clients, refer entrepreneurs to DropVerse, or combine both models into one scalable business.
+              Manage digital projects, refer teams to DropVerse, or combine both models in one scalable workspace operation.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
               <Link href={ctaFor(signedIn, '/login')} className="group flex items-center gap-3 rounded-full bg-[#d8b45a] px-6 py-3.5 font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
@@ -283,7 +283,7 @@ function copyLink() {
               </div>
               <h3 className="font-display mt-6 text-3xl font-extrabold">Sell. Deliver. Earn.</h3>
               <p className="mt-4 leading-7 text-[#8f9f9a]">
-                You find clients and sell services available through DropVerse. You control the sales process while DropVerse gives you access to professional talent and services to help fulfill the work.
+                You manage client operations through DropVerse. You control your delivery process while the platform provides structured workspaces, reusable templates, and collaboration tools.
               </p>
               <div className="mt-6 overflow-hidden rounded-2xl border border-white/5 bg-white/[.025]">
                 {['Find a Client','Choose a Service','Close the Deal','DropVerse Talent Fulfills','You Earn'].map((s, i) => (
@@ -310,7 +310,7 @@ function copyLink() {
               </div>
               <h3 className="font-display mt-6 text-3xl font-extrabold">Refer. Grow. Earn.</h3>
               <p className="mt-4 leading-7 text-[#8f9f9a]">
-                Share your personal DropVerse referral link with entrepreneurs who want to build their own Drop Servicing business. When referred users generate eligible activity and projects, you can earn referral commissions according to the DropVerse Partner Program.
+                Share your personal DropVerse referral link with digital teams that need structured B2B workflow software. When referred users generate eligible activity and projects, you can earn referral commissions according to the DropVerse Partner Program.
               </p>
               <div className="mt-6 overflow-hidden rounded-2xl border border-white/5 bg-white/[.025]">
                 {['Share Your Link','Someone Joins','They Build Their Business','They Generate Projects','You Earn Eligible Commissions'].map((s, i) => (
@@ -357,7 +357,7 @@ function copyLink() {
             = Multiple Revenue Streams
           </div>
           <p className="mx-auto mt-10 max-w-2xl text-[#8f9f9a]">
-            You can actively sell services to your own clients while building a referral network in parallel.
+            You can actively manage client projects while building a referral network in parallel.
           </p>
           <div className="mx-auto mt-8 max-w-2xl rounded-3xl border border-white/5 bg-white/[.025] p-7 text-left">
             <div className="text-xs font-bold uppercase tracking-[.16em] text-[#d8b45a]">How it looks in practice</div>
@@ -387,7 +387,7 @@ function copyLink() {
             {[
               {
                 tag: 'Option 1', title: 'Active Only', sub: 'For people who want to focus on selling.',
-                items: ['Find clients','Sell services','Use DropVerse talent','Earn from your projects'],
+                items: ['Organize clients','Manage projects','Use workspace tools','Track delivery activity'],
                 cta: signedIn ? 'Create Project' : 'Start Selling', href: ctaFor(signedIn, '/login'), featured: false,
               },
               {
@@ -528,7 +528,7 @@ function copyLink() {
             <p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">Client referrals</p>
             <h2 className="font-display mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">Don&apos;t Have Entrepreneurs To Refer? <span className="gold-gradient">No problem.</span></h2>
             <p className="mt-6 leading-7 text-[#8f9f9a]">
-              You can also refer clients. Users can potentially refer clients who need digital services to DropVerse — DropVerse handles fulfillment and you may receive eligible referral compensation.
+              You can also refer digital teams that need project and workspace software. Eligible referrals may receive compensation under the Partner Program.
             </p>
             <div className="mt-6 overflow-hidden rounded-2xl border border-white/5 bg-white/[.025]">
               {['You Find a Client','Client Needs a Service','You Refer the Opportunity','DropVerse Handles Fulfillment','You Receive Eligible Referral Compensation'].map((s, i, arr) => (
@@ -547,7 +547,7 @@ function copyLink() {
             </div>
             <div className="card rounded-3xl border border-white/5 bg-[#071f1d] p-7">
               <div className="flex items-center gap-3"><Link2 size={19} className="text-[#d8b45a]"/><span className="font-display text-sm font-bold uppercase tracking-[.14em] text-[#e4c979]">Client Referrals</span></div>
-              <p className="mt-4 text-sm leading-7 text-[#93a5a0]">Refer clients who need digital services. Compensation comes from completed client projects under a separate client referral structure.</p>
+              <p className="mt-4 text-sm leading-7 text-[#93a5a0]">Refer digital teams that need workflow software. Compensation is performance-based under a separate referral structure.</p>
             </div>
             <p className="text-sm text-[#7d908a]">The two structures are configured independently, so they will never be mixed.</p>
           </div>
@@ -678,7 +678,7 @@ function copyLink() {
               ['Sales People','Use your ability to find clients and opportunities.'],
               ['Marketers','Build referral traffic and monetize your audience.'],
               ['Content Creators','Share DropVerse with your audience.'],
-              ['Entrepreneurs','Build your own Drop Servicing business while referring others.'],
+              ['Digital teams','Manage your own workspace while referring other teams.'],
               ['Agency Owners','Add DropVerse services and referral revenue to your ecosystem.'],
             ].map(([t, d]) => (
               <div key={t} className="card rounded-2xl border border-white/5 bg-white/[.025] p-6 transition duration-300 hover:-translate-y-1 hover:border-[rgba(216,180,90,0.40)]">
@@ -725,7 +725,7 @@ function copyLink() {
         </div>
       </section>
 
-      <footer className="py-12"><div className="container flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between"><div><div className="inline-flex items-center gap-3"><Image src="/dropverse-logo.jpeg" alt="DropVerse" width={42} height={42} className="rounded-xl object-cover"/><div className="font-display text-xl font-extrabold tracking-[.16em]">DROP<span className="text-[#d8b45a]">VERSE</span></div></div><p className="mt-2 text-xs uppercase tracking-[.2em] text-[#6f827c]">Linking talent to sales</p><a href="mailto:dropverseagency@gmail.com" className="mt-2 block text-sm font-semibold text-[#d8b45a] hover:text-[#f0d98b]">dropverseagency@gmail.com</a></div><div className="flex flex-wrap gap-6 text-sm text-[#80938d]"><Link href="/">Home</Link><Link href="/#services">Services</Link><Link href={signedIn ? "/dashboard" : "/login"}>Login</Link><a href="mailto:dropverseagency@gmail.com">Contact</a><Link href="/pricing">Pricing</Link><Link href="/terms">Terms of Service</Link><Link href="/privacy">Privacy Policy</Link><Link href="/refund">Refund Policy</Link></div><p className="text-xs text-[#5f726c]">© 2026 DropVerse. All rights reserved.</p></div></footer>
+      <footer className="py-12"><div className="container flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between"><div><div className="inline-flex items-center gap-3"><Image src="/dropverse-logo.jpeg" alt="DropVerse" width={42} height={42} className="rounded-xl object-cover"/><div className="font-display text-xl font-extrabold tracking-[.16em]">DROP<span className="text-[#d8b45a]">VERSE</span></div></div><p className="mt-2 text-xs uppercase tracking-[.2em] text-[#6f827c]">B2B SaaS workflow management</p><a href="mailto:dropverseagency@gmail.com" className="mt-2 block text-sm font-semibold text-[#d8b45a] hover:text-[#f0d98b]">dropverseagency@gmail.com</a></div><div className="flex flex-wrap gap-6 text-sm text-[#80938d]"><Link href="/">Home</Link><Link href="/#services">Services</Link><Link href={signedIn ? "/dashboard" : "/login"}>Login</Link><a href="mailto:dropverseagency@gmail.com">Contact</a><Link href="/pricing">Pricing</Link><Link href="/terms">Terms of Service</Link><Link href="/privacy">Privacy Policy</Link><Link href="/refund">Refund Policy</Link></div><p className="text-xs text-[#5f726c]">© 2026 DropVerse. All rights reserved.</p></div></footer>
     </main>
   )
 }
@@ -733,7 +733,7 @@ function copyLink() {
 const FAQS = [
   {
     q: 'What is the DropVerse Partner Program?',
-    a: 'It is the official way to earn on DropVerse beyond your own sales. You can earn by actively selling digital services to clients, by referring entrepreneurs to the platform, or by combining both. Commissions are performance-based and tied to real platform activity under the program terms.',
+    a: 'It is the official way to earn on DropVerse beyond your own workspace. You can earn by managing eligible platform activity, referring digital teams, or combining both. Commissions are performance-based and tied to real platform activity under the program terms.',
   },
   {
     q: 'How does the referral link work?',
@@ -757,11 +757,11 @@ const FAQS = [
   },
   {
     q: 'Can I earn from referring clients?',
-    a: 'Yes. You can potentially refer clients who need digital services to DropVerse, and you may receive eligible referral compensation for completed client projects. Client referrals use a separate structure from user referrals.',
+    a: 'Yes. You can potentially refer digital teams that need workflow software to DropVerse and may receive eligible referral compensation. Team referrals use a separate structure from user referrals.',
   },
   {
     q: 'Can I do active and referral income at the same time?',
-    a: 'Absolutely. The hybrid path is designed exactly for that — sell services to your own clients while building a referral network in parallel.',
+    a: 'Absolutely. The hybrid path is designed exactly for that — manage client workflows while building a referral network in parallel.',
   },
   {
     q: 'Is passive income guaranteed?',
