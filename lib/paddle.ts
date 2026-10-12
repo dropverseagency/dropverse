@@ -14,35 +14,30 @@ export function paddleClientTokenConfigured() {
 }
 
 /**
- * Return URL passed to Paddle as checkout.url.
- * Must be a domain already approved in Paddle Checkout settings.
- * Prefer NEXT_PUBLIC_PADDLE_CHECKOUT_URL, then the production site, never a preview alias.
+ * Optional checkout.url for Paddle transactions.
+ * By default we OMIT it so Paddle uses the account "Default payment link".
+ * Only set NEXT_PUBLIC_PADDLE_CHECKOUT_URL if that domain is already approved in Paddle.
+ * Example: NEXT_PUBLIC_PADDLE_CHECKOUT_URL=https://dropverse-nu.vercel.app/dashboard
  */
-export function paddleApprovedCheckoutUrl(path = '/dashboard') {
-  const configured =
-    process.env.NEXT_PUBLIC_PADDLE_CHECKOUT_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    'https://dropverse.js.org'
-
-  let origin = configured.trim()
-  if (!origin.startsWith('http')) origin = `https://${origin}`
-  // Never send Vercel preview / random deployment hosts to Paddle.
+export function paddleCheckoutPayload(): { url: string } | undefined {
+  const configured = (process.env.NEXT_PUBLIC_PADDLE_CHECKOUT_URL || '').trim()
+  if (!configured) return undefined
+  let url = configured
+  if (!url.startsWith('http')) url = `https://${url}`
   try {
-    const u = new URL(origin)
-    const host = u.hostname.toLowerCase()
-    const blocked =
-      host.endsWith('.vercel.app') &&
-      host !== 'dropverse-nu.vercel.app' &&
-      host !== 'dropverse10v.vercel.app'
-    if (blocked || host.includes('localhost')) {
-      origin = 'https://dropverse.js.org'
-    }
+    // eslint-disable-next-line no-new
+    new URL(url)
   } catch {
-    origin = 'https://dropverse.js.org'
+    return undefined
   }
+  return { url }
+}
 
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`
-  return `${origin.replace(/\/$/, '')}${normalizedPath}`
+/** @deprecated use paddleCheckoutPayload — kept for any remaining callers */
+export function paddleApprovedCheckoutUrl(path = '/dashboard') {
+  const payload = paddleCheckoutPayload()
+  if (payload) return payload.url
+  return `https://dropverse-nu.vercel.app${path.startsWith('/') ? path : `/${path}`}`
 }
 
 let paddlePromise: Promise<Paddle | undefined> | null = null
