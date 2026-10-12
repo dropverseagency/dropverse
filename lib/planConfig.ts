@@ -25,7 +25,7 @@ export interface PlanConfig {
 export const PLAN_CONFIG: PlanConfig[] = [
   {
     id: 'SOLO',
-    displayName: 'Solo',
+    displayName: 'Starter',
     price: 0,
     currency: 'USD',
     maxMembers: 1,
@@ -49,7 +49,7 @@ export const PLAN_CONFIG: PlanConfig[] = [
     currency: 'USD',
     maxMembers: 5,
     features: [
-      'Everything in Solo',
+      'Everything in Starter',
       'Agency workspace',
       'Up to 5 team members',
       'Team management',
@@ -66,7 +66,7 @@ export const PLAN_CONFIG: PlanConfig[] = [
   },
   {
     id: 'AGENCY_PRO',
-    displayName: 'Agency Pro',
+    displayName: 'Pro',
     price: 149,
     currency: 'USD',
     maxMembers: 20,
@@ -93,7 +93,7 @@ export const PLAN_CONFIG: PlanConfig[] = [
     currency: 'USD',
     maxMembers: null,
     features: [
-      'Everything in Agency Pro',
+      'Everything in Pro',
       'Custom team limits',
       'Multiple workspaces',
       'Advanced permissions',

@@ -53,11 +53,11 @@ function featureIn(planId: string, feature: string): boolean {
   if (!p) return false
   const list = p.features
   // "Everything in X" plans inherit all previous-plan features
-  if (planId === 'AGENCY' && list.some((f) => f.startsWith('Everything in Solo')))
+  if (planId === 'AGENCY' && list.some((f) => f.startsWith('Everything in Starter')))
     return ALL_FEATURES.filter((f) => PLAN_CONFIG[0].features.includes(f)).includes(feature)
   if (planId === 'AGENCY_PRO' && list.some((f) => f.startsWith('Everything in Agency')))
     return ALL_FEATURES.filter((f) => PLAN_CONFIG[1].features.includes(f)).includes(feature)
-  if (planId === 'ENTERPRISE' && list.some((f) => f.startsWith('Everything in Agency Pro')))
+  if (planId === 'ENTERPRISE' && list.some((f) => f.startsWith('Everything in Pro')))
     return ALL_FEATURES.filter((f) => PLAN_CONFIG[2].features.includes(f)).includes(feature)
   return list.includes(feature)
 }
@@ -252,7 +252,7 @@ export default function PricingPage() {
             <a href="/#services">Services</a>
             <Link href="/earn">Earn</Link>
             <Link href="/pricing">Pricing</Link>
-            <a href="mailto:dropverseagency@gmail.com">Contact</a>
+            <a href="mailto:dropverseagency@gmail.com">Contact</a><Link href="/terms">Terms of Service</Link><Link href="/privacy">Privacy Policy</Link><Link href="/refund">Refund Policy</Link>
           </div>
           <p className="text-xs text-[#5f726c]">© 2026 DropVerse. All rights reserved.</p>
         </div>
