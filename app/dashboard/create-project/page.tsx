@@ -4,15 +4,15 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
-  ArrowRight, Rocket, Check, Info, ShieldCheck, CreditCard,
-  HandCoins, AlertTriangle, Wallet, FileText, Copy, ExternalLink,
+  ArrowRight, Rocket, Check, ShieldCheck, CreditCard,
+  HandCoins, AlertTriangle, Wallet, FileText,
 } from 'lucide-react'
 import { createClient } from '../../../lib/supabase'
 import { useAuth } from '../../../lib/useAuth'
 import {
   PROJECT_TYPES, PAYMENT_METHODS, moneyLabels, paymentRequiredNow,
-  firstBillingPeriodLabel, formatUsd, computeSellerProfit, FULFILLMENT_RATES,
-  type ProjectDraft, type ProjectType, type PaymentMethod,
+  formatUsd, computeSellerProfit, FULFILLMENT_RATES,
+  type ProjectType, type PaymentMethod,
 } from '../../../lib/projectConfig'
 import { createProjectServer } from '../../../lib/createProject'
 import SpaceRemitPayForm from '../../../components/SpaceRemitPayForm'
@@ -70,8 +70,6 @@ export default function CreateProjectPage() {
   const cp = Number(clientPrice) || 0
   const fc = useMemo(() => Math.round(cp * (FULFILLMENT_RATES[projectType] ?? 0) * 100) / 100, [cp, projectType])
   const profit = useMemo(() => computeSellerProfit(cp, fc), [cp, fc])
-  const dueNow = useMemo(() => paymentRequiredNow({ projectType, clientPrice: cp, fulfillmentCost: fc, paymentMethod, title: title, description: '', deliveryNotes: '', clientContactEmail: '' }), [projectType, cp, fc, paymentMethod])
-  const isRecurring = projectType === 'MONTHLY' || projectType === 'ANNUAL' || projectType === 'CUSTOM_RECURRING'
   const typeBlocked = projectType === 'CUSTOM_RECURRING'
   const basicsValid = title.trim().length >= 3 && description.trim().length >= 5
   const billingValid = cp > 0
@@ -113,7 +111,12 @@ export default function CreateProjectPage() {
     if (submitting || created || pendingProjectId) return
     setSubmitting(true)
     setError(null)
-    let res: Awaited<ReturnType<typeof createProjectServer>>
+    let res: {
+      error?: string
+      detail?: string
+      projectId?: string
+      success?: boolean
+    }
     try {
       res = await createProjectServer({
         title,
@@ -127,7 +130,7 @@ export default function CreateProjectPage() {
       })
     } catch (err) {
       console.error('createProjectServer threw:', err)
-      res = { error: 'DB_ERROR' }
+      res = { error: 'DB_ERROR', detail: 'unexpected_error' }
     }
     setSubmitting(false)
     if (res.error) {
@@ -138,11 +141,11 @@ export default function CreateProjectPage() {
         INVALID_COST: 'The DropVerse fulfillment cost must be greater than zero and less than the client price.',
         DB_ERROR: 'Something went wrong saving the project. Please try again.',
       }
-      const detail = 'detail' in res && res.detail ? ` (${res.detail})` : ''
+      const detail = res.detail ? ` (${res.detail})` : ''
       setError((messages[res.error] ?? 'Something went wrong. Please try again.') + (res.error === 'DB_ERROR' ? detail : ''))
       return
     }
-    const createdProjectId = 'projectId' in res && res.projectId ? String(res.projectId) : null
+    const createdProjectId = res.projectId ? String(res.projectId) : null
     if (paymentMethod === 'SPACEREMIT' || paymentMethod === 'PADDLE') {
       if (createdProjectId) {
         setPendingProjectId(createdProjectId)
