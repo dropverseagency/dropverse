@@ -9,8 +9,23 @@ import { createServiceClient } from '@/lib/supabaseService'
  * Service details + amount are resolved on the server; only the
  * payment form is a small client component.
  */
-export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function InvoicePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ method?: string }>
+}) {
   const { id } = await params
+  const sp = await searchParams
+  const methodRaw = String(sp?.method || '').toLowerCase()
+  const preferredMethod =
+    methodRaw === 'local' || methodRaw === 'spaceremit'
+      ? 'local' as const
+      : methodRaw === 'international' || methodRaw === 'paddle'
+        ? 'international' as const
+        : null
+
   const data = await loadInvoice(id)
   if (!data) notFound()
 
@@ -94,7 +109,12 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               <p className="mt-1.5 text-sm text-[#687d76]">Please contact the seller for an updated invoice.</p>
             </div>
           ) : (
-            <InvoicePayForm invoiceId={data.invoice.id} due={due} amount={data.invoice.amount} />
+            <InvoicePayForm
+              invoiceId={data.invoice.id}
+              due={due}
+              amount={data.invoice.amount}
+              preferredMethod={preferredMethod}
+            />
           )}
 
           <div className="mt-6 flex items-center justify-between rounded-xl border border-white/5 bg-white/[.02] px-4 py-3">
@@ -107,7 +127,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         </div>
 
         <p className="mt-6 text-center text-[11px] text-[#536963]">
-          Powered by <span className="text-[#687d76]">DropVerse</span> · Payments processed by SpaceRemit
+          Powered by <span className="text-[#687d76]">DropVerse</span> · Secure client checkout
         </p>
       </div>
     </div>
@@ -224,4 +244,3 @@ function CheckIcon() {
     </svg>
   )
 }
-
