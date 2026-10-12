@@ -101,14 +101,14 @@ export default function PaddlePlanCheckout({
 
   if (!canPurchase) {
     return (
-      <div className="mt-8">
+      <div className="mt-4 w-full">
         <button type="button" disabled className={className}>{label}</button>
       </div>
     )
   }
 
   return (
-    <div className="mt-8 space-y-3">
+    <div className="mt-4 w-full space-y-3">
       <PaymentMethodPicker value={rail} onChange={setRail} disabled={loading} />
 
       {rail === 'international' ? (
