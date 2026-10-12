@@ -1,17 +1,15 @@
 'use client'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useState } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { ArrowRight, Check, Star, Zap, Users, Target } from 'lucide-react'
 import { PLAN_CONFIG, membersLabelFor } from '../../lib/planConfig'
 import SiteHeader from '../../components/SiteHeader'
 import { useAuth } from '../../lib/useAuth'
-import PaddlePlanCheckout from '../../components/PaddlePlanCheckout'
 
 function planHref(signedIn: boolean, planId: string): string {
-  // Signed-in users choose a plan and go straight to the dashboard;
-  // guests are invited to sign in so their account lands on pricing (redirect).
+  // Signed-in users choose a plan and go to the dashboard payment step;
+  // guests sign in first, then land on the upgrade flow.
   return signedIn ? `/dashboard?plan=${encodeURIComponent(planId)}` : '/login'
 }
 
@@ -52,7 +50,6 @@ function featureIn(planId: string, feature: string): boolean {
   const p = PLAN_CONFIG.find((x) => x.id === planId)
   if (!p) return false
   const list = p.features
-  // "Everything in X" plans inherit all previous-plan features
   if (planId === 'AGENCY' && list.some((f) => f.startsWith('Everything in Starter')))
     return ALL_FEATURES.filter((f) => PLAN_CONFIG[0].features.includes(f)).includes(feature)
   if (planId === 'AGENCY_PRO' && list.some((f) => f.startsWith('Everything in Agency')))
@@ -80,11 +77,10 @@ export default function PricingPage() {
     <main className="overflow-hidden">
       <SiteHeader highlightEarn={false} />
 
-      {/* Hero */}
       <section className="grid-bg relative flex min-h-[55vh] items-center pt-20">
         <div className="absolute left-1/2 top-1/3 h-[380px] w-[380px] -translate-x-1/2 rounded-full bg-[rgba(216,180,90,0.05)] blur-[100px]" />
         <motion.div initial={reduceMotion ? false : { opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .72, ease: luxuryEase }} className="container relative py-24 text-center">
-          <p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">Plans &amp; Pricing</p>
+          <p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">Plans & Pricing</p>
           <h1 className="font-display mx-auto mt-5 max-w-3xl text-4xl font-extrabold tracking-tight sm:text-6xl">
             Choose the workspace that fits <span className="gold-gradient">your business.</span>
           </h1>
@@ -94,7 +90,6 @@ export default function PricingPage() {
         </motion.div>
       </section>
 
-      {/* Cards */}
       <section className="container pb-24">
         <motion.div initial="hidden" whileInView="show" viewport={{ once: true, amount: .12 }} variants={{ hidden: {}, show: { transition: { staggerChildren: .08 } } }} className="grid gap-6 lg:grid-cols-2 xl:grid-cols-4">
           {PLAN_CONFIG.map((plan) => (
@@ -133,16 +128,6 @@ export default function PricingPage() {
                 >
                   Contact Sales <ArrowRight size={16} />
                 </a>
-              ) : signedIn && plan.price > 0 ? (
-                <PaddlePlanCheckout
-                  planId={plan.id}
-                  label={`Choose ${plan.displayName}`}
-                  className={`flex w-full items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                    plan.highlight
-                      ? 'bg-[#d8b45a] text-[#10221f] hover:bg-[#f0d98b]'
-                      : 'border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] text-[#e4c979] hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.14)]'
-                  }`}
-                />
               ) : (
                 <Link
                   href={planHref(signedIn, plan.id)}
@@ -160,7 +145,6 @@ export default function PricingPage() {
         </motion.div>
       </section>
 
-      {/* Comparison table */}
       <section className="border-y border-[rgba(216,180,90,0.10)] bg-[#0a2926] py-20">
         <div className="container">
           <h2 className="font-display text-3xl font-extrabold sm:text-4xl">Compare everything.</h2>
@@ -194,7 +178,6 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* Built for teams that sell */}
       <section className="relative overflow-hidden py-24">
         <div className="absolute left-1/2 top-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[rgba(216,180,90,0.05)] blur-[100px]" />
         <div className="container relative text-center">
