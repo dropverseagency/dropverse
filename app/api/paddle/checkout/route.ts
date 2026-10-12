@@ -4,6 +4,15 @@ import { paddleApiBase } from '@/lib/paddle'
 
 export const runtime = 'nodejs'
 
+function paddleErrorMessage(payload: unknown): string {
+  const error = (payload as { error?: { code?: string; detail?: string } })?.error
+  if (!error) return 'PADDLE_TRANSACTION_FAILED'
+  if (error.code === 'transaction_default_checkout_url_not_set') {
+    return 'Paddle Sandbox needs a Default payment link. Open https://sandbox-vendors.paddle.com/checkout-settings and set it to https://dropverse-nu.vercel.app/pricing then retry.'
+  }
+  return error.detail || error.code || 'PADDLE_TRANSACTION_FAILED'
+}
+
 export async function POST(request: Request) {
   const apiKey = process.env.PADDLE_API_KEY
   if (!apiKey) return NextResponse.json({ error: 'PADDLE_NOT_CONFIGURED' }, { status: 503 })
@@ -46,6 +55,7 @@ export async function POST(request: Request) {
     },
     body: JSON.stringify({
       collection_mode: 'automatic',
+      checkout: { url: 'https://dropverse-nu.vercel.app/pricing' },
       items: [{
         quantity: 1,
         price: {
@@ -72,7 +82,11 @@ export async function POST(request: Request) {
   const transactionPayload = await transactionResponse.json().catch(() => ({}))
   if (!transactionResponse.ok) {
     console.error('[paddle] transaction creation failed', transactionPayload)
-    return NextResponse.json({ error: 'PADDLE_TRANSACTION_FAILED', detail: transactionPayload }, { status: 502 })
+    return NextResponse.json({
+      error: paddleErrorMessage(transactionPayload),
+      code: (transactionPayload as { error?: { code?: string } })?.error?.code ?? 'PADDLE_TRANSACTION_FAILED',
+      detail: transactionPayload,
+    }, { status: 502 })
   }
 
   const transaction = transactionPayload.data
