@@ -5,20 +5,24 @@ import VisitBeacon from '../components/VisitBeacon'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://dropverse.js.org'),
-  title: { default: 'DropVerse — B2B Project & Workspace Management', template: '%s | DropVerse' },
-  description: 'Access automated digital workflow tools, client management templates, and collaborative workspaces.',
-  keywords: ['B2B SaaS', 'workspace management', 'project management', 'workflow automation', 'team collaboration', 'client operations', 'digital asset management'],
+  title: { default: 'DropVerse — Project & Workspace Platform for Digital Teams', template: '%s | DropVerse' },
+  description: 'B2B SaaS workspace for digital teams — manage projects, clients, assets, and workflows in one place.',
+  keywords: ['B2B SaaS', 'workspace management', 'project management', 'workflow automation', 'team collaboration', 'client operations', 'digital asset management', 'DropVerse'],
   authors: [{ name: 'DropVerse' }],
   icons: { icon: '/dropverse-logo.jpeg', apple: '/dropverse-logo.jpeg' },
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    title: 'DropVerse — B2B Project & Workspace Management',
-    description: 'Access automated digital workflow tools, client management templates, and collaborative workspaces.',
+    title: 'DropVerse — Project & Workspace Platform for Digital Teams',
+    description: 'B2B SaaS workspace for digital teams — manage projects, clients, assets, and workflows in one place.',
     siteName: 'DropVerse',
     images: [{ url: '/dropverse-logo.jpeg', width: 500, height: 500, alt: 'DropVerse logo' }],
   },
-  twitter: { card: 'summary_large_image', title: 'DropVerse — B2B Project & Workspace Management', description: 'Access automated digital workflow tools, client management templates, and collaborative workspaces.' },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'DropVerse — Project & Workspace Platform for Digital Teams',
+    description: 'B2B SaaS workspace for digital teams — manage projects, clients, assets, and workflows in one place.',
+  },
   robots: { index: true, follow: true },
   other: { 'spaceremit-verification': 'JKERE77DSSYUMQPYU3FC9789U9H87T5DG5UUHBAPMBI574V800' },
 }
