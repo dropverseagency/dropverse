@@ -14,7 +14,6 @@ export default function CreateOrgPage() {
   const [type, setType] = useState<string>('')
   const [teamSize, setTeamSize] = useState<string>('')
   const [plan, setPlan] = useState<PlanId>('AGENCY')
-  // Plans whose capacity cannot hold the chosen team size are disabled.
   const compatiblePlans = PLAN_CONFIG.filter(
     (p) => p.maxMembers === null || p.maxMembers >= minTeamHeadcount(teamSize),
   )
@@ -24,7 +23,6 @@ export default function CreateOrgPage() {
   const [error, setError] = useState<string | null>(null)
   const [authed, setAuthed] = useState(false)
 
-  // Auto-select a compatible plan whenever the team size or current plan changes.
   useEffect(() => {
     if (!teamSize) return
     if (!compatiblePlans.some((p) => p.id === plan)) {
@@ -60,7 +58,6 @@ export default function CreateOrgPage() {
     } = await supabase.auth.getSession()
     let session = initialSession
     if (!session) {
-      // Try refreshing the session in case the access token merely expired.
       const { data: refreshed } = await supabase.auth.refreshSession()
       if (!refreshed?.session) {
         setError('Your session expired. Please sign in again.')
@@ -69,10 +66,6 @@ export default function CreateOrgPage() {
       }
       session = refreshed.session
     }
-    // Org + member + settings are created server-side (service role) to avoid
-    // PostgREST returning-select RLS denial: the SELECT policy only exposes
-    // rows the caller is already a member of, but at return time the member
-    // row hasn't been inserted yet.
     const res = await fetch('/api/organizations', {
       method: 'POST',
       headers: {
@@ -92,7 +85,7 @@ export default function CreateOrgPage() {
       return
     }
     setCreating(false)
-    router.push('/dashboard')
+    router.push(plan !== 'SOLO' && plan !== 'ENTERPRISE' ? `/dashboard/billing?plan=${plan}` : '/dashboard')
   }
 
   if (loading) {
@@ -122,7 +115,6 @@ export default function CreateOrgPage() {
           </div>
         </div>
 
-        {/* Stepper */}
         <div className="mt-8 flex items-center gap-1.5">
           {STEPS.map((s, i) => (
             <div key={s} className="flex items-center gap-1.5">
@@ -233,9 +225,6 @@ export default function CreateOrgPage() {
                   )
                 })}
               </div>
-              {!compatiblePlans.some((p) => p.id === plan) && compatiblePlans.length > 0 && (
-                <p className="mt-3 text-xs text-[#849792]">Auto-selected a plan that fits your team size.</p>
-              )}
             </div>
           )}
 
@@ -248,9 +237,9 @@ export default function CreateOrgPage() {
                 <div className="flex justify-between"><dt className="text-[#849792]">Team size</dt><dd className="font-semibold text-[#e8efe9]">{teamSize}</dd></div>
                 <div className="flex justify-between"><dt className="text-[#849792]">Plan</dt><dd className="font-semibold text-[#e4c979]">{chosenPlan.displayName}{chosenPlan.enterprise ? '' : ` — $${chosenPlan.price}/month`}</dd></div>
               </dl>
-              {plan !== 'SOLO' && (
+              {plan !== 'SOLO' && !chosenPlan.enterprise && (
                 <p className="mt-4 rounded-lg border border-[rgba(216,180,90,0.25)] bg-[rgba(216,180,90,0.06)] px-4 py-3 text-xs text-[#b9a76f]">
-                  Billing integration is coming soon — no payment is required right now.
+                  After creating the workspace you will choose International (Paddle) or Local (SpaceRemit) payment on the billing page.
                 </p>
               )}
             </div>
