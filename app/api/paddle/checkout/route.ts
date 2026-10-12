@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { adminClient, sessionClient } from '@/lib/adminCore'
-import { paddleApiBase } from '@/lib/paddle'
+import { paddleApiBase, paddleApprovedCheckoutUrl } from '@/lib/paddle'
 
 export const runtime = 'nodejs'
 
@@ -8,7 +8,10 @@ function paddleErrorMessage(payload: unknown): string {
   const error = (payload as { error?: { code?: string; detail?: string } })?.error
   if (!error) return 'PADDLE_TRANSACTION_FAILED'
   if (error.code === 'transaction_default_checkout_url_not_set') {
-    return 'Paddle Sandbox needs a Default payment link. Open https://sandbox-vendors.paddle.com/checkout-settings and set it to https://dropverse-nu.vercel.app/pricing then retry.'
+    return 'Paddle needs a Default payment link. Set it to https://dropverse.js.org/pricing in Checkout settings.'
+  }
+  if (error.code === 'transaction_checkout_url_domain_is_not_approved' || /domain that has been approved/i.test(error.detail || '')) {
+    return 'Paddle rejected the return URL domain. Approve dropverse.js.org under Paddle → Checkout → Website approval, then retry.'
   }
   return error.detail || error.code || 'PADDLE_TRANSACTION_FAILED'
 }
@@ -55,7 +58,7 @@ export async function POST(request: Request) {
     },
     body: JSON.stringify({
       collection_mode: 'automatic',
-      checkout: { url: 'https://dropverse-nu.vercel.app/pricing' },
+      checkout: { url: paddleApprovedCheckoutUrl('/pricing') },
       items: [{
         quantity: 1,
         price: {
