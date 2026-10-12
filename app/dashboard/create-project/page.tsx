@@ -138,31 +138,41 @@ export default function CreateProjectPage() {
         INVALID_COST: 'The DropVerse fulfillment cost must be greater than zero and less than the client price.',
         DB_ERROR: 'Something went wrong saving the project. Please try again.',
       }
-      setError(messages[res.error] ?? 'Something went wrong. Please try again.')
+      const detail = 'detail' in res && res.detail ? ` (${res.detail})` : ''
+      setError((messages[res.error] ?? 'Something went wrong. Please try again.') + (res.error === 'DB_ERROR' ? detail : ''))
       return
     }
+    const createdProjectId = 'projectId' in res && res.projectId ? String(res.projectId) : null
     if (paymentMethod === 'SPACEREMIT' || paymentMethod === 'PADDLE') {
+      if (createdProjectId) {
+        setPendingProjectId(createdProjectId)
+        return
+      }
       const supabase = createClient()
+      const methodFilter = paymentMethod === 'PADDLE' ? 'CLIENT_PAYS_DROPVERSE' : paymentMethod
       const { data: rows } = await supabase
         .from('projects')
         .select('id')
         .eq('user_id', auth.user?.id)
-        .eq('payment_method', paymentMethod)
+        .eq('payment_method', methodFilter)
         .order('created_at', { ascending: false })
         .limit(1)
       if (rows?.[0]?.id) setPendingProjectId(rows[0].id)
       return
     }
     if (paymentMethod === 'INVOICE_SEND') {
-      const supabase = createClient()
-      const { data: rows } = await supabase
-        .from('projects')
-        .select('id')
-        .eq('user_id', auth.user?.id)
-        .eq('payment_method', 'INVOICE_SEND')
-        .order('created_at', { ascending: false })
-        .limit(1)
-      const projectId = rows?.[0]?.id || null
+      let projectId = createdProjectId
+      if (!projectId) {
+        const supabase = createClient()
+        const { data: rows } = await supabase
+          .from('projects')
+          .select('id')
+          .eq('user_id', auth.user?.id)
+          .eq('payment_method', 'INVOICE_SEND')
+          .order('created_at', { ascending: false })
+          .limit(1)
+        projectId = rows?.[0]?.id || null
+      }
       if (!projectId) {
         setInvoiceError('Could not locate the created project. Please open the dashboard.')
         setCreated(true)
