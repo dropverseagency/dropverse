@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { adminClient, sessionClient } from '@/lib/adminCore'
-import { paddleApiBase } from '@/lib/paddle'
+import { paddleApiBase, paddleApprovedCheckoutUrl } from '@/lib/paddle'
 
 export const runtime = 'nodejs'
 
@@ -8,7 +8,10 @@ function paddleErrorMessage(payload: unknown): string {
   const error = (payload as { error?: { code?: string; detail?: string } })?.error
   if (!error) return 'PADDLE_TRANSACTION_FAILED'
   if (error.code === 'transaction_default_checkout_url_not_set') {
-    return 'Paddle needs a Default payment link in checkout settings. Set it to your production domain then retry.'
+    return 'Paddle needs a Default payment link. In Paddle → Checkout → Checkout settings, set Default payment link to https://dropverse.js.org/dashboard'
+  }
+  if (error.code === 'transaction_checkout_url_domain_is_not_approved' || /domain that has been approved/i.test(error.detail || '')) {
+    return 'Paddle rejected the return URL domain. Approve dropverse.js.org (and dropverse-nu.vercel.app if needed) under Paddle → Checkout → Website approval, then retry.'
   }
   return error.detail || error.code || 'PADDLE_TRANSACTION_FAILED'
 }
@@ -52,11 +55,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'INVALID_AMOUNT' }, { status: 422 })
   }
 
-  const host =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.VERCEL_PROJECT_PRODUCTION_URL ||
-    'https://dropverse-nu.vercel.app'
-  const origin = host.startsWith('http') ? host : `https://${host}`
+  // Always use a domain approved in the Paddle dashboard (never a preview alias).
+  const checkoutUrl = paddleApprovedCheckoutUrl('/dashboard')
 
   const transactionResponse = await fetch(`${paddleApiBase()}/transactions`, {
     method: 'POST',
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     },
     body: JSON.stringify({
       collection_mode: 'automatic',
-      checkout: { url: `${origin}/dashboard` },
+      checkout: { url: checkoutUrl },
       items: [{
         quantity: 1,
         price: {
