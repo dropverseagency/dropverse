@@ -6,6 +6,7 @@ import type { PlanId } from '@/lib/planConfig'
 import { planById } from '@/lib/planConfig'
 import PaymentMethodPicker, { type PaymentRail } from '@/components/PaymentMethodPicker'
 import SpaceRemitPayForm from '@/components/SpaceRemitPayForm'
+import { createClient } from '@/lib/supabase'
 
 export default function PaddlePlanCheckout({
   planId,
@@ -64,19 +65,34 @@ export default function PaddlePlanCheckout({
   async function confirmLocalPayment(transactionCode: string) {
     setError(null)
     try {
+      if (!organizationId) {
+        throw new Error('Sign in and open Billing from your workspace to confirm a local plan payment.')
+      }
+      const supabase = createClient()
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+      if (!token) throw new Error('Sign in to confirm local plan payment.')
+
       const response = await fetch('/api/plans/pay', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
+          paymentId: transactionCode,
+          orgId: organizationId,
           planId,
-          organizationId: organizationId || null,
-          transactionCode,
-          provider: 'spaceremit',
         }),
       })
       const payload = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(payload.error || 'Unable to confirm local plan payment.')
+      if (!response.ok) {
+        throw new Error(
+          payload.error === 'PAYMENT_NOT_CONFIRMED'
+            ? 'Could not confirm this SpaceRemit payment. Check the transaction code.'
+            : payload.error || 'Unable to confirm local plan payment.',
+        )
+      }
       setLocalDone(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to confirm local plan payment.')
@@ -101,7 +117,7 @@ export default function PaddlePlanCheckout({
         </button>
       ) : localDone ? (
         <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-center text-xs text-emerald-100">
-          Local payment received. Your workspace plan will update after verification.
+          Local payment confirmed. Your workspace plan is updated.
         </div>
       ) : publicKey ? (
         <SpaceRemitPayForm
