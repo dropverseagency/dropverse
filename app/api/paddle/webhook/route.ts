@@ -22,7 +22,7 @@ function verifySignature(rawBody: string, signature: string, secret: string) {
 
 export async function POST(request: Request) {
   const secret = process.env.PADDLE_WEBHOOK_SECRET
-  if (!secret) return NextResponse.json({ error: 'PADDLE_WEBHOOK_NOT_CONFIGURED' }, { status: 503 })
+  if (!secret || secret.startsWith('ضع_هنا_') || secret.startsWith('YOUR_')) return NextResponse.json({ error: 'PADDLE_WEBHOOK_NOT_CONFIGURED' }, { status: 503 })
 
   const rawBody = await request.text()
   const signature = request.headers.get('paddle-signature') || ''
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   const event = JSON.parse(rawBody) as {
     event_id?: string
     event_type?: string
-    data?: { id?: string; status?: string; details?: { totals?: { total?: string } } }
+    data?: { id?: string; status?: string; customer_id?: string; subscription_id?: string; custom_data?: { dropverse_organization_id?: string; dropverse_plan_id?: string } }
   }
   const transactionId = event.data?.id
   if (!transactionId) return NextResponse.json({ ok: true })
@@ -47,11 +47,19 @@ export async function POST(request: Request) {
   const admin = adminClient()
   const { error } = await admin
     .from('paddle_orders')
-    .update({ status, event_id: event.event_id ?? null, updated_at: new Date().toISOString() })
+    .update({ status, event_id: event.event_id ?? null, customer_id: event.data?.customer_id ?? null, subscription_id: event.data?.subscription_id ?? null, updated_at: new Date().toISOString() })
     .eq('transaction_id', transactionId)
   if (error) {
     console.error('[paddle] webhook order update failed', error)
     return NextResponse.json({ error: 'ORDER_UPDATE_FAILED' }, { status: 500 })
+  }
+
+  if (event.event_type === 'transaction.completed' && event.data?.custom_data?.dropverse_organization_id && event.data.custom_data.dropverse_plan_id) {
+    const { error: planError } = await admin
+      .from('organizations')
+      .update({ plan: event.data.custom_data.dropverse_plan_id, updated_at: new Date().toISOString() })
+      .eq('id', event.data.custom_data.dropverse_organization_id)
+    if (planError) console.error('[paddle] organization plan update failed', planError)
   }
 
   return NextResponse.json({ ok: true })

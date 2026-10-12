@@ -5,12 +5,37 @@ import { ArrowLeft, Check, Crown, Receipt, Sparkles } from 'lucide-react'
 import { createClient } from '../../../lib/supabase'
 import { type OrgRow } from '../../../lib/orgs'
 import { PLAN_CONFIG, membersLabelFor, planById } from '../../../lib/planConfig'
+import PaddlePlanCheckout from '../../../components/PaddlePlanCheckout'
+
+type PaddleOrder = {
+  id: string
+  transaction_id: string
+  status: string
+  amount: number
+  currency_code: string
+  plan_id: string | null
+  subscription_id: string | null
+  created_at: string
+}
 
 export default function BillingPage() {
   const [loading, setLoading] = useState(true)
   const [orgs, setOrgs] = useState<OrgRow[]>([])
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null)
   const [memberCount, setMemberCount] = useState(0)
+  const [orders, setOrders] = useState<PaddleOrder[]>([])
+  const [portalLoading, setPortalLoading] = useState(false)
+  const [portalError, setPortalError] = useState<string | null>(null)
+
+  async function openPortal() {
+    setPortalLoading(true)
+    setPortalError(null)
+    const response = await fetch('/api/paddle/portal', { method: 'POST', credentials: 'include' })
+    const payload = await response.json().catch(() => ({}))
+    if (response.ok && payload.url) window.location.assign(payload.url)
+    else setPortalError(payload.error === 'NO_PADDLE_CUSTOMER' ? 'Your Paddle customer portal will be available after the first completed payment.' : 'Unable to open the Paddle portal right now.')
+    setPortalLoading(false)
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -23,6 +48,9 @@ export default function BillingPage() {
         if (i < 4) await new Promise((r) => setTimeout(r, 800))
       }
       if (!session || cancelled) { window.location.assign('/login?redirect=%2Fdashboard%2Fbilling'); return }
+      const ordersResponse = await fetch('/api/paddle/orders', { credentials: 'include' })
+      const ordersPayload = await ordersResponse.json().catch(() => ({}))
+      if (!cancelled) setOrders(ordersPayload.orders ?? [])
       const { data: orgRows } = await supabase
         .from('organizations')
         .select('id, name, slug, type, plan, owner_id, logo_url, description, industry, team_size, status, created_at, updated_at')
@@ -120,13 +148,14 @@ export default function BillingPage() {
                 </div>
                 <div className="rounded-2xl border border-white/5 bg-white/[.025] px-4 py-3.5">
                   <div className="text-xs text-[#718781]">Billing status</div>
-                  <div className="mt-1 text-sm font-bold text-[#d9e0dc]">Free plan · no charge</div>
+                  <div className="mt-1 text-sm font-bold text-[#d9e0dc]">{plan.price > 0 ? 'Active subscription' : 'Free plan · no charge'}</div>
                 </div>
               </div>
-              <div className="mt-5 rounded-lg border border-[rgba(216,180,90,0.25)] bg-[rgba(216,180,90,0.06)] px-4 py-3 text-xs text-[#b9a76f]">
-                Paid upgrades are not open yet. Solo stays free and nothing is charged from this page.
-                Email dropverseagency@gmail.com if you need an Agency workspace before checkout launches.
+              <div className="mt-5 flex flex-wrap items-center gap-3 rounded-lg border border-[rgba(216,180,90,0.25)] bg-[rgba(216,180,90,0.06)] px-4 py-3 text-xs text-[#b9a76f]">
+                <span>Manage subscriptions, payment methods, invoices, and transaction history in Paddle.</span>
+                <button type="button" onClick={openPortal} disabled={portalLoading} className="rounded-full border border-[rgba(216,180,90,0.40)] px-3 py-1.5 font-bold text-[#e4c979] hover:bg-[rgba(216,180,90,0.12)] disabled:opacity-50">{portalLoading ? 'Opening…' : 'Manage billing'}</button>
               </div>
+              {portalError && <p className="mt-2 text-xs text-[#e89a8d]">{portalError}</p>}
             </div>
 
             <div className="card mt-8 rounded-3xl p-7">
@@ -158,12 +187,17 @@ export default function BillingPage() {
                       Contact Sales
                     </a>
                   ) : (
-                    <div className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-3 text-sm font-semibold text-[#687d76]">
-                      Paid upgrade not open
-                    </div>
+                    <PaddlePlanCheckout planId={p.id} organizationId={org.id} label={`Upgrade to ${p.displayName}`} className="flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] py-3 text-sm font-bold text-[#e4c979] transition hover:border-[rgba(216,180,90,0.60)] disabled:cursor-not-allowed disabled:opacity-50" />
                   )}
                 </div>
               ))}
+            </div>
+            <div className="card mb-10 rounded-3xl p-7">
+              <div className="flex items-center justify-between gap-3">
+                <div><h2 className="font-display text-lg font-bold">Order history</h2><p className="mt-1 text-xs text-[#849792]">Your Paddle transactions and subscription status.</p></div>
+                <Receipt size={19} className="text-[#d8b45a]" />
+              </div>
+              {orders.length === 0 ? <p className="mt-5 text-sm text-[#718781]">No Paddle orders have been recorded yet.</p> : <div className="mt-5 space-y-3">{orders.map((order) => <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/5 bg-white/[.025] px-4 py-3"><div><div className="text-sm font-semibold text-[#d9e0dc]">{order.plan_id ? `${order.plan_id} subscription` : 'Service order'}</div><div className="mt-1 text-[11px] text-[#718781]">{new Date(order.created_at).toLocaleDateString()} · {order.transaction_id}</div></div><div className="text-right"><div className="text-sm font-bold text-[#e4c979]">{order.currency_code} {Number(order.amount).toFixed(2)}</div><div className="mt-1 text-[11px] uppercase tracking-wider text-[#8fa29c]">{order.status}</div></div></div>)}</div>}
             </div>
           </>
         )}

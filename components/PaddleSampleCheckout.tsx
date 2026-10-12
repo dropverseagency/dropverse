@@ -7,7 +7,7 @@ let paddlePromise: Promise<Paddle | undefined> | null = null
 
 function getPaddle() {
   const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN
-  if (!token) return Promise.resolve(undefined)
+  if (!token || token.startsWith('ضع_هنا_') || token.startsWith('YOUR_')) return Promise.resolve(undefined)
   if (!paddlePromise) {
     paddlePromise = initializePaddle({
       token,
