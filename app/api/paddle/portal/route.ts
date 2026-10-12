@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { adminClient, sessionClient } from '@/lib/adminCore'
+import { paddleApiBase } from '@/lib/paddle'
 
 export const runtime = 'nodejs'
 
@@ -22,7 +23,7 @@ export async function POST() {
   if (!order?.customer_id) return NextResponse.json({ error: 'NO_PADDLE_CUSTOMER' }, { status: 404 })
 
   const subscriptionIds = order.subscription_id ? [order.subscription_id] : []
-  const response = await fetch(`https://api.paddle.com/customers/${encodeURIComponent(order.customer_id)}/portal-sessions`, {
+  const response = await fetch(`${paddleApiBase()}/customers/${encodeURIComponent(order.customer_id)}/portal-sessions`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
