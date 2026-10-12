@@ -33,7 +33,18 @@ export async function POST(request: Request) {
   const event = JSON.parse(rawBody) as {
     event_id?: string
     event_type?: string
-    data?: { id?: string; status?: string; customer_id?: string; subscription_id?: string; custom_data?: { dropverse_organization_id?: string; dropverse_plan_id?: string } }
+    data?: {
+      id?: string
+      status?: string
+      customer_id?: string
+      subscription_id?: string
+      custom_data?: {
+        dropverse_organization_id?: string
+        dropverse_plan_id?: string
+        dropverse_invoice_id?: string
+        dropverse_project_id?: string
+      }
+    }
   }
   const transactionId = event.data?.id
   if (!transactionId) return NextResponse.json({ ok: true })
@@ -47,7 +58,13 @@ export async function POST(request: Request) {
   const admin = adminClient()
   const { error } = await admin
     .from('paddle_orders')
-    .update({ status, event_id: event.event_id ?? null, customer_id: event.data?.customer_id ?? null, subscription_id: event.data?.subscription_id ?? null, updated_at: new Date().toISOString() })
+    .update({
+      status,
+      event_id: event.event_id ?? null,
+      customer_id: event.data?.customer_id ?? null,
+      subscription_id: event.data?.subscription_id ?? null,
+      updated_at: new Date().toISOString(),
+    })
     .eq('transaction_id', transactionId)
   if (error) {
     console.error('[paddle] webhook order update failed', error)
@@ -60,6 +77,46 @@ export async function POST(request: Request) {
       .update({ plan: event.data.custom_data.dropverse_plan_id, updated_at: new Date().toISOString() })
       .eq('id', event.data.custom_data.dropverse_organization_id)
     if (planError) console.error('[paddle] organization plan update failed', planError)
+  }
+
+  // Public invoice paid via International checkout
+  if (event.event_type === 'transaction.completed' && event.data?.custom_data?.dropverse_invoice_id) {
+    const invoiceId = event.data.custom_data.dropverse_invoice_id
+    const projectId = event.data.custom_data.dropverse_project_id
+    await admin
+      .from('invoices')
+      .update({ status: 'PAID' })
+      .eq('id', invoiceId)
+      .eq('status', 'PENDING')
+    if (projectId) {
+      await admin
+        .from('projects')
+        .update({
+          payment_status: 'PAYMENT_CONFIRMED',
+          payment_provider: 'PADDLE',
+          payment_transaction_id: transactionId,
+          payment_confirmed_at: new Date().toISOString(),
+          status: 'PAYMENT_CONFIRMED',
+        })
+        .eq('id', projectId)
+        .eq('payment_status', 'PAYMENT_PENDING')
+    }
+  }
+
+  // Project paid via International from create-project
+  if (event.event_type === 'transaction.completed' && event.data?.custom_data?.dropverse_project_id && !event.data.custom_data.dropverse_invoice_id) {
+    const projectId = event.data.custom_data.dropverse_project_id
+    await admin
+      .from('projects')
+      .update({
+        payment_status: 'PAYMENT_CONFIRMED',
+        payment_provider: 'PADDLE',
+        payment_transaction_id: transactionId,
+        payment_confirmed_at: new Date().toISOString(),
+        status: 'PAYMENT_CONFIRMED',
+      })
+      .eq('id', projectId)
+      .eq('payment_status', 'PAYMENT_PENDING')
   }
 
   return NextResponse.json({ ok: true })
