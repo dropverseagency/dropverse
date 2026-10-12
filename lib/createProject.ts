@@ -33,22 +33,31 @@ export async function createProjectServer(draft: ProjectDraft) {
     error: authError,
   } = await supabase.auth.getUser()
   if (authError || !user) {
-    return { error: 'NOT_AUTHENTICATED' }
+    return { error: 'NOT_AUTHENTICATED' as const }
   }
 
-  // --- Server-side computation (no client-supplied numbers, ever) ---
   const clientPrice = Math.round(Number(draft.clientPrice || 0) * 100) / 100
   if (!(clientPrice > 0)) {
-    return { error: 'INVALID_PRICE' }
+    return { error: 'INVALID_PRICE' as const }
   }
-  // Fulfillment cost is ALWAYS computed from the platform's configured rate
-  // for the chosen project type — the seller never sets it.
   const fulfillmentCost = computeFulfillmentCost(draft.projectType, clientPrice)
-
   const sellerProfit = computeSellerProfit(clientPrice, fulfillmentCost)
   const billingInterval = billingIntervalFor(draft.projectType)
 
-  const { error: insertError } = await supabase.from('projects').insert({
+  // Live DB may only allow the original four payment_method values.
+  // International (Paddle) is stored as CLIENT_PAYS_DROPVERSE + payment_provider=PADDLE
+  // when a strict check constraint rejects 'PADDLE'.
+  const requestedMethod = draft.paymentMethod
+  const storedMethod =
+    requestedMethod === 'PADDLE' ? 'CLIENT_PAYS_DROPVERSE' : requestedMethod
+  const paymentProvider =
+    requestedMethod === 'PADDLE'
+      ? 'PADDLE'
+      : requestedMethod === 'SPACEREMIT'
+        ? 'SPACEREMIT'
+        : null
+
+  const baseRow: Record<string, unknown> = {
     user_id: user.id,
     title: String(draft.title || '').trim(),
     description: String(draft.description || '').trim(),
@@ -58,20 +67,63 @@ export async function createProjectServer(draft: ProjectDraft) {
     client_price: clientPrice,
     fulfillment_cost: fulfillmentCost,
     seller_profit: sellerProfit,
-    payment_method: draft.paymentMethod,
+    payment_method: storedMethod,
     payment_status: 'PAYMENT_PENDING',
     spaceremit_payment_id: draft.spaceremitPaymentId?.trim() || null,
     status: 'DRAFT',
     current_billing_period: 1,
     delivery_notes: String(draft.deliveryNotes || '').trim(),
     client_contact_email: draft.clientContactEmail?.trim() || null,
-  })
+  }
 
-  if (insertError) {
-    console.error('createProjectServer insert error:', insertError.message)
-    return { error: 'DB_ERROR' }
+  // Prefer writing payment_provider when the column exists.
+  const rowWithProvider = paymentProvider
+    ? { ...baseRow, payment_provider: paymentProvider }
+    : baseRow
+
+  let data: { id: string } | null = null
+  let insertError: { message?: string; code?: string; details?: string } | null = null
+
+  {
+    const res = await supabase.from('projects').insert(rowWithProvider).select('id').single()
+    data = res.data
+    insertError = res.error
+  }
+
+  // Retry without payment_provider if the column is missing.
+  if (insertError && /payment_provider/i.test(insertError.message || '')) {
+    const res = await supabase.from('projects').insert(baseRow).select('id').single()
+    data = res.data
+    insertError = res.error
+  }
+
+  // Retry with explicit PADDLE as payment_method if preferred by a newer schema.
+  if (insertError && requestedMethod === 'PADDLE') {
+    const res = await supabase
+      .from('projects')
+      .insert({ ...baseRow, payment_method: 'PADDLE' })
+      .select('id')
+      .single()
+    if (!res.error && res.data) {
+      data = res.data
+      insertError = null
+    }
+  }
+
+  if (insertError || !data?.id) {
+    console.error('createProjectServer insert error:', insertError?.message, insertError?.code, insertError?.details)
+    return {
+      error: 'DB_ERROR' as const,
+      detail: insertError?.message || 'insert_failed',
+      code: insertError?.code || null,
+    }
   }
 
   revalidatePath('/dashboard')
-  return { success: true }
+  return {
+    success: true as const,
+    projectId: data.id as string,
+    paymentMethod: storedMethod,
+    paymentProvider,
+  }
 }
