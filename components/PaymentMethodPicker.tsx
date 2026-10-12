@@ -24,7 +24,6 @@ export default function PaymentMethodPicker({
         }`}
       >
         <div className="text-[11px] font-bold uppercase tracking-[.14em] text-[#d8b45a]">International payment</div>
-        <div className="mt-1 text-sm font-semibold text-[#e8efec]">Paddle</div>
         <div className="mt-1 text-[11px] leading-4 text-[#82958f]">Cards & global methods via secure overlay</div>
       </button>
       <button
@@ -38,7 +37,6 @@ export default function PaymentMethodPicker({
         }`}
       >
         <div className="text-[11px] font-bold uppercase tracking-[.14em] text-[#d8b45a]">Local payment</div>
-        <div className="mt-1 text-sm font-semibold text-[#e8efec]">SpaceRemit</div>
         <div className="mt-1 text-[11px] leading-4 text-[#82958f]">Wallets, bank transfer & local methods</div>
       </button>
     </div>
