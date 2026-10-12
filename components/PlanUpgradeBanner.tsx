@@ -1,11 +1,12 @@
 'use client'
 import { useEffect, useState } from 'react'
 
-import { CreditCard, Wallet, Star, CheckCircle2, Globe } from 'lucide-react'
+import { CreditCard, Wallet, CheckCircle2, Globe } from 'lucide-react'
 import { createClient } from '../lib/supabase'
 import { type OrgRow } from '../lib/orgs'
 import { PLAN_CONFIG, planById, type PlanId } from '../lib/planConfig'
 import { getPaddleClient } from '@/lib/paddle'
+import SpaceRemitPayForm from '@/components/SpaceRemitPayForm'
 
 interface PlanUpgradeBannerProps {
   orgs: OrgRow[]
@@ -24,14 +25,11 @@ export default function PlanUpgradeBanner({ orgs, activeOrgId, sessionToken }: P
   const [open, setOpen] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
   const [method, setMethod] = useState<'SPACEREMIT' | 'PADDLE' | 'DIRECT' | null>(null)
-  const [transactionCode, setTransactionCode] = useState('')
-  const [fullName, setFullName] = useState('')
-  const [payEmail, setPayEmail] = useState('')
-  const [payPhone, setPayPhone] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
-  const [planPaid, setPlanPaid] = useState<string | null>(null)
+
+  const publicKey = process.env.NEXT_PUBLIC_SPACEREMIT_PUBLIC_KEY || process.env.SPACEREMIT_PUBLIC_KEY || ''
 
   useEffect(() => {
     if (!requested || !org) return
@@ -60,7 +58,6 @@ export default function PlanUpgradeBanner({ orgs, activeOrgId, sessionToken }: P
       return
     }
     setDone(`Your workspace is now on the ${plan.displayName} plan.`)
-    setPlanPaid(selectedPlan)
   }
 
   async function openPaddleCheckout() {
@@ -93,8 +90,8 @@ export default function PlanUpgradeBanner({ orgs, activeOrgId, sessionToken }: P
     }
   }
 
-  async function verifySpaceremit() {
-    if (!sessionToken || !org || !transactionCode.trim()) return
+  async function onLocalPaid(transactionCode: string) {
+    if (!sessionToken || !org || !selectedPlan) return
     setBusy(true); setError(null)
     try {
       const res = await fetch('/api/plans/pay', {
@@ -108,14 +105,12 @@ export default function PlanUpgradeBanner({ orgs, activeOrgId, sessionToken }: P
           json.error === 'SP_KEYS_MISSING'
             ? 'Payment verification is not available yet — please try again shortly.'
             : json.error === 'PAYMENT_NOT_CONFIRMED'
-              ? 'We could not confirm this payment. Make sure the transaction code is correct and the payment succeeded.'
+              ? 'We could not confirm this payment. Please try again or contact support.'
               : (json.detail ?? json.error ?? 'Verification failed.'),
         )
-        setBusy(false)
         return
       }
       setDone(`Payment confirmed — your workspace is now on the ${plan.displayName} plan.`)
-      setPlanPaid(selectedPlan)
     } finally {
       setBusy(false)
     }
@@ -210,21 +205,30 @@ export default function PlanUpgradeBanner({ orgs, activeOrgId, sessionToken }: P
 
       {method === 'SPACEREMIT' && (
         <div className="mt-5 rounded-2xl border border-[rgba(216,180,90,0.25)] bg-[#0a2926] p-5">
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[.12em] text-[#6e817c]">
-            <Star size={13} className="text-[#d8b45a]" /> Local payment · SpaceRemit
+          <p className="text-xs font-semibold uppercase tracking-[.12em] text-[#6e817c]">
+            Local payment · SpaceRemit
           </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Full name" className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-sm text-[#e7edea] placeholder:text-[#5f726c] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
-            <input value={payEmail} onChange={(e) => setPayEmail(e.target.value)} placeholder="Email" type="email" className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-sm text-[#e7edea] placeholder:text-[#5f726c] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
-            <input value={payPhone} onChange={(e) => setPayPhone(e.target.value)} placeholder="Phone" className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3 text-sm text-[#e7edea] placeholder:text-[#5f726c] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
-            <input value={transactionCode} onChange={(e) => setTransactionCode(e.target.value)} placeholder="Transaction code" className="w-full rounded-xl border border-[rgba(216,180,90,0.35)] bg-[#071f1d] px-4 py-3 text-sm font-bold text-[#e7edea] placeholder:text-[#5f726c] focus:border-[rgba(216,180,90,0.6)] focus:outline-none" />
-          </div>
-          <p className="mt-3 text-[11px] leading-5 text-[#6e817c]">
-            Pay <span className="font-bold text-[#f0d98b]">${plan.price}/month</span> on SpaceRemit, then paste the transaction code here.
+          <p className="mt-2 text-[11px] leading-5 text-[#8fa29c]">
+            Choose a local method below (wallet, bank transfer, etc.). No need to paste a transaction code — confirmation is automatic after payment.
           </p>
-          <button onClick={verifySpaceremit} disabled={busy || !transactionCode.trim()} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#d8b45a] px-6 py-3.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b] disabled:cursor-not-allowed disabled:opacity-40">
-            {busy ? 'Verifying...' : 'Verify Payment & Upgrade'}
-          </button>
+          {publicKey ? (
+            <div className="mt-4">
+              <SpaceRemitPayForm
+                amount={plan.price}
+                currency={plan.currency || 'USD'}
+                fullName="DropVerse Workspace"
+                email="billing@dropverse.local"
+                phone="0000000000"
+                publicKey={publicKey}
+                hideBuyerInputs
+                submitLabel={`Pay $${plan.price}/mo locally →`}
+                onPaid={onLocalPaid}
+                disabled={busy}
+              />
+            </div>
+          ) : (
+            <p className="mt-3 text-xs text-[#e89a8d]">SpaceRemit is not configured yet.</p>
+          )}
           {error && <p className="mt-3 rounded-xl border border-red-400/25 bg-red-400/10 px-4 py-3 text-xs font-semibold text-red-300">{error}</p>}
         </div>
       )}
