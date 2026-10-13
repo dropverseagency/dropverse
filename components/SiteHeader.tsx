@@ -13,8 +13,6 @@ export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: b
   const auth = useAuth()
   const signedIn = !auth.loading && Boolean(auth.user)
 
-  // Check whether the signed-in user is an admin (for the Admin entry link).
-    // Admin check derived DIRECTLY from the signed-in session + profile role.
   useEffect(() => {
     let cancelled = false
     const supa = createClient()
