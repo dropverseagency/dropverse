@@ -2,28 +2,27 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { DROPVERSE_LOGO_SRC } from '../lib/dropverseLogo'
+import { DROPVERSE_ICON_SRC } from '../lib/dropverseLogo'
 
-/** Official DropVerse horizontal mark (transparent, aspect ~4.7). */
+/** Official DropVerse mark: icon + wordmark (DROP white, VERSE gold). */
 export default function Brand({ compact = false }: { compact?: boolean }) {
-  const height = compact ? 32 : 40
-  const width = Math.round(height * 4.7)
+  const icon = compact ? 28 : 36
 
   return (
-    <Link href="/" className="inline-flex shrink-0 items-center" aria-label="DropVerse home">
+    <Link href="/" className="inline-flex shrink-0 items-center gap-2.5" aria-label="DropVerse home">
       <Image
-        src={DROPVERSE_LOGO_SRC}
-        alt="DropVerse"
-        width={width}
-        height={height}
-        className={
-          compact
-            ? 'h-8 w-auto max-h-8 object-contain'
-            : 'h-9 w-auto max-h-10 object-contain sm:h-10'
-        }
+        src={DROPVERSE_ICON_SRC}
+        alt=""
+        width={icon}
+        height={icon}
+        className={compact ? 'h-7 w-7 object-contain' : 'h-8 w-8 object-contain sm:h-9 sm:w-9'}
         priority
         unoptimized
       />
+      <span className={`font-display font-extrabold tracking-tight ${compact ? 'text-base' : 'text-lg sm:text-xl'}`}>
+        <span className="text-white">DROP</span>
+        <span className="text-[#d8b45a]">VERSE</span>
+      </span>
     </Link>
   )
 }
