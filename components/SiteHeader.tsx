@@ -43,10 +43,10 @@ const nav = (
         <Link href="/" className="inline-flex shrink-0 items-center" aria-label="DropVerse home">
           <Image
             src={DROPVERSE_LOGO_SRC}
-            alt="DropVerse"
-            width={69}
-            height={48}
-            className="h-10 w-auto max-h-12 object-contain sm:h-12"
+            alt="DropVerse logo"
+            width={100}
+            height={40}
+            className="h-8 w-auto max-h-9 max-w-[9.5rem] object-contain sm:h-10 sm:max-h-10 sm:max-w-[12.5rem]"
             priority
             unoptimized
           />
