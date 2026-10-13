@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { Menu, X, LogOut, ShieldCheck } from 'lucide-react'
 import { createClient } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
-import { DROPVERSE_LOGO_SRC } from '../lib/dropverseLogo'
+import { DROPVERSE_ICON_SRC } from '../lib/dropverseLogo'
 
 export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: boolean }) {
   const [menu, setMenu] = useState(false)
@@ -13,8 +13,6 @@ export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: b
   const auth = useAuth()
   const signedIn = !auth.loading && Boolean(auth.user)
 
-  // Check whether the signed-in user is an admin (for the Admin entry link).
-    // Admin check derived DIRECTLY from the signed-in session + profile role.
   useEffect(() => {
     let cancelled = false
     const supa = createClient()
@@ -26,7 +24,8 @@ export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: b
     })
     return () => { cancelled = true }
   }, [signedIn])
-const nav = (
+
+  const nav = (
     <>
       <a href="/#services" className="hover:text-[#f0d98b]">Services</a>
       <a href="/#how" className="hover:text-[#f0d98b]">How It Works</a>
@@ -40,16 +39,20 @@ const nav = (
   return (
     <header className="fixed top-0 left-0 right-0 z-50 brand-header border-b border-white/5 bg-[rgba(7,31,29,0.80)] backdrop-blur-xl">
       <div className="container flex h-20 items-center justify-between">
-        <Link href="/" className="inline-flex shrink-0 items-center" aria-label="DropVerse home">
+        <Link href="/" className="inline-flex shrink-0 items-center gap-2.5" aria-label="DropVerse home">
           <Image
-            src={DROPVERSE_LOGO_SRC}
-            alt="DropVerse"
-            width={200}
-            height={44}
-            className="h-10 w-auto max-h-11 object-contain sm:h-11"
+            src={DROPVERSE_ICON_SRC}
+            alt=""
+            width={36}
+            height={36}
+            className="h-8 w-8 object-contain sm:h-9 sm:w-9"
             priority
             unoptimized
           />
+          <span className="font-display text-lg font-extrabold tracking-tight sm:text-xl">
+            <span className="text-white">DROP</span>
+            <span className="text-[#d8b45a]">VERSE</span>
+          </span>
         </Link>
         <nav className="hidden items-center gap-7 text-sm text-[#c1cbc7] lg:flex">{nav}</nav>
         <div className="hidden items-center gap-3 lg:flex">
