@@ -44,7 +44,7 @@ const nav = (
           <Image
             src={DROPVERSE_LOGO_SRC}
             alt="DropVerse"
-            width={110}
+            width={200}
             height={44}
             className="h-10 w-auto max-h-11 object-contain sm:h-11"
             priority
