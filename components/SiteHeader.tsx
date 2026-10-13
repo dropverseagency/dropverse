@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { Menu, X, LogOut, ShieldCheck } from 'lucide-react'
 import { createClient } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
+import { DROPVERSE_LOGO_SRC } from '../lib/dropverseLogo'
 
 export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: boolean }) {
   const [menu, setMenu] = useState(false)
@@ -41,7 +42,7 @@ const nav = (
       <div className="container flex h-20 items-center justify-between gap-4 sm:h-[84px]">
         <Link href="/" className="inline-flex shrink-0 items-center" aria-label="DropVerse home">
           <Image
-            src="/dropverse-logo-header.svg"
+            src={DROPVERSE_LOGO_SRC}
             alt="DropVerse"
             width={69}
             height={48}
