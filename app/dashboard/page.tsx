@@ -18,6 +18,9 @@ import {
   ChevronDown,
   Plus,
   LogOut,
+  Eye,
+  Trash2,
+  X,
 } from 'lucide-react'
 import Brand from '../../components/Brand'
 import PlanUpgradeBanner from '../../components/PlanUpgradeBanner'
@@ -49,6 +52,7 @@ interface Transaction {
   status: string
   date: string
   detail?: string
+  projectId?: string
 }
 
 interface InvoiceRow {
@@ -102,6 +106,9 @@ export default function Dashboard() {
   const [creatingInvoice, setCreatingInvoice] = useState<string | null>(null)
   const [invoiceError, setInvoiceError] = useState<string | null>(null)
   const [sessionToken, setSessionToken] = useState<string | null>(null)
+  const [selectedProject, setSelectedProject] = useState<ProjectRow | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const baseHost = typeof window !== 'undefined' ? window.location.origin : 'https://dropverse-nu.vercel.app'
   const host = typeof window !== 'undefined' ? window.location.host : 'dropverse-nu.vercel.app'
   useEffect(() => {
@@ -142,14 +149,12 @@ export default function Dashboard() {
       if (profileData) setProfile(profileData as Profile)
       if (profileData?.role === 'admin') setIsAdmin(true)
 
-      // Lightweight affiliate: fetch this user's REAL referral code (auto-provisioned)
       const meRes = await fetch('/api/affiliate/me', { credentials: 'include' })
       if (meRes.ok) {
         const meJson = await meRes.json()
         if (!cancelled && typeof meJson?.code === 'string') setDashLink(meJson.code)
       }
 
-      // Organizations this user belongs to (RLS) + their role
       const { data: orgRows } = await supabase
         .from('organizations')
         .select('id, name, slug, type, plan, owner_id, logo_url, description, industry, team_size, status, created_at, updated_at')
@@ -171,7 +176,6 @@ export default function Dashboard() {
         setActiveOrgId(orgList[0].id)
       }
 
-      // Earnings: approved commissions tied to this user's referrals
       const { data: commissions } = await supabase
         .from('referral_commissions')
         .select('id, commission_amount, status, created_at, referral_id')
@@ -224,7 +228,6 @@ export default function Dashboard() {
       rows.sort((a, b) => (a.date < b.date ? 1 : -1))
       setTransactions(rows.slice(0, 10))
 
-      // Projects created by this user (RLS limits to own rows) — also appear in Activity
       const { data: projRows } = await supabase
         .from('projects')
         .select('id, title, project_type, billing_interval, client_price, fulfillment_cost, seller_profit, payment_method, payment_status, status, created_at')
@@ -232,7 +235,6 @@ export default function Dashboard() {
         .limit(25)
       if (!cancelled) setProjects((projRows as ProjectRow[] | null) ?? [])
 
-      // Invoices this user has issued (via service-read API)
       try {
         const invRes = await fetch('/api/invoices/me', { credentials: 'include' })
         if (invRes.ok) {
@@ -251,6 +253,7 @@ export default function Dashboard() {
           status: p.payment_status.toLowerCase().replace(/_/g, ' '),
           date: p.created_at,
           detail: p.title,
+          projectId: p.id,
         }))
         setTransactions((prev) => [...projectRows, ...prev].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 10))
       }
@@ -295,7 +298,6 @@ export default function Dashboard() {
       setInvoiceError(`Could not create invoice: ${String(json.error || 'unknown')}`)
       return
     }
-    // Refresh the invoice list.
     const invRes = await fetch('/api/invoices/me', { credentials: 'include' })
     if (invRes.ok) {
       const invJson = await invRes.json()
@@ -308,20 +310,44 @@ export default function Dashboard() {
     try {
       await navigator.clipboard.writeText(url)
     } catch {
-      // clipboard unavailable — nothing to do
       return
     }
     setCopyingInvoice(invoiceId)
     setTimeout(() => setCopyingInvoice(null), 2000)
   }
 
+  function openProjectDetail(project: ProjectRow) {
+    setSelectedProject(project)
+    setDeleteError(null)
+  }
+
+  function openProjectById(id: string) {
+    const p = projects.find((x) => x.id === id)
+    if (p) openProjectDetail(p)
+  }
+
+  async function deleteProject(projectId: string) {
+    if (!confirm('Delete this project permanently? This cannot be undone.')) return
+    setDeletingId(projectId)
+    setDeleteError(null)
+    const supabase = createClient()
+    const { error } = await supabase.from('projects').delete().eq('id', projectId)
+    setDeletingId(null)
+    if (error) {
+      setDeleteError(error.message || 'Could not delete project')
+      return
+    }
+    setProjects((prev) => prev.filter((p) => p.id !== projectId))
+    setTransactions((prev) => prev.filter((t) => t.projectId !== projectId))
+    setInvoices((prev) => prev.filter((inv) => inv.projectId !== projectId))
+    if (selectedProject?.id === projectId) setSelectedProject(null)
+  }
+
   return (
     <main className="min-h-screen grid-bg px-5 py-10 sm:py-14">
       <div className="mx-auto w-full max-w-5xl">
-        {/* Plan upgrade banner when arriving from /pricing */}
         <PlanUpgradeBanner orgs={orgs} activeOrgId={activeOrgId} sessionToken={sessionToken} />
 
-        {/* Top bar: brand — org switcher — settings — sign out */}
         <div className="flex items-center justify-between gap-3">
           <Brand compact />
           <div className="flex items-center gap-3">
@@ -407,7 +433,6 @@ export default function Dashboard() {
           <div className="mt-24 text-center text-sm text-[#718781]">Loading your workspace...</div>
         ) : (
           <>
-            {/* Workspace header with plan badge + org nav */}
             <div className="card mt-10 rounded-3xl p-7 sm:p-9">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -446,10 +471,9 @@ export default function Dashboard() {
               ) : null}
             </div>
 
-            {/* Quick actions - FIXED: no coming soon */}
             <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <ActionCard
-                href="/dashboard/projects/new"
+                href="/dashboard/create-project"
                 icon={<Layers size={18} />}
                 title="New project"
                 text="Create a client project and track fulfillment."
@@ -468,14 +492,12 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* Stats row */}
             <div className="mt-6 grid gap-4 sm:grid-cols-3">
               <StatCard icon={<Wallet size={18} />} label="Total earnings" value={formatUsd(totalEarnings)} />
               <StatCard icon={<Clock size={18} />} label="Pending payout" value={formatUsd(pendingPayout)} />
               <StatCard icon={<CheckCircle2 size={18} />} label="Paid out" value={formatUsd(paidPayout)} />
             </div>
 
-            {/* Referral link */}
             {dashLink && (
               <div className="card mt-6 rounded-3xl p-5 sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -502,7 +524,6 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Recent activity */}
             <div className="card mt-6 rounded-3xl p-5 sm:p-7">
               <h2 className="font-display text-lg font-bold">Recent activity</h2>
               {transactions.length === 0 ? (
@@ -510,13 +531,126 @@ export default function Dashboard() {
               ) : (
                 <div className="mt-4 space-y-3">
                   {transactions.map((t, i) => (
-                    <div key={`${t.date}-${i}`} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/5 bg-white/[.025] px-4 py-3">
-                      <div>
-                        <div className="text-sm font-semibold text-[#d9e0dc]">{t.label}{t.detail ? `: ${t.detail}` : ''}</div>
-                        <div className="mt-1 text-[11px] text-[#718781]">{new Date(t.date).toLocaleString()} · {t.status}</div>
+                    <div
+                      key={`${t.date}-${i}`}
+                      className={`flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/5 bg-white/[.025] px-4 py-3 ${
+                        t.type === 'project' && t.projectId ? 'cursor-pointer transition hover:border-[rgba(216,180,90,0.25)]' : ''
+                      }`}
+                      onClick={() => {
+                        if (t.type === 'project' && t.projectId) openProjectById(t.projectId)
+                      }}
+                      role={t.type === 'project' && t.projectId ? 'button' : undefined}
+                      tabIndex={t.type === 'project' && t.projectId ? 0 : undefined}
+                      onKeyDown={(e) => {
+                        if ((e.key === 'Enter' || e.key === ' ') && t.type === 'project' && t.projectId) {
+                          e.preventDefault()
+                          openProjectById(t.projectId)
+                        }
+                      }}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-[#d9e0dc]">
+                          {t.label}{t.detail ? `: ${t.detail}` : ''}
+                        </div>
+                        <div className="mt-1 text-[11px] text-[#718781]">
+                          {new Date(t.date).toLocaleString()} · {t.status}
+                          {t.type === 'project' ? ' · Tap for details' : ''}
+                        </div>
                       </div>
-                      <div className={`text-sm font-bold ${t.amount >= 0 ? 'text-[#e4c979]' : 'text-[#e89a8d]'}`}>
-                        {t.amount >= 0 ? '+' : ''}{formatUsd(t.amount)}
+                      <div className="flex items-center gap-2">
+                        <div className={`text-sm font-bold ${t.amount >= 0 ? 'text-[#e4c979]' : 'text-[#e89a8d]'}`}>
+                          {t.amount >= 0 ? '+' : ''}{formatUsd(t.amount)}
+                        </div>
+                        {t.type === 'project' && t.projectId && (
+                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => openProjectById(t.projectId!)}
+                              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-[#9aaca6] transition hover:border-[rgba(216,180,90,0.40)] hover:text-[#e4c979]"
+                              title="View details"
+                              aria-label="View details"
+                            >
+                              <Eye size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteProject(t.projectId!)}
+                              disabled={deletingId === t.projectId}
+                              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-[#9aaca6] transition hover:border-red-400/40 hover:text-red-300 disabled:opacity-50"
+                              title="Delete project"
+                              aria-label="Delete project"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {deleteError && (
+                <p className="mt-3 text-sm text-red-300">{deleteError}</p>
+              )}
+            </div>
+
+            <div className="card mt-6 mb-10 rounded-3xl p-5 sm:p-7">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="font-display text-lg font-bold">Your projects</h2>
+                <Link
+                  href="/dashboard/create-project"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.10)] px-3.5 py-1.5 text-xs font-bold text-[#e4c979] transition hover:bg-[rgba(216,180,90,0.18)]"
+                >
+                  <Plus size={13} /> New project
+                </Link>
+              </div>
+              {projects.length === 0 ? (
+                <p className="mt-4 text-sm text-[#718781]">
+                  No projects yet.{' '}
+                  <Link href="/dashboard/create-project" className="font-semibold text-[#d8b45a] hover:text-[#f0d98b]">
+                    Create your first project
+                  </Link>
+                </p>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {projects.map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/5 bg-white/[.025] px-4 py-3 transition hover:border-[rgba(216,180,90,0.25)]"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => openProjectDetail(p)}
+                        className="min-w-0 flex-1 text-left"
+                      >
+                        <div className="text-sm font-semibold text-[#d9e0dc]">{p.title}</div>
+                        <div className="mt-1 text-[11px] text-[#718781]">
+                          {p.project_type} · {p.status} · {p.payment_status.replace(/_/g, ' ')}
+                        </div>
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-bold text-[#e4c979]">
+                          {formatUsd(Number(p.seller_profit || 0))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openProjectDetail(p)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-[#9aaca6] transition hover:border-[rgba(216,180,90,0.40)] hover:text-[#e4c979]"
+                          title="View details"
+                          aria-label="View details"
+                        >
+                          <Eye size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteProject(p.id)}
+                          disabled={deletingId === p.id}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-[#9aaca6] transition hover:border-red-400/40 hover:text-red-300 disabled:opacity-50"
+                          title="Delete project"
+                          aria-label="Delete project"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -524,30 +658,101 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Projects + invoices abbreviated section kept minimal for mobile */}
-            {projects.length > 0 && (
-              <div className="card mt-6 mb-10 rounded-3xl p-5 sm:p-7">
-                <h2 className="font-display text-lg font-bold">Your projects</h2>
-                <div className="mt-4 space-y-3">
-                  {projects.slice(0, 5).map((p) => (
-                    <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/5 bg-white/[.025] px-4 py-3">
-                      <div>
-                        <div className="text-sm font-semibold text-[#d9e0dc]">{p.title}</div>
-                        <div className="mt-1 text-[11px] text-[#718781]">{p.project_type} · {p.status}</div>
-                      </div>
-                      <div className="text-sm font-bold text-[#e4c979]">{formatUsd(Number(p.seller_profit || 0))}</div>
+            {selectedProject && (
+              <div
+                className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-4 sm:items-center"
+                onClick={() => setSelectedProject(null)}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Project details"
+              >
+                <div
+                  className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-white/10 bg-[#0a2926] p-6 shadow-2xl sm:p-8"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#849792]">Project details</p>
+                      <h3 className="font-display mt-1 text-xl font-extrabold text-[#e8efe9]">
+                        {selectedProject.title}
+                      </h3>
                     </div>
-                  ))}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProject(null)}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-[#9aaca6] transition hover:border-white/25 hover:text-white"
+                      aria-label="Close"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                    <DetailField label="Type" value={selectedProject.project_type} />
+                    <DetailField label="Status" value={selectedProject.status} />
+                    <DetailField label="Payment" value={selectedProject.payment_status.replace(/_/g, ' ')} />
+                    <DetailField label="Method" value={selectedProject.payment_method.replace(/_/g, ' ')} />
+                    <DetailField label="Billing" value={selectedProject.billing_interval.replace(/_/g, ' ')} />
+                    <DetailField
+                      label="Created"
+                      value={new Date(selectedProject.created_at).toLocaleString()}
+                    />
+                    <DetailField label="Client price" value={formatUsd(Number(selectedProject.client_price || 0))} />
+                    <DetailField label="Fulfillment cost" value={formatUsd(Number(selectedProject.fulfillment_cost || 0))} />
+                    <DetailField
+                      label="Your profit"
+                      value={formatUsd(Number(selectedProject.seller_profit || 0))}
+                      highlight
+                    />
+                    <DetailField label="Project ID" value={selectedProject.id.slice(0, 8) + '…'} />
+                  </div>
+
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => createInvoice(selectedProject.id)}
+                      disabled={creatingInvoice === selectedProject.id}
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] px-4 py-2.5 text-sm font-bold text-[#f0d98b] transition hover:bg-[rgba(216,180,90,0.22)] disabled:opacity-60"
+                    >
+                      <Receipt size={15} />
+                      {creatingInvoice === selectedProject.id ? 'Creating…' : 'Create invoice'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteProject(selectedProject.id)}
+                      disabled={deletingId === selectedProject.id}
+                      className="inline-flex items-center justify-center gap-2 rounded-full border border-red-400/30 px-4 py-2.5 text-sm font-bold text-red-300 transition hover:bg-red-500/10 disabled:opacity-60"
+                    >
+                      <Trash2 size={15} />
+                      {deletingId === selectedProject.id ? 'Deleting…' : 'Delete'}
+                    </button>
+                  </div>
+                  {deleteError && <p className="mt-3 text-sm text-red-300">{deleteError}</p>}
+                  {invoiceError && <p className="mt-3 text-sm text-red-300">{invoiceError}</p>}
                 </div>
-                <Link href="/dashboard/projects" className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-[#d8b45a] hover:text-[#f0d98b]">
-                  View all <ArrowRight size={14} />
-                </Link>
               </div>
             )}
           </>
         )}
       </div>
     </main>
+  )
+}
+
+function DetailField({
+  label,
+  value,
+  highlight = false,
+}: {
+  label: string
+  value: string
+  highlight?: boolean
+}) {
+  return (
+    <div className="rounded-2xl border border-white/5 bg-white/[.03] px-3.5 py-3">
+      <p className="text-[10px] font-bold uppercase tracking-[.14em] text-[#6e817c]">{label}</p>
+      <p className={`mt-1 text-sm font-semibold ${highlight ? 'text-[#e4c979]' : 'text-[#d9e0dc]'}`}>{value}</p>
+    </div>
   )
 }
 
