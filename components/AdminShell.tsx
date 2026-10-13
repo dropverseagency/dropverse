@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import Image from 'next/image'
+import { DROPVERSE_LOGO_SRC } from '@/lib/dropverseLogo'
 import {
   LayoutDashboard, Users, Briefcase, FolderKanban, CreditCard, Users2,
   Coins, Package, Wrench, ScrollText, Settings, LogOut, ShieldCheck, Menu, X,
@@ -126,9 +127,16 @@ export default function AdminShell({ children, title }: { children: React.ReactN
               <button onClick={() => setOpen(true)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#3a4f38] bg-[#16312b] text-[#f0d98b] lg:hidden" aria-label="Open menu">
                 <Menu size={18} />
               </button>
-              <Link href="/dashboard" className="inline-flex items-center gap-2.5" aria-label="DropVerse home">
-                <Image src="/dropverse-logo.jpeg" alt="DropVerse" width={36} height={36} className="rounded-lg object-cover" priority />
-                <span className="font-display text-lg font-extrabold tracking-[.14em]">DROP<span className="text-[#d8b45a]">VERSE</span></span>
+              <Link href="/dashboard" className="inline-flex shrink-0 items-center" aria-label="DropVerse home">
+                <Image
+                  src={DROPVERSE_LOGO_SRC}
+                  alt="DropVerse"
+                  width={52}
+                  height={36}
+                  className="h-8 w-auto max-h-9 object-contain sm:h-9"
+                  priority
+                  unoptimized
+                />
               </Link>
               <span className="hidden items-center gap-1.5 rounded-full border border-[#5a4a28] bg-[#2a2414] px-3 py-1 text-xs font-bold text-[#f0d98b] sm:inline-flex">
                 <ShieldCheck size={13} /> Admin
