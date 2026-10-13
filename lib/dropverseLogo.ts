@@ -1,4 +1,6 @@
-import { _a } from './dropverseLogoA'
-import { _b } from './dropverseLogoB'
+import { _p0 } from './dropverseLogoP0'
+import { _p1 } from './dropverseLogoP1'
+import { _p2 } from './dropverseLogoP2'
+import { _p3 } from './dropverseLogoP3'
 /** Official DropVerse horizontal logo (400×160, aspect 2.5). */
-export const DROPVERSE_LOGO_SRC = 'data:image/jpeg;base64,' + _a + _b
+export const DROPVERSE_LOGO_SRC = 'data:image/jpeg;base64,' + _p0 + _p1 + _p2 + _p3
