@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import Link from 'next/link'
-import Image from 'next/image'
 import { ArrowRight, Check, ChevronRight, Menu, Play, Sparkles, Users, Zap, Globe, Layers, X, LogOut, ShieldCheck } from 'lucide-react'
 import { createClient } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
@@ -169,4 +168,4 @@ export default function Home() {
   )
 }
 
-function Feature({icon,title,text}:{icon:React.ReactNode,title:string,text:string}){return <div><div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-[rgba(216,180,90,0.20)] bg-[rgba(216,180,90,0.05)] text-[#d8b45a]">{icon}</div><h3 className="font-display font-bold">{title}</h3><p className="mt-2 text-sm leading-6 text-[#83958f]">{text}</p></div>}
+function Feature({icon,title,text}:{icon:React.ReactNode,title:string,text:string}){return <div><div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-[rgba(216,180,90,0.20)] bg-[rgba(216,180,90,0.05)] text-[#d8b45a]">{icon}</div><h3 className="font-display text-lg font-bold">{title}</h3><p className="mt-2 text-sm leading-6 text-[#849792]">{text}</p></div>}
