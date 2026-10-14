@@ -14,7 +14,7 @@ export default async function PaymentSuccessPage({ searchParams }: { searchParam
         <p className="mt-7 text-xs font-bold uppercase tracking-[.2em] text-[#d8b45a]">DropVerse order received</p>
         <h1 className="font-display mt-3 text-3xl font-extrabold text-white sm:text-4xl">Payment submitted successfully.</h1>
         <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-[#9aaba6]">
-          Paddle has received your payment. We will update the order after the payment confirmation webhook is processed.
+          Dodo Payments has received your payment. We will update the order after the payment confirmation webhook is processed.
         </p>
         {transactionId && (
           <div className="mx-auto mt-7 max-w-md rounded-2xl border border-white/10 bg-white/[.03] px-4 py-3 text-left">

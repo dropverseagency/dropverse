@@ -5,9 +5,9 @@ import { ArrowLeft, Check, Crown, Receipt, Sparkles } from 'lucide-react'
 import { createClient } from '../../../lib/supabase'
 import { type OrgRow } from '../../../lib/orgs'
 import { PLAN_CONFIG, membersLabelFor, planById } from '../../../lib/planConfig'
-import PaddlePlanCheckout from '../../../components/PaddlePlanCheckout'
+import DodoPlanCheckout from '../../../components/DodoPlanCheckout'
 
-type PaddleOrder = {
+type DodoOrder = {
   id: string
   transaction_id: string
   status: string
@@ -23,17 +23,17 @@ export default function BillingPage() {
   const [orgs, setOrgs] = useState<OrgRow[]>([])
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null)
   const [memberCount, setMemberCount] = useState(0)
-  const [orders, setOrders] = useState<PaddleOrder[]>([])
+  const [orders, setOrders] = useState<DodoOrder[]>([])
   const [portalLoading, setPortalLoading] = useState(false)
   const [portalError, setPortalError] = useState<string | null>(null)
 
   async function openPortal() {
     setPortalLoading(true)
     setPortalError(null)
-    const response = await fetch('/api/paddle/portal', { method: 'POST', credentials: 'include' })
+    const response = await fetch('/api/dodo/portal', { method: 'POST', credentials: 'include' })
     const payload = await response.json().catch(() => ({}))
     if (response.ok && payload.url) window.location.assign(payload.url)
-    else setPortalError(payload.error === 'NO_PADDLE_CUSTOMER' ? 'Your Paddle customer portal will be available after the first completed payment.' : 'Unable to open the Paddle portal right now.')
+    else setPortalError(payload.error === 'NO_DODO_CUSTOMER' ? 'Your Dodo customer portal will be available after the first completed payment.' : 'Unable to open the Dodo Payments portal right now.')
     setPortalLoading(false)
   }
 
@@ -48,7 +48,7 @@ export default function BillingPage() {
         if (i < 4) await new Promise((r) => setTimeout(r, 800))
       }
       if (!session || cancelled) { window.location.assign('/login?redirect=%2Fdashboard%2Fbilling'); return }
-      const ordersResponse = await fetch('/api/paddle/orders', { credentials: 'include' })
+      const ordersResponse = await fetch('/api/dodo/orders', { credentials: 'include' })
       const ordersPayload = await ordersResponse.json().catch(() => ({}))
       if (!cancelled) setOrders(ordersPayload.orders ?? [])
       const { data: orgRows } = await supabase
@@ -152,7 +152,7 @@ export default function BillingPage() {
                 </div>
               </div>
               <div className="mt-5 flex flex-wrap items-center gap-3 rounded-lg border border-[rgba(216,180,90,0.25)] bg-[rgba(216,180,90,0.06)] px-4 py-3 text-xs text-[#b9a76f]">
-                <span>Manage subscriptions, payment methods, invoices, and transaction history in Paddle.</span>
+                <span>Manage subscriptions, payment methods, invoices, and transaction history in Dodo Payments.</span>
                 <button type="button" onClick={openPortal} disabled={portalLoading} className="rounded-full border border-[rgba(216,180,90,0.40)] px-3 py-1.5 font-bold text-[#e4c979] hover:bg-[rgba(216,180,90,0.12)] disabled:opacity-50">{portalLoading ? 'Opening…' : 'Manage billing'}</button>
               </div>
               {portalError && <p className="mt-2 text-xs text-[#e89a8d]">{portalError}</p>}
@@ -187,17 +187,17 @@ export default function BillingPage() {
                       Contact Sales
                     </a>
                   ) : (
-                    <PaddlePlanCheckout planId={p.id} organizationId={org.id} label={`Upgrade to ${p.displayName}`} className="flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] py-3 text-sm font-bold text-[#e4c979] transition hover:border-[rgba(216,180,90,0.60)] disabled:cursor-not-allowed disabled:opacity-50" />
+                    <DodoPlanCheckout planId={p.id} organizationId={org.id} label={`Upgrade to ${p.displayName}`} className="flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] py-3 text-sm font-bold text-[#e4c979] transition hover:border-[rgba(216,180,90,0.60)] disabled:cursor-not-allowed disabled:opacity-50" />
                   )}
                 </div>
               ))}
             </div>
             <div className="card mb-10 rounded-3xl p-7">
               <div className="flex items-center justify-between gap-3">
-                <div><h2 className="font-display text-lg font-bold">Order history</h2><p className="mt-1 text-xs text-[#849792]">Your Paddle transactions and subscription status.</p></div>
+                <div><h2 className="font-display text-lg font-bold">Order history</h2><p className="mt-1 text-xs text-[#849792]">Your Dodo transactions and subscription status.</p></div>
                 <Receipt size={19} className="text-[#d8b45a]" />
               </div>
-              {orders.length === 0 ? <p className="mt-5 text-sm text-[#718781]">No Paddle orders have been recorded yet.</p> : <div className="mt-5 space-y-3">{orders.map((order) => <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/5 bg-white/[.025] px-4 py-3"><div><div className="text-sm font-semibold text-[#d9e0dc]">{order.plan_id ? `${order.plan_id} subscription` : 'Service order'}</div><div className="mt-1 text-[11px] text-[#718781]">{new Date(order.created_at).toLocaleDateString()} · {order.transaction_id}</div></div><div className="text-right"><div className="text-sm font-bold text-[#e4c979]">{order.currency_code} {Number(order.amount).toFixed(2)}</div><div className="mt-1 text-[11px] uppercase tracking-wider text-[#8fa29c]">{order.status}</div></div></div>)}</div>}
+              {orders.length === 0 ? <p className="mt-5 text-sm text-[#718781]">No Dodo orders have been recorded yet.</p> : <div className="mt-5 space-y-3">{orders.map((order) => <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/5 bg-white/[.025] px-4 py-3"><div><div className="text-sm font-semibold text-[#d9e0dc]">{order.plan_id ? `${order.plan_id} subscription` : 'Service order'}</div><div className="mt-1 text-[11px] text-[#718781]">{new Date(order.created_at).toLocaleDateString()} · {order.transaction_id}</div></div><div className="text-right"><div className="text-sm font-bold text-[#e4c979]">{order.currency_code} {Number(order.amount).toFixed(2)}</div><div className="mt-1 text-[11px] uppercase tracking-wider text-[#8fa29c]">{order.status}</div></div></div>)}</div>}
             </div>
           </>
         )}

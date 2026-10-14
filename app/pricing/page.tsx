@@ -7,7 +7,7 @@ import { ArrowRight, Check, Star, Zap, Users, Target } from 'lucide-react'
 import { PLAN_CONFIG, membersLabelFor } from '../../lib/planConfig'
 import SiteHeader from '../../components/SiteHeader'
 import { useAuth } from '../../lib/useAuth'
-import PaddlePlanCheckout from '../../components/PaddlePlanCheckout'
+import DodoPlanCheckout from '../../components/DodoPlanCheckout'
 
 function planHref(signedIn: boolean, planId: string): string {
   // Signed-in users choose a plan and go straight to the dashboard;
@@ -134,7 +134,7 @@ export default function PricingPage() {
                   Contact Sales <ArrowRight size={16} />
                 </a>
               ) : signedIn && plan.price > 0 ? (
-                <PaddlePlanCheckout
+                <DodoPlanCheckout
                   planId={plan.id}
                   label={`Choose ${plan.displayName}`}
                   className={`flex w-full items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
