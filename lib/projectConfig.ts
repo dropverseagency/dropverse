@@ -4,6 +4,9 @@
  * Core business rule: NO CONFIRMED PAYMENT = NO FULFILLMENT.
  * Recurring billing automation is NOT implemented yet — this config only
  * stores intervals, periods and statuses so future billing can be layered on.
+ *
+ * Online payment gateways (Paddle, SpaceRemit, invoice checkout) are gated by
+ * NEXT_PUBLIC_PAYMENTS_ENABLED. When false, the server forces PENDING_MANUAL.
  */
 
 export type ProjectType = 'ONE_TIME' | 'MONTHLY' | 'ANNUAL' | 'CUSTOM_RECURRING'
@@ -33,9 +36,36 @@ export const PROJECT_TYPES: { id: ProjectType; label: string; description: strin
   },
 ]
 
-export type PaymentMethod = 'CLIENT_PAYS_DROPVERSE' | 'SPACEREMIT' | 'INVOICE_SEND' | 'SELLER_COLLECTED'
+/** Values allowed by projects_payment_method_check (after PENDING_MANUAL migration). */
+export type PaymentMethod =
+  | 'CLIENT_PAYS_DROPVERSE'
+  | 'SPACEREMIT'
+  | 'INVOICE_SEND'
+  | 'SELLER_COLLECTED'
+  | 'PENDING_MANUAL'
 
-export const PAYMENT_METHODS: { id: PaymentMethod; label: string; description: string; recommended?: boolean }[] = [
+export const PAYMENT_METHOD_ALLOWLIST: readonly PaymentMethod[] = [
+  'CLIENT_PAYS_DROPVERSE',
+  'SPACEREMIT',
+  'INVOICE_SEND',
+  'SELLER_COLLECTED',
+  'PENDING_MANUAL',
+] as const
+
+/** Methods that require an external gateway or payment flow. Gated by the flag. */
+export const GATEWAY_PAYMENT_METHODS: readonly PaymentMethod[] = [
+  'CLIENT_PAYS_DROPVERSE',
+  'SPACEREMIT',
+  'INVOICE_SEND',
+] as const
+
+/** Selectable in the UI when payments are enabled. PENDING_MANUAL is server-only. */
+export const PAYMENT_METHODS: {
+  id: Exclude<PaymentMethod, 'PENDING_MANUAL'>
+  label: string
+  description: string
+  recommended?: boolean
+}[] = [
   {
     id: 'CLIENT_PAYS_DROPVERSE',
     label: 'Client Pays DropVerse',
@@ -50,7 +80,7 @@ export const PAYMENT_METHODS: { id: PaymentMethod; label: string; description: s
   {
     id: 'INVOICE_SEND',
     label: 'Send Invoice to Client',
-    description: 'Create a payment invoice and send the link to your client. They pay securely (no account needed) and the project is confirmed automatically.',
+    description: 'Create a payment invoice and send the link to your client.',
   },
   {
     id: 'SELLER_COLLECTED',
@@ -60,6 +90,12 @@ export const PAYMENT_METHODS: { id: PaymentMethod; label: string; description: s
 ]
 
 export type PaymentStatus = 'PAYMENT_PENDING' | 'PAYMENT_CONFIRMED'
+
+export const PAYMENT_STATUS_ALLOWLIST: readonly PaymentStatus[] = [
+  'PAYMENT_PENDING',
+  'PAYMENT_CONFIRMED',
+] as const
+
 export type ProjectStatus =
   | 'DRAFT'
   | 'PAYMENT_PENDING'
@@ -73,7 +109,6 @@ export type ProjectStatus =
   | 'PAST_DUE'
   | 'EXPIRED'
 
-// Payment flow: PAYMENT_PENDING -> PAYMENT_CONFIRMED -> READY_FOR_FULFILLMENT -> IN_PROGRESS
 export const PAYMENT_FLOW = ['PAYMENT_PENDING', 'PAYMENT_CONFIRMED', 'READY_FOR_FULFILLMENT', 'IN_PROGRESS'] as const
 
 export const STATUS_LABELS: Record<ProjectStatus, string> = {
@@ -90,7 +125,6 @@ export const STATUS_LABELS: Record<ProjectStatus, string> = {
   EXPIRED: 'Expired',
 }
 
-/** Allowed transitions from a given status. */
 export const STATUS_TRANSITIONS: Record<ProjectStatus, ProjectStatus[]> = {
   DRAFT: ['PAYMENT_PENDING', 'CANCELLED'],
   PAYMENT_PENDING: ['PAYMENT_CONFIRMED', 'CANCELLED'],
@@ -109,7 +143,6 @@ export function canTransition(from: ProjectStatus, to: ProjectStatus): boolean {
   return STATUS_TRANSITIONS[from].includes(to)
 }
 
-/** Fulfillment statuses require payment confirmation first. */
 export const FULFILLMENT_STATUSES: ProjectStatus[] = [
   'READY_FOR_FULFILLMENT',
   'ACTIVE',
@@ -120,6 +153,19 @@ export const FULFILLMENT_STATUSES: ProjectStatus[] = [
 
 export function isFulfillmentStatus(status: string): boolean {
   return FULFILLMENT_STATUSES.includes(status as ProjectStatus)
+}
+
+/** True only when NEXT_PUBLIC_PAYMENTS_ENABLED is exactly "true". */
+export function paymentsEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_PAYMENTS_ENABLED === 'true'
+}
+
+export function isPaymentMethod(value: unknown): value is PaymentMethod {
+  return typeof value === 'string' && (PAYMENT_METHOD_ALLOWLIST as readonly string[]).includes(value)
+}
+
+export function isPaymentStatus(value: unknown): value is PaymentStatus {
+  return typeof value === 'string' && (PAYMENT_STATUS_ALLOWLIST as readonly string[]).includes(value)
 }
 
 export function billingIntervalFor(type: ProjectType): BillingInterval {
@@ -140,7 +186,6 @@ export interface MoneyLabel {
   fulfillmentMessage: string
 }
 
-/** Labels that adapt to the chosen project type (seller-facing only). */
 export function moneyLabels(type: ProjectType): MoneyLabel {
   switch (type) {
     case 'ONE_TIME':
@@ -159,7 +204,7 @@ export function moneyLabels(type: ProjectType): MoneyLabel {
         profitLabel: 'Estimated Monthly Seller Profit',
         periodSuffix: ' / month',
         paymentNowMessage: 'First payment due now',
-        fulfillmentMessage: 'Fulfillment begins after the first month\u2019s payment is confirmed.',
+        fulfillmentMessage: "Fulfillment begins after the first month's payment is confirmed.",
       }
     case 'ANNUAL':
       return {
@@ -182,30 +227,18 @@ export function moneyLabels(type: ProjectType): MoneyLabel {
   }
 }
 
-/**
- * PLATFORM FULFILLMENT RATES (set once by DropVerse, applied automatically).
- * The seller never enters a fulfillment cost — it is computed from the client
- * price using the rate configured for the chosen project type. These rates are
- * derived from the service pricing we will define in the platform later; they
- * are the single source of truth so cost can never be faked by the client.
- *
- * When real per-service pricing tables exist, replace computeFulfillmentCost
- * with a lookup; the interface (type + client price -> cost) stays the same.
- */
 export const FULFILLMENT_RATES: Record<ProjectType, number> = {
-  ONE_TIME: 0.40, // 40% of client price
+  ONE_TIME: 0.40,
   MONTHLY: 0.40,
-  ANNUAL: 0.35,   // discounted rate for annual commitments
+  ANNUAL: 0.35,
   CUSTOM_RECURRING: 0.40,
 }
 
-/** Automatic fulfillment cost from the platform rates. Never trust the client. */
 export function computeFulfillmentCost(type: ProjectType, clientPrice: number): number {
   const cost = clientPrice * (FULFILLMENT_RATES[type] ?? 0.40)
   return Math.round(cost * 100) / 100
 }
 
-/** Server-side rule: profit = client price - fulfillment cost. Never trust the client. */
 export function computeSellerProfit(clientPrice: number, fulfillmentCost: number): number {
   const profit = clientPrice - fulfillmentCost
   return Math.round(profit * 100) / 100
@@ -225,11 +258,9 @@ export interface ProjectDraft {
   paymentMethod: PaymentMethod
   deliveryNotes: string
   clientContactEmail: string
-  /** SpaceRemit transaction code returned by the checkout (server-verified). */
   spaceremitPaymentId?: string
 }
 
-/** Required upfront payment for the current period (seller-facing "Payment Required Now"). */
 export function paymentRequiredNow(d: ProjectDraft): number {
   switch (d.projectType) {
     case 'ONE_TIME': return d.fulfillmentCost
