@@ -46,7 +46,6 @@
   --gold-bright: #a dig;
   --gold-soft: #f5e2b1;
   --text: #061916;
-  --muted: #465f58;
   --muted-soft: #6b857c;
   --line: rgba(16, 82, 70, .18);
   --line-soft: rgba(6, 25, 22, .1);
@@ -54,7 +53,6 @@
 
 .dark {
   color-scheme: dark;
-  /* Original DropVerse dark — aligned with main #061916 / #070f0d / #e2b656 */
   --background: 6 25 22;
   --foreground: 247 244 236;
   --card: 16 28 25;
@@ -88,7 +86,6 @@
   --gold-bright: #f6de9d;
   --gold-soft: #e6c477;
   --text: #f7f4ec;
-  --muted: #c5d0cb;
   --muted-soft: #9aaba4;
   --line: rgba(226, 182, 86, .22);
   --line-soft: rgba(255, 255, 255, .1);
