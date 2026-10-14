@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Card, LoadingOrError, TableControls, truncateId, fmtDate, emptyNote, useAdminData } from '@/components/admin/shared'
+import { Badge, Card, LoadingOrError, TableControls, truncateId, fmtDate, emptyNote, useAdminData } from '@/components/admin/shared'
 
 export default function FreelancersSection() {
   const [page, setPage] = useState(1)
@@ -18,30 +18,30 @@ export default function FreelancersSection() {
             page={page} count={data.count ?? 0} limit={limit}
             onPrev={() => setPage((p) => Math.max(1, p - 1))}
             onNext={() => setPage((p) => p + 1)}
-            placeholder="Search freelancer name or service..."
+            placeholder="Search freelancers..."
           />
           <Card>
-            {!data.rows?.length ? emptyNote('No freelancers registered yet. Freelancers can be added from the marketplace section later.') : (
+            {!data.rows?.length ? emptyNote('No freelancers found.') : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-white/5 text-left text-[11px] uppercase tracking-wider text-[#7f918c]">
-                      <th className="py-2 pr-3 font-semibold">Freelancer</th>
-                      <th className="py-2 pr-3 font-semibold">Service</th>
-                      <th className="py-2 pr-3 font-semibold">Rating</th>
-                      <th className="py-2 font-semibold">Registered</th>
+                    <tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted-foreground">
+                      <th className="py-2 pr-3 font-semibold">Name</th>
+                      <th className="py-2 pr-3 font-semibold">Status</th>
+                      <th className="py-2 pr-3 font-semibold">Skills</th>
+                      <th className="py-2 font-semibold">Created</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {data.rows.map((f: any) => (
-                      <tr key={f.id} className="border-b border-white/5 last:border-0">
+                    {data.rows.map((row: any) => (
+                      <tr key={row.id} className="border-b border-border last:border-0">
                         <td className="py-3 pr-3">
-                          <div className="font-semibold text-[#f0f4f2]">{f.full_name || f.username || '—'}</div>
-                          <div className="text-xs text-[#7f918c]">{truncateId(f.id)}</div>
+                          <div className="font-semibold text-foreground">{row.full_name || row.username || '—'}</div>
+                          <div className="text-xs text-muted-foreground">{truncateId(row.id)}</div>
                         </td>
-                        <td className="py-3 pr-3 text-[#c8d4d0]">{f.service_name ?? '—'}</td>
-                        <td className="py-3 pr-3 text-[#c8d4d0]">{f.rating ?? '—'}</td>
-                        <td className="py-3 text-xs text-[#7f918c]">{fmtDate(f.created_at)}</td>
+                        <td className="py-3 pr-3"><Badge status={row.status ?? 'active'} /></td>
+                        <td className="py-3 pr-3 text-muted-foreground">{Array.isArray(row.skills) ? row.skills.join(', ') : '—'}</td>
+                        <td className="py-3 text-xs text-muted-foreground">{fmtDate(row.created_at)}</td>
                       </tr>
                     ))}
                   </tbody>

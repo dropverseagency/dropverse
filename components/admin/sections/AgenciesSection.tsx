@@ -25,7 +25,7 @@ export default function AgenciesSection() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-white/5 text-left text-[11px] uppercase tracking-wider text-[#7f918c]">
+                    <tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted-foreground">
                       <th className="py-2 pr-3 font-semibold">Agency</th>
                       <th className="py-2 pr-3 font-semibold">Type</th>
                       <th className="py-2 pr-3 font-semibold">Plan</th>
@@ -36,16 +36,16 @@ export default function AgenciesSection() {
                   </thead>
                   <tbody>
                     {data.rows.map((o: any) => (
-                      <tr key={o.id} className="border-b border-white/5 last:border-0">
+                      <tr key={o.id} className="border-b border-border last:border-0">
                         <td className="py-3 pr-3">
-                          <div className="font-semibold text-[#f0f4f2]">{o.name}</div>
-                          <div className="text-xs text-[#7f918c]">{o.slug} · {truncateId(o.id)}</div>
+                          <div className="font-semibold text-foreground">{o.name}</div>
+                          <div className="text-xs text-muted-foreground">{o.slug} · {truncateId(o.id)}</div>
                         </td>
-                        <td className="py-3 pr-3 text-[#c8d4d0]">{o.type}</td>
+                        <td className="py-3 pr-3 text-muted-foreground">{o.type}</td>
                         <td className="py-3 pr-3"><Badge status={o.plan ?? ''} /></td>
                         <td className="py-3 pr-3"><Badge status={o.status ?? 'active'} /></td>
-                        <td className="py-3 pr-3 text-[#c8d4d0]">{o.team_size ?? '—'}</td>
-                        <td className="py-3 text-xs text-[#7f918c]">{fmtDate(o.created_at)}</td>
+                        <td className="py-3 pr-3 text-muted-foreground">{o.team_size ?? '—'}</td>
+                        <td className="py-3 text-xs text-muted-foreground">{fmtDate(o.created_at)}</td>
                       </tr>
                     ))}
                   </tbody>
