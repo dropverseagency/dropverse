@@ -1,9 +1,7 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import SpaceRemitPayForm from '../../../components/SpaceRemitPayForm'
 import { getPaddleClient, paddleClientTokenConfigured } from '../../../lib/paddle'
-
-const SPACEREMIT_MAX_USD = 300
 
 type PayRail = 'international' | 'local'
 
@@ -23,15 +21,7 @@ export default function InvoicePayForm({ invoiceId, due, amount, preferredMethod
   const [paySuccess, setPaySuccess] = useState(false)
   const [paying, setPaying] = useState(false)
 
-  const localBlocked = amount > SPACEREMIT_MAX_USD
   const showChooser = !preferredMethod
-
-  const localNote = useMemo(() => {
-    if (localBlocked) {
-      return `Local payment supports up to $${SPACEREMIT_MAX_USD} per transaction. This invoice is ${due} — please use International payment.`
-    }
-    return `Local payment maximum is $${SPACEREMIT_MAX_USD} per transaction.`
-  }, [localBlocked, due])
 
   async function startInternational() {
     if (paddleLoading) return
@@ -131,27 +121,20 @@ export default function InvoicePayForm({ invoiceId, due, amount, preferredMethod
             }`}
           >
             <div className={`text-sm font-bold ${rail === 'international' ? 'text-[#f0d98b]' : 'text-[#d9e0dc]'}`}>International payment</div>
-            <p className="mt-1 text-[11px] leading-5 text-[#8f9f9a]">Cards and global methods. No per-transaction cap.</p>
+            <p className="mt-1 text-[11px] leading-5 text-[#8f9f9a]">Cards and global methods.</p>
           </button>
           <button
             type="button"
-            onClick={() => !localBlocked && setRail('local')}
-            disabled={localBlocked}
+            onClick={() => setRail('local')}
             className={`rounded-2xl border p-4 text-left transition ${
               rail === 'local'
                 ? 'border-[rgba(216,180,90,0.55)] bg-[rgba(216,180,90,0.12)]'
                 : 'border-white/10 bg-[#071f1d] hover:border-[rgba(216,180,90,0.30)]'
-            } ${localBlocked ? 'cursor-not-allowed opacity-50' : ''}`}
+            }`}
           >
             <div className={`text-sm font-bold ${rail === 'local' ? 'text-[#f0d98b]' : 'text-[#d9e0dc]'}`}>Local payment</div>
-            <p className="mt-1 text-[11px] leading-5 text-[#8f9f9a]">Wallets, bank transfer, 70+ local methods. Max ${SPACEREMIT_MAX_USD} per payment.</p>
+            <p className="mt-1 text-[11px] leading-5 text-[#8f9f9a]">Wallets, bank transfer, 70+ local methods.</p>
           </button>
-        </div>
-      )}
-
-      {rail === 'local' && (
-        <div className="mt-4 rounded-xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] px-4 py-3 text-xs leading-5 text-[#e4c979]">
-          {localNote}
         </div>
       )}
 
@@ -175,11 +158,10 @@ export default function InvoicePayForm({ invoiceId, due, amount, preferredMethod
             {paddleLoading ? 'Opening secure checkout…' : `Pay ${due} — International`}
           </button>
         </div>
-      ) : localBlocked ? null : (
+      ) : (
         <div className="mt-5">
           <p className="mb-3 text-[11px] leading-5 text-[#687d76]">
-            Choose a local method below, then press Pay Now. Maximum{' '}
-            <span className="font-bold text-[#e4c979]">${SPACEREMIT_MAX_USD}</span> per payment.
+            Choose a local method below, then press Pay Now.
           </p>
           <SpaceRemitPayForm
             amount={amount}
