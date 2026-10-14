@@ -1,5 +1,11 @@
-import type { Paddle } from '@paddle/paddle-js'
 import { paymentsEnabled } from './projectConfig'
+
+/** Minimal shape we need from Paddle.js — avoids a hard compile-time dependency. */
+type PaddleLike = {
+  Checkout: {
+    open: (opts: Record<string, unknown>) => void
+  }
+}
 
 export function isPaddleSandbox() {
   return (process.env.NEXT_PUBLIC_PADDLE_ENV || 'sandbox').toLowerCase() === 'sandbox'
@@ -14,10 +20,6 @@ export function paddleClientTokenConfigured() {
   return Boolean(token) && !token.startsWith('ضع_هنا_') && !token.startsWith('YOUR_') && !token.includes('placeholder')
 }
 
-/**
- * Optional checkout.url for Paddle transactions.
- * Only set NEXT_PUBLIC_PADDLE_CHECKOUT_URL if that domain is approved in Paddle.
- */
 export function paddleCheckoutPayload(): { url: string } | undefined {
   const configured = (process.env.NEXT_PUBLIC_PADDLE_CHECKOUT_URL || '').trim()
   if (!configured) return undefined
@@ -39,7 +41,7 @@ export function paddleApprovedCheckoutUrl(path = '/dashboard') {
   return `https://dropverse-nu.vercel.app${path.startsWith('/') ? path : `/${path}`}`
 }
 
-let paddlePromise: Promise<Paddle | undefined> | null = null
+let paddlePromise: Promise<PaddleLike | undefined> | null = null
 
 async function confirmTransactionClient(transactionId: string) {
   try {
@@ -50,26 +52,27 @@ async function confirmTransactionClient(transactionId: string) {
       credentials: 'include',
     })
   } catch {
-    // Webhook may still complete; ignore client confirm network errors.
+    // ignore
   }
 }
 
 /**
- * Browser-only Paddle.js instance for overlay checkout.
- * No-ops when payments are disabled or the client token is missing.
- * Uses dynamic import so server bundles never hard-require the SDK at build time beyond the type.
+ * Browser-only Paddle.js instance.
+ * Returns undefined when payments are disabled, token missing, or the optional
+ * package is not installed. Dynamic import keeps the build green either way.
  */
-export function getPaddleClient(): Promise<Paddle | undefined> {
+export function getPaddleClient(): Promise<PaddleLike | undefined> {
   if (typeof window === 'undefined') return Promise.resolve(undefined)
   if (!paymentsEnabled()) return Promise.resolve(undefined)
   if (!paddleClientTokenConfigured()) return Promise.resolve(undefined)
   if (!paddlePromise) {
     paddlePromise = import('@paddle/paddle-js')
-      .then(({ initializePaddle }) =>
-        initializePaddle({
+      .then((mod: { initializePaddle?: (opts: Record<string, unknown>) => Promise<PaddleLike | undefined> }) => {
+        if (typeof mod.initializePaddle !== 'function') return undefined
+        return mod.initializePaddle({
           token: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN as string,
           environment: isPaddleSandbox() ? 'sandbox' : 'production',
-          eventCallback: (event) => {
+          eventCallback: (event: { name?: string; data?: { transaction_id?: string } }) => {
             if (event.name === 'checkout.completed') {
               const id = String(event.data?.transaction_id ?? '')
               if (id) {
@@ -84,10 +87,10 @@ export function getPaddleClient(): Promise<Paddle | undefined> {
               console.error('[paddle] checkout.error', event)
             }
           },
-        }),
-      )
+        })
+      })
       .catch((err) => {
-        console.error('[paddle] initialize failed', err)
+        console.error('[paddle] initialize failed or package missing', err)
         paddlePromise = null
         return undefined
       })
