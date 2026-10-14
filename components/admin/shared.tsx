@@ -9,7 +9,13 @@ export function fmtUsd(n: number | null | undefined): string {
 
 export function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '—'
-  return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 export function truncateId(s: string | null | undefined): string {
@@ -18,23 +24,23 @@ export function truncateId(s: string | null | undefined): string {
 }
 
 export const STATUS_STYLES: Record<string, string> = {
-  PAYMENT_CONFIRMED: 'bg-[rgba(92,200,150,0.16)] text-[#7fd8a8] border-[rgba(92,200,150,0.35)]',
-  PAYMENT_PENDING: 'bg-[rgba(230,190,90,0.14)] text-[#f0d98b] border-[rgba(230,190,90,0.35)]',
-  PAYMENT_FAILED: 'bg-[rgba(230,90,90,0.14)] text-[#f5a0a0] border-[rgba(230,90,90,0.35)]',
-  PAYMENT_DISPUTED: 'bg-[rgba(230,120,60,0.14)] text-[#f5c48a] border-[rgba(230,120,60,0.35)]',
-  approved: 'bg-[rgba(92,200,150,0.16)] text-[#7fd8a8] border-[rgba(92,200,150,0.35)]',
-  available: 'bg-[rgba(120,170,255,0.16)] text-[#9db8ff] border-[rgba(120,170,255,0.35)]',
-  paid: 'bg-[rgba(92,200,150,0.16)] text-[#7fd8a8] border-[rgba(92,200,150,0.35)]',
-  pending: 'bg-[rgba(230,190,90,0.14)] text-[#f0d98b] border-[rgba(230,190,90,0.35)]',
-  reversed: 'bg-[rgba(230,90,90,0.14)] text-[#f5a0a0] border-[rgba(230,90,90,0.35)]',
-  cancelled: 'bg-[rgba(150,160,170,0.14)] text-[#b8c0c8] border-[rgba(150,160,170,0.35)]',
-  active: 'bg-[rgba(92,200,150,0.16)] text-[#7fd8a8] border-[rgba(92,200,150,0.35)]',
-  rejected: 'bg-[rgba(230,90,90,0.14)] text-[#f5a0a0] border-[rgba(230,90,90,0.35)]',
-  admin: 'bg-[rgba(216,180,90,0.18)] text-[#f0d98b] border-[rgba(216,180,90,0.45)]',
+  PAYMENT_CONFIRMED: 'bg-success/15 text-success border-success/35',
+  PAYMENT_PENDING: 'bg-primary/15 text-primary border-primary/35',
+  PAYMENT_FAILED: 'bg-danger/15 text-danger border-danger/35',
+  PAYMENT_DISPUTED: 'bg-warning/15 text-warning border-warning/35',
+  approved: 'bg-success/15 text-success border-success/35',
+  available: 'bg-primary/15 text-primary border-primary/35',
+  paid: 'bg-success/15 text-success border-success/35',
+  pending: 'bg-primary/15 text-primary border-primary/35',
+  reversed: 'bg-danger/15 text-danger border-danger/35',
+  cancelled: 'bg-muted text-muted-foreground border-border',
+  active: 'bg-success/15 text-success border-success/35',
+  rejected: 'bg-danger/15 text-danger border-danger/35',
+  admin: 'bg-primary/15 text-primary border-primary/45',
 }
 
 export function Badge({ status, label }: { status: string; label?: string }) {
-  const style = STATUS_STYLES[status] ?? 'bg-white/5 text-[#9aac b8] border-white/10'
+  const style = STATUS_STYLES[status] ?? 'bg-muted text-muted-foreground border-border'
   return (
     <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${style}`}>
       {label ?? status}
@@ -44,24 +50,35 @@ export function Badge({ status, label }: { status: string; label?: string }) {
 
 export function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-xl border border-white/5 bg-[rgba(255,255,255,0.02)] p-4">
-      <div className="text-xs uppercase tracking-wider text-[#7f918c]">{label}</div>
-      <div className="mt-1 text-2xl font-extrabold text-[#f0f4f2]">{value}</div>
-      {sub ? <div className="mt-1 text-xs text-[#7f918c]">{sub}</div> : null}
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="mt-1 text-2xl font-extrabold text-foreground">{value}</div>
+      {sub ? <div className="mt-1 text-xs text-muted-foreground">{sub}</div> : null}
     </div>
   )
 }
 
-export function Card({ title, className = '', children }: { title?: string; className?: string; children: React.ReactNode }) {
+export function Card({
+  title,
+  className = '',
+  children,
+}: {
+  title?: string
+  className?: string
+  children: React.ReactNode
+}) {
   return (
-    <section className={`rounded-2xl border border-white/10 bg-[#0c2420] shadow-[0_12px_40px_rgba(0,0,0,0.18)] ${className}`}>
-      {title ? <h2 className="border-b border-white/10 px-4 py-3.5 text-sm font-bold tracking-wide text-white sm:px-5">{title}</h2> : null}
+    <section className={`rounded-2xl border border-border bg-card shadow-soft ${className}`}>
+      {title ? (
+        <h2 className="border-b border-border px-4 py-3.5 text-sm font-bold tracking-wide text-foreground sm:px-5">
+          {title}
+        </h2>
+      ) : null}
       <div className="p-4 sm:p-5">{children}</div>
     </section>
   )
 }
 
-/** Generic pagination + search controls */
 export function TableControls(props: {
   q: string
   onQ: (v: string) => void
@@ -76,20 +93,30 @@ export function TableControls(props: {
   return (
     <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="relative w-full flex-1 sm:max-w-xs">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7f918c]" />
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
           value={props.q}
           onChange={(e) => props.onQ(e.target.value)}
           placeholder={props.placeholder ?? 'Search...'}
-          className="w-full rounded-lg border border-white/10 bg-[rgba(255,255,255,0.03)] py-2 pl-9 pr-3 text-sm text-[#d9e0dc] outline-none transition focus:border-[rgba(216,180,90,0.5)]"
+          className="w-full rounded-lg border border-border bg-muted py-2 pl-9 pr-3 text-sm text-foreground outline-none transition focus:border-primary/50"
         />
       </div>
-      <div className="flex items-center gap-2 text-xs text-[#7f918c]">
-        <button onClick={props.onPrev} disabled={props.page <= 1} className="rounded-lg border border-white/10 px-3 py-1.5 transition hover:bg-white/5 disabled:opacity-40">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <button
+          onClick={props.onPrev}
+          disabled={props.page <= 1}
+          className="rounded-lg border border-border px-3 py-1.5 transition hover:bg-muted disabled:opacity-40"
+        >
           ← Prev
         </button>
-        <span>Page {props.page} / {maxPage}</span>
-        <button onClick={props.onNext} disabled={props.page >= maxPage} className="rounded-lg border border-white/10 px-3 py-1.5 transition hover:bg-white/5 disabled:opacity-40">
+        <span>
+          Page {props.page} / {maxPage}
+        </span>
+        <button
+          onClick={props.onNext}
+          disabled={props.page >= maxPage}
+          className="rounded-lg border border-border px-3 py-1.5 transition hover:bg-muted disabled:opacity-40"
+        >
           Next →
         </button>
       </div>
@@ -112,25 +139,30 @@ export function useAdminData<T = any>(section: string, deps: (string | number)[]
       const keys = ['page', 'limit', 'q', 'payment_status', 'status', 'entity']
       url.searchParams.set(keys[i % keys.length], String(d))
     })
-    fetch(url.href).then((r) => r.json()).then((j) => {
-      if (cancelled) return
-      if (j.error) {
-        setError(j.error)
-        setData(null)
-      } else {
-        setData(j)
-        setError(null)
-      }
-      setLoading(false)
-    }).catch(() => {
-      if (!cancelled) { setError('NETWORK_ERROR'); setLoading(false) }
-    })
-    return () => { cancelled = true }
+    fetch(url.href)
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return
+        if (j.error) {
+          setError(j.error)
+          setData(null)
+        } else {
+          setData(j)
+          setError(null)
+        }
+        setLoading(false)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError('NETWORK_ERROR')
+          setLoading(false)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
   }, [section, ...deps])
 
-  // Live refresh: re-pull numbers whenever the tab regains focus / becomes
-  // visible, plus a gentle poll, so brand-new sign-ups / projects /
-  // commissions appear without a manual reload.
   useEffect(() => {
     const refetch = () => {
       const url = new URL('/api/admin/data', window.location.origin)
@@ -140,9 +172,15 @@ export function useAdminData<T = any>(section: string, deps: (string | number)[]
         const keys = ['page', 'limit', 'q', 'payment_status', 'status', 'entity']
         url.searchParams.set(keys[i % keys.length], String(d))
       })
-      fetch(url.href).then((r) => r.json()).then((j) => {
-        if (!j.error) { setData(j); setError(null) }
-      }).catch(() => {})
+      fetch(url.href)
+        .then((r) => r.json())
+        .then((j) => {
+          if (!j.error) {
+            setData(j)
+            setError(null)
+          }
+        })
+        .catch(() => {})
     }
     const onVisible = () => {
       if (document.visibilityState === 'visible') refetch()
@@ -163,13 +201,15 @@ export function useAdminData<T = any>(section: string, deps: (string | number)[]
 export function LoadingOrError({ loading, error }: { loading: boolean; error: string | null }) {
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16 text-[#7f918c]">
+      <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="animate-spin" size={22} /> <span className="ml-2 text-sm">Loading...</span>
       </div>
     )
   }
   if (error) {
-    return <div className="rounded-lg border border-[rgba(230,90,90,0.3)] bg-[rgba(230,90,90,0.08)] px-4 py-3 text-sm text-[#f5a0a0]">{error}</div>
+    return (
+      <div className="rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">{error}</div>
+    )
   }
   return null
 }
@@ -184,5 +224,5 @@ export async function adminMutate(action: string, payload: Record<string, unknow
 }
 
 export function emptyNote(msg: string) {
-  return <div className="py-10 text-center text-sm text-[#7f918c]">{msg}</div>
+  return <div className="py-10 text-center text-sm text-muted-foreground">{msg}</div>
 }
