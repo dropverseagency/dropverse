@@ -1,12 +1,22 @@
 'use client'
 import { useState } from 'react'
-import { Badge, Card, LoadingOrError, TableControls, truncateId, fmtDate, emptyNote, fmtUsd, adminMutate, useAdminData } from '@/components/admin/shared'
+import {
+  Badge,
+  Card,
+  LoadingOrError,
+  TableControls,
+  fmtDate,
+  emptyNote,
+  fmtUsd,
+  adminMutate,
+  useAdminData,
+} from '@/components/admin/shared'
 import { CheckCircle2, RotateCcw } from 'lucide-react'
 
 const NEXT_STATUS: Record<string, { value: string; label: string; color: string } | null> = {
-  pending: { value: 'approved', label: 'Approve', color: 'border-[rgba(127,216,168,0.4)] bg-[rgba(127,216,168,0.10)] text-[#7fd8a8]' },
-  approved: { value: 'available', label: 'Make available', color: 'border-[rgba(240,217,139,0.4)] bg-[rgba(240,217,139,0.10)] text-[#f0d98b]' },
-  available: { value: 'paid', label: 'Mark paid', color: 'border-[rgba(127,184,255,0.4)] bg-[rgba(127,184,255,0.10)] text-[#7fb8ff]' },
+  pending: { value: 'approved', label: 'Approve', color: 'border-success/40 bg-success/10 text-success' },
+  approved: { value: 'available', label: 'Make available', color: 'border-primary/40 bg-primary/10 text-primary' },
+  available: { value: 'paid', label: 'Mark paid', color: 'border-primary/40 bg-primary/10 text-primary' },
   paid: null,
   reversed: null,
 }
@@ -29,32 +39,43 @@ export default function CommissionsSection() {
       {loading || error ? <LoadingOrError loading={loading} error={error} /> : null}
       {data ? (
         <>
-          <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-sm text-[#c5d2cc]">
-            <div className="font-semibold text-[#f0f4f2]">Payout cycle</div>
+          <div className="mb-4 rounded-2xl border border-border bg-muted p-4 text-sm text-muted-foreground">
+            <div className="font-semibold text-foreground">Payout cycle</div>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-              <span className="rounded-full bg-white/5 px-3 py-1">Pending</span>
+              <span className="rounded-full bg-muted px-3 py-1">Pending</span>
               <span>→</span>
-              <span className="rounded-full bg-white/5 px-3 py-1">Approved</span>
+              <span className="rounded-full bg-muted px-3 py-1">Approved</span>
               <span>→</span>
-              <span className="rounded-full bg-white/5 px-3 py-1">Available</span>
+              <span className="rounded-full bg-muted px-3 py-1">Available</span>
               <span>→</span>
-              <span className="rounded-full bg-[rgba(216,180,90,0.16)] px-3 py-1 text-[#f0d98b]">Paid</span>
+              <span className="rounded-full bg-primary/15 px-3 py-1 text-primary">Paid</span>
             </div>
-            <p className="mt-2 text-xs text-[#7f918c]">A row appears only after a referred project payment is confirmed. Use the action on each row to move it one step. Reverse stays available until it is reversed.</p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              A row appears only after a referred project payment is confirmed. Use the action on each row to move it one
+              step. Reverse stays available until it is reversed.
+            </p>
           </div>
           <TableControls
-            q={q} onQ={(v) => { setQ(v); setPage(1) }}
-            page={page} count={0} limit={limit}
+            q={q}
+            onQ={(v) => {
+              setQ(v)
+              setPage(1)
+            }}
+            page={page}
+            count={0}
+            limit={limit}
             onPrev={() => setPage((p) => Math.max(1, p - 1))}
             onNext={() => setPage((p) => p + 1)}
             placeholder="Search by commission id..."
           />
           <Card>
-            {!data.rows?.length ? emptyNote('No commissions yet. They appear after an admin confirms a referred project\'s payment.') : (
+            {!data.rows?.length ? (
+              emptyNote("No commissions yet. They appear after an admin confirms a referred project's payment.")
+            ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-white/5 text-left text-[11px] uppercase tracking-wider text-[#7f918c]">
+                    <tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted-foreground">
                       <th className="py-2 pr-3 font-semibold">Affiliate</th>
                       <th className="py-2 pr-3 font-semibold">Project</th>
                       <th className="py-2 pr-3 font-semibold">Base (DV revenue)</th>
@@ -69,25 +90,33 @@ export default function CommissionsSection() {
                     {data.rows.map((c: any) => {
                       const next = NEXT_STATUS[c.status]
                       return (
-                        <tr key={c.id} className="border-b border-white/5 last:border-0">
+                        <tr key={c.id} className="border-b border-border last:border-0">
                           <td className="py-3 pr-3">
-                            <div className="font-semibold text-[#f0f4f2]">{c.referrerProfile?.full_name || c.referrerProfile?.username || '—'}</div>
-                            <div className="font-mono text-xs text-[#9db8ff]">{c.referralCode ?? '—'}</div>
+                            <div className="font-semibold text-foreground">
+                              {c.referrerProfile?.full_name || c.referrerProfile?.username || '—'}
+                            </div>
+                            <div className="font-mono text-xs text-primary">{c.referralCode ?? '—'}</div>
                           </td>
                           <td className="py-3 pr-3">
-                            <div className="max-w-[12rem] truncate text-[#c8d4d0]" title={c.project?.title}>{c.project?.title || '—'}</div>
+                            <div className="max-w-[12rem] truncate text-muted-foreground" title={c.project?.title}>
+                              {c.project?.title || '—'}
+                            </div>
                           </td>
-                          <td className="py-3 pr-3 text-[#c8d4d0]">{fmtUsd(c.base_amount)}</td>
-                          <td className="py-3 pr-3 text-[#c8d4d0]">{Math.round(Number(c.commission_rate ?? 0) * 100)}%</td>
-                          <td className="py-3 pr-3 font-semibold text-[#6fbf73]">{fmtUsd(c.commission_amount)}</td>
-                          <td className="py-3 pr-3"><Badge status={c.status} label={c.status} /></td>
-                          <td className="py-3 pr-3 text-xs text-[#7f918c]">{fmtDate(c.created_at)}</td>
+                          <td className="py-3 pr-3 text-muted-foreground">{fmtUsd(c.base_amount)}</td>
+                          <td className="py-3 pr-3 text-muted-foreground">
+                            {Math.round(Number(c.commission_rate ?? 0) * 100)}%
+                          </td>
+                          <td className="py-3 pr-3 font-semibold text-success">{fmtUsd(c.commission_amount)}</td>
+                          <td className="py-3 pr-3">
+                            <Badge status={c.status} label={c.status} />
+                          </td>
+                          <td className="py-3 pr-3 text-xs text-muted-foreground">{fmtDate(c.created_at)}</td>
                           <td className="py-3">
                             <div className="flex flex-wrap gap-1.5">
                               {next ? (
                                 <button
                                   onClick={() => setStatus(c.id, next.value)}
-                                  className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-bold transition hover:brightness-110 ${next.color}`}
+                                  className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-bold transition hover:opacity-90 ${next.color}`}
                                 >
                                   <CheckCircle2 size={12} /> {next.label}
                                 </button>
@@ -95,11 +124,13 @@ export default function CommissionsSection() {
                               {c.status !== 'reversed' ? (
                                 <button
                                   onClick={() => setStatus(c.id, 'reversed')}
-                                  className="inline-flex items-center gap-1 rounded-lg border border-red-400/30 px-2.5 py-1 text-xs text-red-300 transition hover:bg-red-400/10"
+                                  className="inline-flex items-center gap-1 rounded-lg border border-danger/30 px-2.5 py-1 text-xs text-danger transition hover:bg-danger/10"
                                 >
                                   <RotateCcw size={12} /> Reverse
                                 </button>
-                              ) : <span className="text-xs text-[#7f918c]">Final</span>}
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Final</span>
+                              )}
                             </div>
                           </td>
                         </tr>
