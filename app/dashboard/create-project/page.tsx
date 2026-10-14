@@ -114,7 +114,7 @@ export default function CreateProjectPage() {
         })
         const invJson = (await invRes.json().catch(() => ({}))) as { invoiceId?: string }
         if (invRes.ok && invJson.invoiceId) {
-          const url = `${window.location.origin}/invoice/${invJson.invoiceId}`
+          const url = window.location.origin + '/invoice/' + invJson.invoiceId
           setInvoiceId(invJson.invoiceId)
           setInvoiceUrl(url)
           setCreated(true)
@@ -146,8 +146,24 @@ export default function CreateProjectPage() {
       <div className="container pb-24 pt-28">
         <div className="mx-auto mb-12 flex max-w-2xl items-center justify-center gap-2 text-sm">
           {(['basics', 'billing', 'summary'] as Step[]).map((s, i) => (
-            <button key={s} onClick={() => setStep(s)} className={`flex items-center gap-2 rounded-full px-4 py-2 transition ${step === s ? 'bg-[#d8b45a] text-[#10221f] font-bold' : 'border border-white/10 text-[#8f9f9a]'`}>
-              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${step === s ? 'bg-[#10221f] text-[#d8b45a]' : 'bg-white/10'}`}>{i + 1}</span>
+            <button
+              key={s}
+              onClick={() => setStep(s)}
+              className={
+                step === s
+                  ? 'flex items-center gap-2 rounded-full px-4 py-2 transition bg-[#d8b45a] text-[#10221f] font-bold'
+                  : 'flex items-center gap-2 rounded-full px-4 py-2 transition border border-white/10 text-[#8f9f9a]'
+              }
+            >
+              <span
+                className={
+                  step === s
+                    ? 'flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold bg-[#10221f] text-[#d8b45a]'
+                    : 'flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold bg-white/10'
+                }
+              >
+                {i + 1}
+              </span>
               {s === 'basics' ? 'Project Details' : s === 'billing' ? 'Billing' : 'Review & Submit'}
             </button>
           ))}
@@ -169,7 +185,7 @@ export default function CreateProjectPage() {
             </div>
           )}
 
-          <motion.section className={`rounded-3xl border border-white/5 bg-[#0a2926] p-8 ${step !== 'basics' ? 'hidden' : ''}`}>
+          <motion.section className={step !== 'basics' ? 'rounded-3xl border border-white/5 bg-[#0a2926] p-8 hidden' : 'rounded-3xl border border-white/5 bg-[#0a2926] p-8'}>
             <h2 className="font-display text-xl font-bold">1. Project Details</h2>
             <label className="mt-6 block text-sm font-semibold text-[#c1cbc7]">Project Title *</label>
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Video Editing Project" className="mt-2 w-full rounded-2xl border border-white/10 bg-[#071f1d] px-5 py-3.5 text-sm text-[#e7edea] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
@@ -184,15 +200,26 @@ export default function CreateProjectPage() {
             </div>
           </motion.section>
 
-          <motion.section className={`mt-8 rounded-3xl border border-white/5 bg-[#0a2926] p-8 ${step !== 'billing' ? 'hidden' : ''}`}>
+          <motion.section className={step !== 'billing' ? 'mt-8 rounded-3xl border border-white/5 bg-[#0a2926] p-8 hidden' : 'mt-8 rounded-3xl border border-white/5 bg-[#0a2926] p-8'}>
             <h2 className="font-display text-xl font-bold">2. Billing & Payment</h2>
             <p className="mt-6 text-sm font-semibold uppercase tracking-[.12em] text-[#6e817c]">Project Type</p>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               {PROJECT_TYPES.map(t => {
                 const selected = projectType === t.id
                 return (
-                  <button key={t.id} type="button" onClick={() => !t.comingSoon && setProjectType(t.id)} disabled={t.comingSoon} className={`relative rounded-2xl border p-5 text-left ${selected ? 'border-[rgba(216,180,90,0.55)] bg-[rgba(216,180,90,0.10)]' : 'border-white/10 bg-[#071f1d]'} ${t.comingSoon ? 'opacity-60' : ''}`}>
-                    <span className={`font-display text-base font-bold ${selected ? 'text-[#f0d98b]' : 'text-[#d9e0dc]'}`}>{t.label}</span>
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => !t.comingSoon && setProjectType(t.id)}
+                    disabled={t.comingSoon}
+                    className={
+                      (selected
+                        ? 'relative rounded-2xl border p-5 text-left border-[rgba(216,180,90,0.55)] bg-[rgba(216,180,90,0.10)]'
+                        : 'relative rounded-2xl border p-5 text-left border-white/10 bg-[#071f1d]') +
+                      (t.comingSoon ? ' opacity-60' : '')
+                    }
+                  >
+                    <span className={selected ? 'font-display text-base font-bold text-[#f0d98b]' : 'font-display text-base font-bold text-[#d9e0dc]'}>{t.label}</span>
                     <p className="mt-2 text-xs text-[#8f9f9a]">{t.description}</p>
                   </button>
                 )
@@ -215,7 +242,16 @@ export default function CreateProjectPage() {
                 {PAYMENT_METHODS.map((m) => {
                   const selected = paymentMethod === m.id
                   return (
-                    <button key={m.id} type="button" onClick={() => setPaymentMethod(m.id)} className={`rounded-2xl border p-4 text-left ${selected ? 'border-[rgba(216,180,90,0.55)] bg-[rgba(216,180,90,0.10)]' : 'border-white/10 bg-[#071f1d]'`}>
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setPaymentMethod(m.id)}
+                      className={
+                        selected
+                          ? 'rounded-2xl border p-4 text-left border-[rgba(216,180,90,0.55)] bg-[rgba(216,180,90,0.10)]'
+                          : 'rounded-2xl border p-4 text-left border-white/10 bg-[#071f1d]'
+                      }
+                    >
                       <div className="flex items-center gap-2">
                         {m.id === 'CLIENT_PAYS_DROPVERSE' || m.id === 'PADDLE' ? <CreditCard size={18} className="text-[#d8b45a]" /> : m.id === 'SPACEREMIT' ? <Wallet size={18} className="text-[#d8b45a]" /> : m.id === 'INVOICE_SEND' ? <FileText size={18} className="text-[#d8b45a]" /> : <HandCoins size={18} className="text-[#d8b45a]" />}
                         <span className="font-semibold text-[#d9e0dc]">{m.label}</span>
@@ -232,7 +268,7 @@ export default function CreateProjectPage() {
             </div>
           </motion.section>
 
-          <motion.section className={`mt-8 rounded-3xl border border-white/5 bg-[#0a2926] p-8 ${step !== 'summary' ? 'hidden' : ''}`}>
+          <motion.section className={step !== 'summary' ? 'mt-8 rounded-3xl border border-white/5 bg-[#0a2926] p-8 hidden' : 'mt-8 rounded-3xl border border-white/5 bg-[#0a2926] p-8'}>
             <h2 className="font-display text-xl font-bold">3. Review & Submit</h2>
             <div className="mt-6 space-y-3 text-sm">
               <div className="flex justify-between border-b border-white/5 pb-3"><span className="text-[#8f9f9a]">Title</span><span className="font-semibold text-[#d9e0dc]">{title || '—'}</span></div>
