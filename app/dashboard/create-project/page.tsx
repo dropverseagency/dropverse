@@ -2,10 +2,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import Image from 'next/image'
 import {
-  ArrowRight, Rocket, Check, ShieldCheck, CreditCard,
-  HandCoins, AlertTriangle, Wallet, FileText,
+  ArrowRight, Rocket, Check, CreditCard,
+  HandCoins, Wallet, FileText,
 } from 'lucide-react'
 import Brand from '../../../components/Brand'
 import { createClient } from '../../../lib/supabase'
@@ -16,7 +15,6 @@ import {
   type ProjectType, type PaymentMethod,
 } from '../../../lib/projectConfig'
 import { createProjectServer } from '../../../lib/createProject'
-import SpaceRemitPayForm from '../../../components/SpaceRemitPayForm'
 import { getPaddleClient, paddleClientTokenConfigured } from '../../../lib/paddle'
 
 type Step = 'basics' | 'billing' | 'summary'
@@ -48,7 +46,6 @@ export default function CreateProjectPage() {
   const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null)
   const [invoiceCopied, setInvoiceCopied] = useState(false)
   const [invoiceError, setInvoiceError] = useState<string | null>(null)
-  const [paying, setPaying] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
   const [payConfirmed, setPayConfirmed] = useState(false)
   const [paddleLoading, setPaddleLoading] = useState(false)
@@ -164,35 +161,14 @@ export default function CreateProjectPage() {
         setCreated(true)
         setStep('summary')
         window.open(url, '_blank', 'noopener,noreferrer')
-        requestAnimationFrame(() => {
-          document.getElementById('invoice-success-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        })
         return
-      } catch (e) {
-        console.error('invoice create failed', e)
+      } catch {
         setInvoiceError('Network error while creating invoice. Project was saved.')
         setError('Network error while creating invoice. Project was saved — try again from Dashboard.')
         setCreated(true)
         return
       }
     }
-    setCreated(true)
-  }
-  async function handleSpaceRemitVerify(paymentId: string) {
-    if (!pendingProjectId) return
-    setPaying(true)
-    setPayError(null)
-    const res = await fetch('/api/spaceremit/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paymentId, projectId: pendingProjectId }),
-    })
-    setPaying(false)
-    if (!res.ok) {
-      setPayError('Payment verification failed. Your project is saved as Payment Pending.')
-      return
-    }
-    setPayConfirmed(true)
     setCreated(true)
   }
   if (!signedIn) {
@@ -221,7 +197,7 @@ export default function CreateProjectPage() {
         </div>
         <div className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-[1.35fr_1fr]">
           <div>
-            <div id="cp-form-top" className="mb-8 flex items-center gap-4 scroll-mt-24">
+            <div className="mb-8 flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[rgba(216,180,90,0.30)] bg-[rgba(216,180,90,0.08)] text-[#d8b45a]"><Rocket size={22} /></div>
               <div>
                 <h1 className="font-display text-3xl font-extrabold tracking-tight">Create Project</h1>
@@ -229,24 +205,10 @@ export default function CreateProjectPage() {
               </div>
             </div>
             {created && invoiceId && invoiceUrl && (
-              <div id="invoice-success-panel" className="mb-8 rounded-3xl border border-[rgba(216,180,90,0.45)] bg-[rgba(216,180,90,0.10)] p-6 sm:p-8">
-                <p className="font-display text-xl font-extrabold text-[#f0d98b]">Invoice ready — send this link to your client</p>
-                <p className="mt-2 text-sm leading-6 text-[#b8c4bf]">Project is Payment Pending. Client pays on a separate page ({invoicePayRail === 'local' ? 'Local · max $300' : 'International'}). You do not pay now.</p>
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <div className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3">
-                    <p className="break-all font-mono text-xs text-[#e7edea] sm:text-sm">{invoiceUrl}</p>
-                  </div>
-                  <button type="button" onClick={() => { navigator.clipboard.writeText(invoiceUrl).then(() => { setInvoiceCopied(true); setTimeout(() => setInvoiceCopied(false), 2000) }).catch(() => {}) }} className="shrink-0 rounded-full border border-[rgba(216,180,90,0.45)] bg-[rgba(216,180,90,0.14)] px-5 py-3 text-sm font-bold text-[#f0d98b]">{invoiceCopied ? 'Copied!' : 'Copy link'}</button>
-                  <a href={invoiceUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-full bg-[#d8b45a] px-5 py-3 text-center text-sm font-bold text-[#10221f]">Open invoice page</a>
-                </div>
-                <Link href="/dashboard" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/15 px-6 py-3 text-sm font-bold text-[#cfd8d3]">Go to Dashboard</Link>
-              </div>
-            )}
-            {created && !invoiceId && invoiceError && (
-              <div className="mb-8 rounded-3xl border border-red-400/30 bg-red-500/10 p-6">
-                <p className="font-bold text-red-200">Project saved, but invoice was not created</p>
-                <p className="mt-2 text-sm text-red-100/90">{invoiceError}</p>
-                <Link href="/dashboard" className="mt-4 inline-flex rounded-full bg-[#d8b45a] px-6 py-3 text-sm font-bold text-[#10221f]">Open Dashboard</Link>
+              <div className="mb-8 rounded-3xl border border-[rgba(216,180,90,0.45)] bg-[rgba(216,180,90,0.10)] p-6">
+                <p className="font-display text-xl font-extrabold text-[#f0d98b]">Invoice ready</p>
+                <p className="mt-2 break-all font-mono text-xs text-[#e7edea]">{invoiceUrl}</p>
+                <Link href="/dashboard" className="mt-4 inline-flex rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f]">Dashboard</Link>
               </div>
             )}
             <motion.section className={`rounded-3xl border border-white/5 bg-[#0a2926] p-8 ${step !== 'basics' ? 'hidden' : ''}`}>
@@ -271,10 +233,7 @@ export default function CreateProjectPage() {
                   const selected = projectType === t.id
                   return (
                     <button key={t.id} type="button" onClick={() => !t.comingSoon && setProjectType(t.id)} disabled={t.comingSoon} className={`relative rounded-2xl border p-5 text-left ${selected ? 'border-[rgba(216,180,90,0.55)] bg-[rgba(216,180,90,0.10)]' : 'border-white/10 bg-[#071f1d]'} ${t.comingSoon ? 'opacity-60' : ''}`}>
-                      <div className="flex items-start justify-between gap-3">
-                        <span className={`font-display text-base font-bold ${selected ? 'text-[#f0d98b]' : 'text-[#d9e0dc]'}`}>{t.label}</span>
-                        {t.comingSoon ? <span className="text-[10px] font-bold text-[#f0d98b]">Coming Soon</span> : <span className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${selected ? 'border-[#d8b45a] bg-[#d8b45a]' : 'border-[#5f726c]'}`}>{selected && <Check size={12} className="text-[#10221f]" />}</span>}
-                      </div>
+                      <span className={`font-display text-base font-bold ${selected ? 'text-[#f0d98b]' : 'text-[#d9e0dc]'}`}>{t.label}</span>
                       <p className="mt-2 text-xs text-[#8f9f9a]">{t.description}</p>
                     </button>
                   )
@@ -297,7 +256,7 @@ export default function CreateProjectPage() {
                   {PAYMENT_METHODS.map((m) => {
                     const selected = paymentMethod === m.id
                     return (
-                      <button key={m.id} type="button" onClick={() => setPaymentMethod(m.id)} className={`rounded-2xl border p-4 text-left ${selected ? 'border-[rgba(216,180,90,0.55)] bg-[rgba(216,180,90,0.10)]' : 'border-white/10 bg-[#071f1d]'}`}>
+                      <button key={m.id} type="button" onClick={() => setPaymentMethod(m.id)} className={`rounded-2xl border p-4 text-left ${selected ? 'border-[rgba(216,180,90,0.55)] bg-[rgba(216,180,90,0.10)]' : 'border-white/10 bg-[#071f1d]'`}>
                         <div className="flex items-center gap-2">
                           {m.id === 'CLIENT_PAYS_DROPVERSE' || m.id === 'PADDLE' ? <CreditCard size={18} className="text-[#d8b45a]" /> : m.id === 'SPACEREMIT' ? <Wallet size={18} className="text-[#d8b45a]" /> : m.id === 'INVOICE_SEND' ? <FileText size={18} className="text-[#d8b45a]" /> : <HandCoins size={18} className="text-[#d8b45a]" />}
                           <span className="font-semibold text-[#d9e0dc]">{m.label}</span>
@@ -307,15 +266,6 @@ export default function CreateProjectPage() {
                     )
                   })}
                 </div>
-                {paymentMethod === 'INVOICE_SEND' && (
-                  <div className="rounded-2xl border border-white/10 bg-[#071f1d] p-4">
-                    <p className="text-sm font-semibold text-[#c1cbc7]">Invoice payment rail</p>
-                    <div className="mt-3 flex gap-2">
-                      <button type="button" onClick={() => setInvoicePayRail('international')} className={`rounded-full px-4 py-2 text-xs font-bold ${invoicePayRail === 'international' ? 'bg-[#d8b45a] text-[#10221f]' : 'border border-white/10 text-[#8f9f9a]'}`}>International</button>
-                      <button type="button" onClick={() => setInvoicePayRail('local')} className={`rounded-full px-4 py-2 text-xs font-bold ${invoicePayRail === 'local' ? 'bg-[#d8b45a] text-[#10221f]' : 'border border-white/10 text-[#8f9f9a]'}`}>Local (max $300)</button>
-                    </div>
-                  </div>
-                )}
               </div>
               <div className="mt-8 flex justify-between">
                 <button onClick={() => setStep('basics')} className="rounded-full border border-white/10 px-6 py-3 text-sm font-semibold text-[#c1cbc7]">Back</button>
@@ -328,12 +278,15 @@ export default function CreateProjectPage() {
                 <div className="flex justify-between border-b border-white/5 pb-3"><span className="text-[#8f9f9a]">Title</span><span className="font-semibold text-[#d9e0dc]">{title || '—'}</span></div>
                 <div className="flex justify-between border-b border-white/5 pb-3"><span className="text-[#8f9f9a]">Type</span><span className="font-semibold text-[#d9e0dc]">{projectType}</span></div>
                 <div className="flex justify-between border-b border-white/5 pb-3"><span className="text-[#8f9f9a]">Client price</span><span className="font-semibold text-[#d9e0dc]">{formatUsd(cp)}</span></div>
-                <div className="flex justify-between border-b border-white/5 pb-3"><span className="text-[#8f9f9a]">Your profit</span><span className="font-semibold text-[#e4c979]">{formatUsd(profit)}</span></div>
-                <div className="flex justify-between"><span className="text-[#8f9f9a]">Payment</span><span className="font-semibold text-[#d9e0dc]">{paymentMethod.replace(/_/g, ' ')}</span></div>
+                <div className="flex justify-between"><span className="text-[#8f9f9a]">Your profit</span><span className="font-semibold text-[#e4c979]">{formatUsd(profit)}</span></div>
               </div>
               {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
               {pendingProjectId && paymentMethod === 'SPACEREMIT' && !payConfirmed && (
-                <div className="mt-6"><SpaceRemitPayForm amount={cp} email={payEmail} fullName={fullName} onVerified={handleSpaceRemitVerify} paying={paying} error={payError} /></div>
+                <div className="mt-6 rounded-2xl border border-white/10 bg-[#071f1d] p-5 text-sm text-[#c1cbc7]">
+                  <p className="font-semibold text-[#e4c979]">Local payment</p>
+                  <p className="mt-2">Project saved as Payment Pending. Complete local payment from the dashboard when ready.</p>
+                  <Link href="/dashboard" className="mt-4 inline-flex rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f]">Go to Dashboard</Link>
+                </div>
               )}
               {pendingProjectId && (paymentMethod === 'PADDLE' || paymentMethod === 'CLIENT_PAYS_DROPVERSE') && !payConfirmed && (
                 <div className="mt-6">
@@ -342,7 +295,7 @@ export default function CreateProjectPage() {
                 </div>
               )}
               {created && !invoiceId && (
-                <div className="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-200">Project created successfully. <Link href="/dashboard" className="font-bold underline">Go to Dashboard</Link></div>
+                <div className="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-200">Project created. <Link href="/dashboard" className="font-bold underline">Dashboard</Link></div>
               )}
               <div className="mt-8 flex justify-between">
                 <button onClick={() => setStep('billing')} className="rounded-full border border-white/10 px-6 py-3 text-sm font-semibold text-[#c1cbc7]">Back</button>
@@ -361,7 +314,6 @@ export default function CreateProjectPage() {
                 <div className="flex justify-between"><span className="text-[#8f9f9a]">Fulfillment</span><span className="text-[#d9e0dc]">{formatUsd(fc)}</span></div>
                 <div className="flex justify-between border-t border-white/5 pt-2"><span className="text-[#8f9f9a]">Your profit</span><span className="font-bold text-[#e4c979]">{formatUsd(profit)}</span></div>
               </div>
-              <p className="mt-6 text-xs leading-5 text-[#718781]">After you create the project you can track it from the dashboard, send invoices, and manage payouts.</p>
             </div>
           </aside>
         </div>
