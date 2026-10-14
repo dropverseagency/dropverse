@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 
-/** Official DropVerse mark: transparent gold icon + wordmark (DROP white, VERSE gold). */
+/** Official DropVerse mark: rounded gold icon + wordmark (DROP white, VERSE gold). */
 export default function Brand({ compact = false }: { compact?: boolean }) {
   const icon = compact ? 28 : 36
 
