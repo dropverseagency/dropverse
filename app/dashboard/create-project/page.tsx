@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
+import Image from 'next/image'
 import {
   ArrowRight, Rocket, Check, ShieldCheck, CreditCard,
   HandCoins, AlertTriangle, Wallet, FileText,
@@ -23,7 +24,6 @@ type Step = 'basics' | 'billing' | 'summary'
 export default function CreateProjectPage() {
   const auth = useAuth()
   const signedIn = !auth.loading && Boolean(auth.user)
-
   const [step, setStep] = useState<Step>('basics')
   const [projectType, setProjectType] = useState<ProjectType>('ONE_TIME')
   const [title, setTitle] = useState('')
@@ -40,7 +40,6 @@ export default function CreateProjectPage() {
       setPayEmail(auth.user.email ?? '')
     }
   }, [auth.user])
-
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [created, setCreated] = useState(false)
@@ -54,11 +53,9 @@ export default function CreateProjectPage() {
   const [payConfirmed, setPayConfirmed] = useState(false)
   const [paddleLoading, setPaddleLoading] = useState(false)
   const [invoicePayRail, setInvoicePayRail] = useState<'international' | 'local'>('international')
-
   useEffect(() => {
     if (!auth.loading && !auth.user) window.location.assign('/login')
   }, [auth.loading, auth.user])
-
   const labels = useMemo(() => moneyLabels(projectType), [projectType])
   const cp = Number(clientPrice) || 0
   const fc = useMemo(() => Math.round(cp * (FULFILLMENT_RATES[projectType] ?? 0) * 100) / 100, [cp, projectType])
@@ -66,7 +63,6 @@ export default function CreateProjectPage() {
   const typeBlocked = projectType === 'CUSTOM_RECURRING'
   const basicsValid = title.trim().length >= 3 && description.trim().length >= 5
   const billingValid = cp > 0
-
   async function startPaddleProjectCheckout(projectId: string) {
     if (!projectId || paddleLoading) return
     setPaddleLoading(true)
@@ -99,7 +95,6 @@ export default function CreateProjectPage() {
       setPaddleLoading(false)
     }
   }
-
   async function handleSubmit() {
     if (submitting || created || pendingProjectId) return
     setSubmitting(true)
@@ -183,7 +178,6 @@ export default function CreateProjectPage() {
     }
     setCreated(true)
   }
-
   async function handleSpaceRemitVerify(paymentId: string) {
     if (!pendingProjectId) return
     setPaying(true)
@@ -201,7 +195,6 @@ export default function CreateProjectPage() {
     setPayConfirmed(true)
     setCreated(true)
   }
-
   if (!signedIn) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#071f1d]">
@@ -209,7 +202,6 @@ export default function CreateProjectPage() {
       </main>
     )
   }
-
   return (
     <main className="min-h-screen bg-[#071f1d]">
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[rgba(7,31,29,0.80)] backdrop-blur-xl">
@@ -218,7 +210,6 @@ export default function CreateProjectPage() {
           <Link href="/dashboard" className="rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] px-4 py-2 text-sm font-bold text-[#e4c979]">Dashboard</Link>
         </div>
       </header>
-
       <div className="container pb-24 pt-28">
         <div className="mx-auto mb-12 flex max-w-2xl items-center justify-center gap-2 text-sm">
           {(['basics', 'billing', 'summary'] as Step[]).map((s, i) => (
@@ -228,7 +219,6 @@ export default function CreateProjectPage() {
             </button>
           ))}
         </div>
-
         <div className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-[1.35fr_1fr]">
           <div>
             <div id="cp-form-top" className="mb-8 flex items-center gap-4 scroll-mt-24">
@@ -238,39 +228,20 @@ export default function CreateProjectPage() {
                 <p className="mt-1 text-sm text-[#8f9f9a]">Set up a new client project and its billing arrangement.</p>
               </div>
             </div>
-
             {created && invoiceId && invoiceUrl && (
               <div id="invoice-success-panel" className="mb-8 rounded-3xl border border-[rgba(216,180,90,0.45)] bg-[rgba(216,180,90,0.10)] p-6 sm:p-8">
                 <p className="font-display text-xl font-extrabold text-[#f0d98b]">Invoice ready — send this link to your client</p>
-                <p className="mt-2 text-sm leading-6 text-[#b8c4bf]">
-                  Project is Payment Pending. Client pays on a separate page ({invoicePayRail === 'local' ? 'Local · max $300' : 'International'}). You do not pay now.
-                </p>
+                <p className="mt-2 text-sm leading-6 text-[#b8c4bf]">Project is Payment Pending. Client pays on a separate page ({invoicePayRail === 'local' ? 'Local · max $300' : 'International'}). You do not pay now.</p>
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
                   <div className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#071f1d] px-4 py-3">
                     <p className="break-all font-mono text-xs text-[#e7edea] sm:text-sm">{invoiceUrl}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(invoiceUrl).then(() => {
-                        setInvoiceCopied(true)
-                        setTimeout(() => setInvoiceCopied(false), 2000)
-                      }).catch(() => {})
-                    }}
-                    className="shrink-0 rounded-full border border-[rgba(216,180,90,0.45)] bg-[rgba(216,180,90,0.14)] px-5 py-3 text-sm font-bold text-[#f0d98b]"
-                  >
-                    {invoiceCopied ? 'Copied!' : 'Copy link'}
-                  </button>
-                  <a href={invoiceUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-full bg-[#d8b45a] px-5 py-3 text-center text-sm font-bold text-[#10221f]">
-                    Open invoice page
-                  </a>
+                  <button type="button" onClick={() => { navigator.clipboard.writeText(invoiceUrl).then(() => { setInvoiceCopied(true); setTimeout(() => setInvoiceCopied(false), 2000) }).catch(() => {}) }} className="shrink-0 rounded-full border border-[rgba(216,180,90,0.45)] bg-[rgba(216,180,90,0.14)] px-5 py-3 text-sm font-bold text-[#f0d98b]">{invoiceCopied ? 'Copied!' : 'Copy link'}</button>
+                  <a href={invoiceUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-full bg-[#d8b45a] px-5 py-3 text-center text-sm font-bold text-[#10221f]">Open invoice page</a>
                 </div>
-                <Link href="/dashboard" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/15 px-6 py-3 text-sm font-bold text-[#cfd8d3]">
-                  Go to Dashboard
-                </Link>
+                <Link href="/dashboard" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/15 px-6 py-3 text-sm font-bold text-[#cfd8d3]">Go to Dashboard</Link>
               </div>
             )}
-
             {created && !invoiceId && invoiceError && (
               <div className="mb-8 rounded-3xl border border-red-400/30 bg-red-500/10 p-6">
                 <p className="font-bold text-red-200">Project saved, but invoice was not created</p>
@@ -278,7 +249,6 @@ export default function CreateProjectPage() {
                 <Link href="/dashboard" className="mt-4 inline-flex rounded-full bg-[#d8b45a] px-6 py-3 text-sm font-bold text-[#10221f]">Open Dashboard</Link>
               </div>
             )}
-
             <motion.section className={`rounded-3xl border border-white/5 bg-[#0a2926] p-8 ${step !== 'basics' ? 'hidden' : ''}`}>
               <h2 className="font-display text-xl font-bold">1. Project Details</h2>
               <label className="mt-6 block text-sm font-semibold text-[#c1cbc7]">Project Title *</label>
@@ -293,10 +263,107 @@ export default function CreateProjectPage() {
                 <button disabled={!basicsValid} onClick={() => setStep('billing')} className="inline-flex items-center gap-2 rounded-full bg-[#d8b45a] px-7 py-3 font-bold text-[#10221f] disabled:opacity-40">Next: Billing <ArrowRight size={16} /></button>
               </div>
             </motion.section>
-
-            {/* Remaining billing + summary sections preserved via live content - see note */}
-            <p className="mt-8 text-center text-sm text-[#8f9f9a]">Loading billing form…</p>
+            <motion.section className={`mt-8 rounded-3xl border border-white/5 bg-[#0a2926] p-8 ${step !== 'billing' ? 'hidden' : ''}`}>
+              <h2 className="font-display text-xl font-bold">2. Billing & Payment</h2>
+              <p className="mt-6 text-sm font-semibold uppercase tracking-[.12em] text-[#6e817c]">Project Type</p>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                {PROJECT_TYPES.map(t => {
+                  const selected = projectType === t.id
+                  return (
+                    <button key={t.id} type="button" onClick={() => !t.comingSoon && setProjectType(t.id)} disabled={t.comingSoon} className={`relative rounded-2xl border p-5 text-left ${selected ? 'border-[rgba(216,180,90,0.55)] bg-[rgba(216,180,90,0.10)]' : 'border-white/10 bg-[#071f1d]'} ${t.comingSoon ? 'opacity-60' : ''}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <span className={`font-display text-base font-bold ${selected ? 'text-[#f0d98b]' : 'text-[#d9e0dc]'}`}>{t.label}</span>
+                        {t.comingSoon ? <span className="text-[10px] font-bold text-[#f0d98b]">Coming Soon</span> : <span className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${selected ? 'border-[#d8b45a] bg-[#d8b45a]' : 'border-[#5f726c]'}`}>{selected && <Check size={12} className="text-[#10221f]" />}</span>}
+                      </div>
+                      <p className="mt-2 text-xs text-[#8f9f9a]">{t.description}</p>
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="mt-8 space-y-5">
+                <div>
+                  <label className="block text-sm font-semibold text-[#c1cbc7]">{labels.priceLabel} *</label>
+                  <div className="relative mt-2">
+                    <span className="absolute left-5 top-1/2 -translate-y-1/2 text-sm text-[#8f9f9a]">$</span>
+                    <input type="number" min="0" step="1" value={clientPrice} onChange={(e) => setClientPrice(e.target.value)} placeholder="0" className="w-full rounded-2xl border border-white/10 bg-[#071f1d] py-3.5 pl-10 pr-5 text-sm text-[#e7edea] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-[#071f1d] p-4 text-sm">
+                  <div className="flex justify-between"><span className="text-[#8f9f9a]">{labels.costLabel}</span><span className="font-bold text-[#d9e0dc]">{formatUsd(fc)}</span></div>
+                  <div className="mt-2 flex justify-between"><span className="text-[#8f9f9a]">Your profit</span><span className="font-bold text-[#e4c979]">{formatUsd(profit)}</span></div>
+                </div>
+                <p className="text-sm font-semibold uppercase tracking-[.12em] text-[#6e817c]">Payment method</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {PAYMENT_METHODS.map((m) => {
+                    const selected = paymentMethod === m.id
+                    return (
+                      <button key={m.id} type="button" onClick={() => setPaymentMethod(m.id)} className={`rounded-2xl border p-4 text-left ${selected ? 'border-[rgba(216,180,90,0.55)] bg-[rgba(216,180,90,0.10)]' : 'border-white/10 bg-[#071f1d]'}`}>
+                        <div className="flex items-center gap-2">
+                          {m.id === 'CLIENT_PAYS_DROPVERSE' || m.id === 'PADDLE' ? <CreditCard size={18} className="text-[#d8b45a]" /> : m.id === 'SPACEREMIT' ? <Wallet size={18} className="text-[#d8b45a]" /> : m.id === 'INVOICE_SEND' ? <FileText size={18} className="text-[#d8b45a]" /> : <HandCoins size={18} className="text-[#d8b45a]" />}
+                          <span className="font-semibold text-[#d9e0dc]">{m.label}</span>
+                        </div>
+                        <p className="mt-1 text-xs text-[#8f9f9a]">{m.description}</p>
+                      </button>
+                    )
+                  })}
+                </div>
+                {paymentMethod === 'INVOICE_SEND' && (
+                  <div className="rounded-2xl border border-white/10 bg-[#071f1d] p-4">
+                    <p className="text-sm font-semibold text-[#c1cbc7]">Invoice payment rail</p>
+                    <div className="mt-3 flex gap-2">
+                      <button type="button" onClick={() => setInvoicePayRail('international')} className={`rounded-full px-4 py-2 text-xs font-bold ${invoicePayRail === 'international' ? 'bg-[#d8b45a] text-[#10221f]' : 'border border-white/10 text-[#8f9f9a]'}`}>International</button>
+                      <button type="button" onClick={() => setInvoicePayRail('local')} className={`rounded-full px-4 py-2 text-xs font-bold ${invoicePayRail === 'local' ? 'bg-[#d8b45a] text-[#10221f]' : 'border border-white/10 text-[#8f9f9a]'}`}>Local (max $300)</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="mt-8 flex justify-between">
+                <button onClick={() => setStep('basics')} className="rounded-full border border-white/10 px-6 py-3 text-sm font-semibold text-[#c1cbc7]">Back</button>
+                <button disabled={!billingValid || typeBlocked} onClick={() => setStep('summary')} className="inline-flex items-center gap-2 rounded-full bg-[#d8b45a] px-7 py-3 font-bold text-[#10221f] disabled:opacity-40">Next: Review <ArrowRight size={16} /></button>
+              </div>
+            </motion.section>
+            <motion.section className={`mt-8 rounded-3xl border border-white/5 bg-[#0a2926] p-8 ${step !== 'summary' ? 'hidden' : ''}`}>
+              <h2 className="font-display text-xl font-bold">3. Review & Submit</h2>
+              <div className="mt-6 space-y-3 text-sm">
+                <div className="flex justify-between border-b border-white/5 pb-3"><span className="text-[#8f9f9a]">Title</span><span className="font-semibold text-[#d9e0dc]">{title || '—'}</span></div>
+                <div className="flex justify-between border-b border-white/5 pb-3"><span className="text-[#8f9f9a]">Type</span><span className="font-semibold text-[#d9e0dc]">{projectType}</span></div>
+                <div className="flex justify-between border-b border-white/5 pb-3"><span className="text-[#8f9f9a]">Client price</span><span className="font-semibold text-[#d9e0dc]">{formatUsd(cp)}</span></div>
+                <div className="flex justify-between border-b border-white/5 pb-3"><span className="text-[#8f9f9a]">Your profit</span><span className="font-semibold text-[#e4c979]">{formatUsd(profit)}</span></div>
+                <div className="flex justify-between"><span className="text-[#8f9f9a]">Payment</span><span className="font-semibold text-[#d9e0dc]">{paymentMethod.replace(/_/g, ' ')}</span></div>
+              </div>
+              {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
+              {pendingProjectId && paymentMethod === 'SPACEREMIT' && !payConfirmed && (
+                <div className="mt-6"><SpaceRemitPayForm amount={cp} email={payEmail} fullName={fullName} onVerified={handleSpaceRemitVerify} paying={paying} error={payError} /></div>
+              )}
+              {pendingProjectId && (paymentMethod === 'PADDLE' || paymentMethod === 'CLIENT_PAYS_DROPVERSE') && !payConfirmed && (
+                <div className="mt-6">
+                  <button type="button" onClick={() => startPaddleProjectCheckout(pendingProjectId)} disabled={paddleLoading} className="w-full rounded-full bg-[#d8b45a] px-6 py-3 font-bold text-[#10221f] disabled:opacity-60">{paddleLoading ? 'Opening checkout…' : 'Pay with card'}</button>
+                  {payError && <p className="mt-2 text-sm text-red-300">{payError}</p>}
+                </div>
+              )}
+              {created && !invoiceId && (
+                <div className="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-200">Project created successfully. <Link href="/dashboard" className="font-bold underline">Go to Dashboard</Link></div>
+              )}
+              <div className="mt-8 flex justify-between">
+                <button onClick={() => setStep('billing')} className="rounded-full border border-white/10 px-6 py-3 text-sm font-semibold text-[#c1cbc7]">Back</button>
+                {!created && !pendingProjectId && (
+                  <button onClick={handleSubmit} disabled={submitting || typeBlocked} className="inline-flex items-center gap-2 rounded-full bg-[#d8b45a] px-7 py-3 font-bold text-[#10221f] disabled:opacity-40">{submitting ? 'Saving…' : 'Create project'} <ArrowRight size={16} /></button>
+                )}
+              </div>
+            </motion.section>
           </div>
+          <aside className="hidden lg:block">
+            <div className="sticky top-28 rounded-3xl border border-white/5 bg-[#0a2926] p-6">
+              <p className="text-xs font-bold uppercase tracking-[.18em] text-[#849792]">Summary</p>
+              <p className="mt-3 font-display text-lg font-bold text-[#e8efe9]">{title || 'Untitled project'}</p>
+              <div className="mt-4 space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-[#8f9f9a]">Client price</span><span className="text-[#d9e0dc]">{formatUsd(cp)}</span></div>
+                <div className="flex justify-between"><span className="text-[#8f9f9a]">Fulfillment</span><span className="text-[#d9e0dc]">{formatUsd(fc)}</span></div>
+                <div className="flex justify-between border-t border-white/5 pt-2"><span className="text-[#8f9f9a]">Your profit</span><span className="font-bold text-[#e4c979]">{formatUsd(profit)}</span></div>
+              </div>
+              <p className="mt-6 text-xs leading-5 text-[#718781]">After you create the project you can track it from the dashboard, send invoices, and manage payouts.</p>
+            </div>
+          </aside>
         </div>
       </div>
     </main>
