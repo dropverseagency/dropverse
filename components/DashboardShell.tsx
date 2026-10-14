@@ -14,6 +14,16 @@ export type NavItem = {
   icon?: ReactNode
 }
 
+export const DEFAULT_DASHBOARD_NAV: NavItem[] = [
+  { href: '/dashboard', label: 'Overview' },
+  { href: '/dashboard/create-project', label: 'Create project' },
+  { href: '/dashboard/analytics', label: 'Analytics' },
+  { href: '/dashboard/billing', label: 'Billing' },
+  { href: '/dashboard/team', label: 'Team' },
+  { href: '/dashboard/affiliate', label: 'Affiliate' },
+  { href: '/dashboard/settings', label: 'Settings' },
+]
+
 export default function DashboardShell({
   nav,
   title,
@@ -59,7 +69,6 @@ export default function DashboardShell({
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Mobile top bar */}
       <div className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-background/90 px-4 py-3 backdrop-blur lg:hidden">
         <button
           type="button"
@@ -73,7 +82,6 @@ export default function DashboardShell({
         <ThemeToggle />
       </div>
 
-      {/* Mobile drawer */}
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
@@ -100,7 +108,6 @@ export default function DashboardShell({
       )}
 
       <div className="mx-auto flex min-h-screen max-w-[1400px]">
-        {/* Desktop sidebar */}
         <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-border bg-card lg:flex">
           <div className="border-b border-border px-4 py-4">
             <Brand compact />
@@ -110,9 +117,7 @@ export default function DashboardShell({
 
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-30 hidden items-center justify-between gap-3 border-b border-border bg-background/90 px-6 py-3 backdrop-blur lg:flex">
-            <div>
-              {title ? <h1 className="font-display text-lg font-bold text-foreground">{title}</h1> : null}
-            </div>
+            <div>{title ? <h1 className="font-display text-lg font-bold text-foreground">{title}</h1> : null}</div>
             <div className="flex items-center gap-2">
               {actions}
               <ThemeToggle />
