@@ -23,7 +23,12 @@ export default function ServicesSection() {
 
   async function createService() {
     setBusy(true)
-    const res = await adminMutate('create_service', { title, description, baseCostOneTime: Number(price) || 0, active: true })
+    const res = await adminMutate('create_service', {
+      title,
+      description,
+      baseCostOneTime: Number(price) || 0,
+      active: true,
+    })
     setBusy(false)
     if (res.error) alert(String(res.error))
     else window.location.reload()
@@ -52,28 +57,58 @@ export default function ServicesSection() {
     else window.location.reload()
   }
 
+  const inputCls =
+    'rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50'
+
   return (
     <div className="space-y-6">
       {loading || error ? <LoadingOrError loading={loading} error={error} /> : null}
       <Card title="Publish a service">
-        <p className="mb-4 text-sm text-[#8fa29c]">Active services replace the static landing list. If none are active, the landing keeps the built-in eight.</p>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Active services replace the static landing list. If none are active, the landing keeps the built-in eight.
+        </p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Service title" className="rounded-xl border border-white/10 bg-[#071210] px-3 py-2 text-sm outline-none" />
-          <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" min={0} placeholder="One-time cost" className="rounded-xl border border-white/10 bg-[#071210] px-3 py-2 text-sm outline-none" />
-          <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Short description" className="rounded-xl border border-white/10 bg-[#071210] px-3 py-2 text-sm outline-none sm:col-span-2" />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Service title" className={inputCls} />
+          <input
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            type="number"
+            min={0}
+            placeholder="One-time cost"
+            className={inputCls}
+          />
+          <input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Short description"
+            className={`${inputCls} sm:col-span-2`}
+          />
         </div>
-        <button disabled={busy || !title} onClick={createService} className="mt-3 rounded-full bg-[#d8b45a] px-4 py-2 text-sm font-bold text-[#10221f] disabled:opacity-50">Publish service</button>
+        <button
+          disabled={busy || !title}
+          onClick={createService}
+          className="mt-3 rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground disabled:opacity-50"
+        >
+          Publish service
+        </button>
       </Card>
       <Card title="Catalog">
-        {!data?.rows?.length ? emptyNote('No services yet. Publish one above and it will show on the landing page.') : (
+        {!data?.rows?.length ? (
+          emptyNote('No services yet. Publish one above and it will show on the landing page.')
+        ) : (
           <div className="space-y-2">
             {data.rows.map((s: ServiceRow) => (
-              <div key={s.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/5 px-3 py-3">
+              <div key={s.id} className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-3">
                 <div>
-                  <div className="font-semibold text-[#f0f4f2]">{s.title}</div>
-                  <div className="text-xs text-[#8fa29c]">{s.description || 'No description'} · ${Number(s.base_cost_one_time ?? 0)}</div>
+                  <div className="font-semibold text-foreground">{s.title}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {s.description || 'No description'} · ${Number(s.base_cost_one_time ?? 0)}
+                  </div>
                 </div>
-                <button onClick={() => toggle(s)} className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-[#e4c979]">
+                <button
+                  onClick={() => toggle(s)}
+                  className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-primary"
+                >
                   {s.active ? 'Published' : 'Hidden'}
                 </button>
               </div>
@@ -82,13 +117,31 @@ export default function ServicesSection() {
         )}
       </Card>
       <Card title="Work samples">
-        <p className="mb-4 text-sm text-[#8fa29c]">Upload an image or video, or paste a public URL. Featured samples replace the landing format cards.</p>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Upload an image or video, or paste a public URL. Featured samples replace the landing format cards.
+        </p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <input value={sampleTitle} onChange={(e) => setSampleTitle(e.target.value)} placeholder="Sample title" className="rounded-xl border border-white/10 bg-[#071210] px-3 py-2 text-sm outline-none" />
-          <input value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)} placeholder="Media URL" className="rounded-xl border border-white/10 bg-[#071210] px-3 py-2 text-sm outline-none" />
-          <input type="file" accept="image/*,video/*" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} className="text-sm text-[#9aaca6] sm:col-span-2" />
+          <input
+            value={sampleTitle}
+            onChange={(e) => setSampleTitle(e.target.value)}
+            placeholder="Sample title"
+            className={inputCls}
+          />
+          <input value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)} placeholder="Media URL" className={inputCls} />
+          <input
+            type="file"
+            accept="image/*,video/*"
+            onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])}
+            className="text-sm text-muted-foreground sm:col-span-2"
+          />
         </div>
-        <button disabled={busy || !sampleTitle || !mediaUrl} onClick={createSample} className="mt-3 rounded-full bg-[#d8b45a] px-4 py-2 text-sm font-bold text-[#10221f] disabled:opacity-50">Add sample</button>
+        <button
+          disabled={busy || !sampleTitle || !mediaUrl}
+          onClick={createSample}
+          className="mt-3 rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground disabled:opacity-50"
+        >
+          Add sample
+        </button>
         <SampleList rows={samples.data?.rows} error={samples.data?.error} />
       </Card>
     </div>
@@ -99,12 +152,14 @@ function SampleList({ rows, error }: { rows?: { id: string; title: string; media
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   if (!mounted) return null
-  if (error) return <p className="mt-4 text-sm text-[#f5a0a0]">{error}</p>
-  if (!rows?.length) return <p className="mt-4 text-sm text-[#7f918c]">No samples yet.</p>
+  if (error) return <p className="mt-4 text-sm text-danger">{error}</p>
+  if (!rows?.length) return <p className="mt-4 text-sm text-muted-foreground">No samples yet.</p>
   return (
     <div className="mt-4 space-y-2">
       {rows.map((row) => (
-        <div key={row.id} className="text-sm text-[#c8d4d0]">{row.title}</div>
+        <div key={row.id} className="text-sm text-muted-foreground">
+          {row.title}
+        </div>
       ))}
     </div>
   )
