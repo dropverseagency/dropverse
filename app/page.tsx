@@ -3,37 +3,56 @@
 import { useEffect, useState } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import Link from 'next/link'
-import Image from 'next/image'
-import { ArrowRight, Check, ChevronRight, Menu, Play, Sparkles, Users, Zap, Globe, Layers, X, LogOut, ShieldCheck } from 'lucide-react'
+import {
+  ArrowRight,
+  Check,
+  ChevronRight,
+  Menu,
+  Play,
+  Sparkles,
+  Users,
+  Zap,
+  Globe,
+  Layers,
+  X,
+  LogOut,
+  ShieldCheck,
+} from 'lucide-react'
 import { createClient } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
 import { ctaFor } from '../lib/authCta'
 import ThemeToggle from '../components/ThemeToggle'
 import Brand from '../components/Brand'
 
-const fallbackServices = [
-  ['Video Editing','Reels, TikTok, Shorts, ads & long-form content.'],
-  ['Graphic Design','Branding, social creatives, ads & marketing assets.'],
-  ['Web Design','Modern landing pages, stores and conversion-focused websites.'],
-  ['Social Media Content','Content systems built to keep brands consistent.'],
-  ['UGC Content','Authentic creator content designed to drive action.'],
-  ['Copywriting','Hooks, scripts, landing pages and sales copy.'],
-  ['Branding','Visual identities that make businesses memorable.'],
-  ['Motion Graphics','Animated visuals, promos and high-impact content.'],
-]
-
-const fallbackSamples = [
-  { title: 'Short-Form Video', category: 'Video Editing', media_url: '' },
-  { title: 'Luxury Brand Creative', category: 'Graphic Design', media_url: '' },
-  { title: 'SaaS Landing Page', category: 'Web Design', media_url: '' },
+const fallbackServices: [string, string][] = [
+  ['Video Editing', 'Reels, TikTok, Shorts, ads & long-form content.'],
+  ['Graphic Design', 'Branding, social creatives, ads & marketing assets.'],
+  ['Web Design', 'Modern landing pages, stores and conversion-focused websites.'],
+  ['Social Media Content', 'Content systems built to keep brands consistent.'],
+  ['UGC Content', 'Authentic creator content designed to drive action.'],
+  ['Copywriting', 'Hooks, scripts, landing pages and sales copy.'],
+  ['Branding', 'Visual identities that make businesses memorable.'],
+  ['Motion Graphics', 'Animated visuals, promos and high-impact content.'],
 ]
 
 const luxuryEase = [0.23, 1, 0.32, 1] as const
-const reveal = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0, transition: { duration: 0.72, ease: luxuryEase } } }
+const reveal = {
+  hidden: { opacity: 0, y: 24 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.72, ease: luxuryEase } },
+}
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.075 } } }
-const staggerItem = { hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: luxuryEase } } }
+const staggerItem = {
+  hidden: { opacity: 0, y: 18 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: luxuryEase } },
+}
 
-function UserMenu({ user, isAdmin = false }: { user: { name?: string | null; email?: string }; isAdmin?: boolean }) {
+function UserMenu({
+  user,
+  isAdmin = false,
+}: {
+  user: { name?: string | null; email?: string }
+  isAdmin?: boolean
+}) {
   const [open, setOpen] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
   async function handleSignOut() {
@@ -46,23 +65,37 @@ function UserMenu({ user, isAdmin = false }: { user: { name?: string | null; ema
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] px-4 py-2 text-sm font-semibold text-[#e4c979] transition hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.14)]"
+        className="flex items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary/15"
         aria-haspopup="true"
         aria-expanded={open}
       >
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#d8b45a] text-xs font-bold text-[#10221f]">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
           {(user.name || user.email || '?').trim().charAt(0).toUpperCase()}
         </span>
         <span className="max-w-[10rem] truncate">{user.name || user.email}</span>
       </button>
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#0a2926] shadow-xl">
-          {isAdmin ? <Link href="/admin" onClick={() => setOpen(false)} className="block px-4 py-3 text-sm font-bold text-[#f0d98b] transition hover:bg-white/5">Admin Panel</Link> : null}
-          <Link href="/dashboard" onClick={() => setOpen(false)} className="block px-4 py-3 text-sm text-[#d9e0dc] transition hover:bg-white/5">Dashboard</Link>
+        <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+          {isAdmin ? (
+            <Link
+              href="/admin"
+              onClick={() => setOpen(false)}
+              className="block px-4 py-3 text-sm font-bold text-primary transition hover:bg-muted"
+            >
+              Admin Panel
+            </Link>
+          ) : null}
+          <Link
+            href="/dashboard"
+            onClick={() => setOpen(false)}
+            className="block px-4 py-3 text-sm text-foreground transition hover:bg-muted"
+          >
+            Dashboard
+          </Link>
           <button
             onClick={handleSignOut}
             disabled={signingOut}
-            className="flex w-full items-center gap-2 px-4 py-3 text-sm text-[#d9e0dc] transition hover:bg-white/5 disabled:opacity-60"
+            className="flex w-full items-center gap-2 px-4 py-3 text-sm text-foreground transition hover:bg-muted disabled:opacity-60"
           >
             <LogOut size={15} /> {signingOut ? 'Signing out...' : 'Sign out'}
           </button>
@@ -72,198 +105,559 @@ function UserMenu({ user, isAdmin = false }: { user: { name?: string | null; ema
   )
 }
 
+function Feature({
+  icon,
+  title,
+  text,
+}: {
+  icon: React.ReactNode
+  title: string
+  text: string
+}) {
+  return (
+    <div>
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-primary">
+        {icon}
+      </div>
+      <h3 className="font-display text-lg font-bold text-foreground">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">{text}</p>
+    </div>
+  )
+}
+
 export default function Home() {
-  const [menu,setMenu]=useState(false)
-  const [isAdmin,setIsAdmin]=useState(false)
-  const [liveServices,setLiveServices]=useState<[string,string][] | null>(null)
-  const [liveSamples,setLiveSamples]=useState<{title:string,category?:string,media_url?:string}[] | null>(null)
+  const [menu, setMenu] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [liveServices, setLiveServices] = useState<[string, string][] | null>(null)
+  const [liveSamples, setLiveSamples] = useState<
+    { id?: string; title: string; category?: string; media_url?: string }[] | null
+  >(null)
   const auth = useAuth()
   const services = liveServices ?? fallbackServices
-  const samples = liveSamples ?? fallbackSamples
+  const samples = liveSamples
   const signedIn = !auth.loading && Boolean(auth.user)
   const reduceMotion = useReducedMotion()
-    // Admin check derived DIRECTLY from the signed-in session + profile role.
+
   useEffect(() => {
     let cancelled = false
-    fetch('/api/public/catalog').then((r) => r.json()).then((j) => {
-      if (cancelled) return
-      if (Array.isArray(j.services) && j.services.length) {
-        setLiveServices(j.services.map((s: { title: string; description?: string }) => [s.title, s.description || 'Published service']))
-      }
-      if (Array.isArray(j.samples) && j.samples.length) setLiveSamples(j.samples)
-    }).catch(() => undefined)
+    fetch('/api/public/catalog')
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return
+        if (Array.isArray(j.services) && j.services.length) {
+          setLiveServices(
+            j.services.map((s: { title: string; description?: string }) => [
+              s.title,
+              s.description || 'Published service',
+            ]),
+          )
+        }
+        if (Array.isArray(j.samples) && j.samples.length) setLiveSamples(j.samples)
+      })
+      .catch(() => undefined)
     const supa = createClient()
     supa.auth.getUser().then(({ data: { user } }) => {
       if (cancelled || !user) return
-      supa.from('profiles').select('role').eq('id', user.id).single().then(({ data: prof }) => {
-        if (!cancelled && prof && prof.role === 'admin') setIsAdmin(true)
-      })
+      supa
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+        .then(({ data: prof }) => {
+          if (!cancelled && prof && prof.role === 'admin') setIsAdmin(true)
+        })
     })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [signedIn])
-return <main className="overflow-hidden">
-    <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-xl">
-      <div className="container flex min-h-20 items-center justify-between gap-4">
-        <Brand />
-        <nav aria-label="Main navigation" className="hidden items-center gap-6 text-sm text-muted-foreground lg:flex xl:gap-8">
-          <a href="#services" className="transition-colors hover:text-foreground">Services</a>
-          <a href="#how" className="transition-colors hover:text-foreground">How It Works</a>
-          <a href="#samples" className="transition-colors hover:text-foreground">Work Samples</a>
-          <a href="#about" className="transition-colors hover:text-foreground">About</a>
-          <Link href="/earn" className="font-semibold text-accent transition-colors hover:opacity-80">Earn With DropVerse</Link>
-        </nav>
-        <div className="hidden items-center gap-3 lg:flex">
-          <ThemeToggle />
-          {signedIn && auth.user ? (
-            <>
-              {isAdmin && <Link href="/admin" className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-2 text-sm font-bold text-foreground transition-colors hover:bg-muted"><ShieldCheck size={16} /><span>Admin</span></Link>}
-              <UserMenu user={auth.user} isAdmin={isAdmin} />
-            </>
-          ) : (
-            <Link href="/login" className="rounded-full px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">{auth.loading ? '' : 'Login'}</Link>
-          )}
-          <Link href="/earn" className="rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted">Earn</Link>
-          <a href="#start" className="brand-button-primary rounded-full px-5 py-2.5 text-sm font-bold">Get Started</a>
-        </div>
-        <div className="flex items-center gap-2 lg:hidden">
-          <ThemeToggle />
-          {isAdmin ? <Link href="/admin" className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-foreground" aria-label="Open admin panel" title="Admin Panel"><ShieldCheck size={17} /></Link> : null}
-          <button type="button" onClick={() => setMenu((open) => !open)} className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-muted" aria-label={menu ? "Close navigation menu" : "Open navigation menu"} aria-expanded={menu} aria-controls="mobile-navigation">
-            {menu ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
-          </button>
-        </div>
-      </div>
-      <div id="mobile-navigation" hidden={!menu} className="border-t border-border bg-background/95 p-5 backdrop-blur-xl lg:hidden">
-        <nav aria-label="Mobile navigation" className="container flex flex-col gap-1 text-foreground">
-          <a href="#services" onClick={() => setMenu(false)} className="rounded-lg px-3 py-3 hover:bg-muted">Services</a>
-          <a href="#how" onClick={() => setMenu(false)} className="rounded-lg px-3 py-3 hover:bg-muted">How It Works</a>
-          <a href="#samples" onClick={() => setMenu(false)} className="rounded-lg px-3 py-3 hover:bg-muted">Work Samples</a>
-          <a href="#about" onClick={() => setMenu(false)} className="rounded-lg px-3 py-3 hover:bg-muted">About</a>
-          <Link href="/earn" onClick={() => setMenu(false)} className="rounded-lg px-3 py-3 font-semibold text-accent hover:bg-muted">Earn With DropVerse</Link>
-          {signedIn ? <Link href="/dashboard" onClick={() => setMenu(false)} className="rounded-lg px-3 py-3 hover:bg-muted">Dashboard</Link> : <Link href="/login" onClick={() => setMenu(false)} className="rounded-lg px-3 py-3 hover:bg-muted">Login</Link>}
-          <a href="#start" onClick={() => setMenu(false)} className="brand-button-primary mt-3 rounded-full px-5 py-3 text-center font-bold">Get Started</a>
-        </nav>
-      </div>
-    </header>
 
-    <section className="relative isolate flex min-h-[88svh] items-center overflow-hidden bg-background pt-10 sm:pt-16">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,rgb(var(--primary)/.16),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgb(var(--accent)/.07),transparent_45%)]" />
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(to_bottom,rgb(var(--background)/.15),rgb(var(--background)/.8))]" />
-      <div className="container relative grid items-center gap-14 py-20 sm:py-28 lg:grid-cols-[1.05fr_.95fr] lg:gap-16">
-        <motion.div variants={reveal} initial={reduceMotion ? false : "hidden"} animate="show" className="max-w-2xl">
-          <motion.div variants={reveal} className="mb-7 inline-flex items-center gap-2 rounded-full border border-border bg-card/80 px-4 py-2 text-xs font-semibold uppercase tracking-[.16em] text-accent shadow-soft">
-            <Sparkles size={14} aria-hidden="true" /> Linking talent to sales
-          </motion.div>
-          <motion.h1 variants={reveal} className="font-display text-5xl font-extrabold leading-[1.02] tracking-[-.04em] text-foreground sm:text-6xl lg:text-7xl">
-            Turn Great Work<br /><span className="text-primary">Into Real Sales.</span>
-          </motion.h1>
-          <motion.p variants={reveal} className="mt-7 max-w-xl text-lg leading-8 text-muted-foreground sm:text-xl">
-            Access professional service samples, discover talented freelancers, and build your own Drop Servicing business with DropVerse.
-          </motion.p>
-          <motion.div variants={reveal} className="mt-9 flex flex-wrap gap-3">
-            <Link href={ctaFor(signedIn, '/login')} className="brand-button-primary group inline-flex min-h-12 items-center gap-3 rounded-full px-6 py-3.5 font-bold">
-              {signedIn ? 'Create Project' : 'Start Your Journey'}
-              <ArrowRight size={18} aria-hidden="true" className="transition-transform group-hover:translate-x-1 motion-reduce:transition-none" />
-            </Link>
-            <a href="#services" className="inline-flex min-h-12 items-center gap-2 rounded-full border border-border bg-transparent px-6 py-3.5 font-semibold text-foreground transition-colors hover:bg-muted">
-              Explore Services <ChevronRight size={18} aria-hidden="true" />
-            </a>
-          </motion.div>
-          <motion.div variants={reveal} className="mt-10 flex flex-wrap gap-x-7 gap-y-3 text-sm text-muted-foreground sm:mt-12">
-            <span className="flex items-center gap-2"><Check size={15} className="text-accent" aria-hidden="true" /> Curated talent</span>
-            <span className="flex items-center gap-2"><Check size={15} className="text-accent" aria-hidden="true" /> Ready-to-sell services</span>
-            <span className="flex items-center gap-2"><Check size={15} className="text-accent" aria-hidden="true" /> Built for entrepreneurs</span>
-          </motion.div>
-        </motion.div>
-        <motion.div className="relative mx-auto w-full max-w-[500px]" initial={reduceMotion ? false : { opacity: 0, x: 26, scale: .97 }} animate={{ opacity: 1, x: 0, scale: 1 }} transition={{ duration: reduceMotion ? 0 : .9, delay: reduceMotion ? 0 : .18, ease: luxuryEase }}>
-          <motion.div className="card relative overflow-hidden rounded-3xl p-5 shadow-elevated sm:p-6" animate={reduceMotion ? undefined : { y: [0, -5, 0] }} transition={reduceMotion ? undefined : { duration: 7, repeat: Infinity, ease: "easeInOut" }}>
-            <div className="mb-5 flex items-center justify-between border-b border-border pb-4">
-              <div><div className="text-xs uppercase tracking-[.16em] text-muted-foreground">DropVerse platform</div><div className="mt-1 font-display font-bold text-foreground">Your service engine</div></div>
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-accent"><Zap size={17} aria-hidden="true" /></div>
-            </div>
-            <div className="space-y-3">
-              {[['Talent','Skilled freelancers','01'],['Service','Ready-to-sell offers','02'],['Client','Your next opportunity','03'],['Sale','Revenue generated','04']].map(([a,b,n],i)=><div key={a} className="flex items-center gap-4 rounded-2xl border border-border bg-background/70 p-4"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-xs font-bold text-accent">{n}</div><div className="min-w-0 flex-1"><div className="font-semibold text-card-foreground">{a}</div><div className="text-sm text-muted-foreground">{b}</div></div>{i<3&&<ArrowRight size={16} className="text-muted-foreground" aria-hidden="true"/>}{i===3&&<Sparkles size={16} className="text-accent" aria-hidden="true"/>}</div>)}
-            </div>
-            <div className="mt-5 rounded-2xl border border-border bg-muted/60 p-4">
-              <div className="flex items-center justify-between text-xs text-muted-foreground"><span>Business momentum</span><span className="font-semibold text-accent">Growing</span></div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-border"><div className="h-full w-[78%] rounded-full bg-accent" /></div>
-            </div>
-          </motion.div>
-        </motion.div>
-      </div>
-    </section>
-
-    <section id="about" className="border-y border-border bg-card/60 py-20 sm:py-24">
-      <div className="container grid gap-12 lg:grid-cols-[.8fr_1.2fr] lg:gap-16">
-        <div className="max-w-xl">
-          <p className="text-sm font-bold uppercase tracking-[.18em] text-accent">The DropVerse advantage</p>
-          <h2 className="font-display mt-4 text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">You sell the vision.<br />We help power the delivery.</h2>
-          <p className="mt-5 max-w-lg leading-7 text-muted-foreground">Build your offer around real services and skilled people—without having to do every part of the work yourself.</p>
-        </div>
-        <motion.div variants={stagger} initial={reduceMotion ? false : "hidden"} whileInView="show" viewport={{ once: true, amount: .12 }} className="grid gap-x-8 gap-y-10 sm:grid-cols-2">
-          <motion.div variants={staggerItem}><Feature icon={<Users />} title="Professional Talent" text="Access skilled freelancers across the digital services clients already need." /></motion.div>
-          <motion.div variants={staggerItem}><Feature icon={<Layers />} title="Ready-to-Sell Services" text="Turn proven work into compelling offers without building every capability yourself." /></motion.div>
-          <motion.div variants={staggerItem}><Feature icon={<Globe />} title="Build Your Business" text="Create a scalable Drop Servicing operation around services with real demand." /></motion.div>
-          <motion.div variants={staggerItem}><Feature icon={<Zap />} title="One Platform" text="Keep talent, services and work samples organized as you grow." /></motion.div>
-        </motion.div>
-      </div>
-    </section>
-
-    <section id="how" className="container py-20 sm:py-24">
-      <div className="max-w-2xl">
-        <p className="text-sm font-bold uppercase tracking-[.18em] text-accent">Simple by design</p>
-        <h2 className="font-display mt-4 text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">From talent to transaction.</h2>
-        <p className="mt-5 text-lg leading-8 text-muted-foreground">Everything you need to turn a great service into a client-ready offer.</p>
-      </div>
-      <motion.div variants={stagger} initial={reduceMotion ? false : "hidden"} whileInView="show" viewport={{ once: true, amount: .12 }} className="mt-12 grid gap-4 sm:grid-cols-2 lg:mt-14 lg:grid-cols-4">
-        {[['01','Join DropVerse','Create your account and access the platform.'],['02','Choose a Service','Browse professional services and work samples.'],['03','Get Clients','Use samples to market services and approach prospects.'],['04','Make Sales','Close clients and use talent to fulfill the work.']].map(([n,t,d])=><motion.div variants={staggerItem} key={n} className="card rounded-2xl p-6 transition-transform duration-300 hover:-translate-y-1 motion-reduce:transform-none sm:p-7"><div className="text-sm font-bold text-accent">{n}</div><h3 className="font-display mt-7 text-xl font-bold text-card-foreground sm:mt-10">{t}</h3><p className="mt-3 text-sm leading-6 text-muted-foreground">{d}</p></motion.div>)}
-      </motion.div>
-    </section>
-
-    <section id="services" className="border-y border-border bg-card/60 py-20 sm:py-24">
-      <div className="container">
-        <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
-          <div><p className="text-sm font-bold uppercase tracking-[.18em] text-accent">Explore the ecosystem</p><h2 className="font-display mt-4 text-4xl font-extrabold text-foreground sm:text-5xl">Services built to sell.</h2></div>
-          <a href="#samples" className="inline-flex items-center gap-2 text-sm font-bold text-foreground transition-colors hover:text-accent">Explore work samples <ArrowRight size={16} aria-hidden="true" /></a>
-        </div>
-        <motion.div variants={stagger} initial={reduceMotion ? false : "hidden"} whileInView="show" viewport={{ once: true, amount: .12 }} className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {services.map(([t,d])=><motion.div variants={staggerItem} key={t} className="card rounded-2xl p-6 transition-transform duration-300 hover:-translate-y-1 motion-reduce:transform-none"><h3 className="font-display text-lg font-bold text-card-foreground">{t}</h3><p className="mt-3 text-sm leading-6 text-muted-foreground">{d}</p></motion.div>)}
-        </motion.div>
-      </div>
-    </section>
-
-    <section id="samples" className="container py-20 sm:py-24">
-      <div className="max-w-2xl"><p className="text-sm font-bold uppercase tracking-[.18em] text-accent">Proof of quality</p><h2 className="font-display mt-4 text-4xl font-extrabold text-foreground sm:text-5xl">Work samples that sell the service.</h2></div>
-      <motion.div variants={stagger} initial={reduceMotion ? false : "hidden"} whileInView="show" viewport={{ once: true, amount: .12 }} className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {samples.map((s)=><motion.div variants={staggerItem} key={s.title} className="card overflow-hidden rounded-2xl"><div className="flex aspect-[4/3] items-center justify-center bg-muted text-muted-foreground"><Play size={28} aria-hidden="true" /></div><div className="p-5"><div className="text-xs font-semibold uppercase tracking-[.14em] text-accent">{s.category||'Sample'}</div><h3 className="font-display mt-2 text-lg font-bold text-card-foreground">{s.title}</h3></div></motion.div>)}
-      </motion.div>
-    </section>
-
-    <section id="start" className="border-t border-border bg-card/60 py-20 sm:py-24">
-      <div className="container flex flex-col items-start gap-8 lg:flex-row lg:items-end lg:justify-between">
-        <div className="max-w-xl"><p className="text-sm font-bold uppercase tracking-[.18em] text-accent">Ready when you are</p><h2 className="font-display mt-4 text-4xl font-extrabold text-foreground sm:text-5xl">Start building your Drop Servicing business.</h2><p className="mt-5 leading-7 text-muted-foreground">Join DropVerse to access services, talent and samples designed to help you sell with confidence.</p></div>
-        <Link href={ctaFor(signedIn, '/login')} className="brand-button-primary inline-flex min-h-12 items-center gap-2 rounded-full px-6 py-3.5 font-bold">{signedIn ? 'Go to Dashboard' : 'Get Started'} <ArrowRight size={18} aria-hidden="true" /></Link>
-      </div>
-    </section>
-
-    <footer className="border-t border-border py-12">
-      <div className="container flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="inline-flex items-center gap-3"><Image src="/dropverse-logo.jpeg" alt="DropVerse" width={42} height={42} className="rounded-xl object-cover shadow-soft"/><div className="font-display text-xl font-extrabold tracking-[.12em] text-foreground">DROP<span className="text-accent">VERSE</span></div></div>
-          <p className="mt-2 text-xs uppercase tracking-[.2em] text-muted-foreground">Sell services. We handle the rest.</p>
-        </div>
-        <div className="flex flex-wrap gap-6 text-sm text-muted-foreground"><Link href="/">Home</Link><a href="#services">Services</a><Link href={signedIn ? '/dashboard' : '/login'}>Login</Link><a href="mailto:dropverseagency@gmail.com">Contact</a></div>
-        <p className="text-xs text-muted-foreground">© 2026 DropVerse. All rights reserved.</p>
-      </div>
-    </footer>
-  </main>
-}
-
-function Feature({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
   return (
-    <div className="flex gap-4">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-accent">{icon}</div>
-      <div><h3 className="font-display text-lg font-bold text-foreground">{title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{text}</p></div>
-    </div>
+    <main className="overflow-hidden bg-background text-foreground">
+      <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-xl">
+        <div className="container flex min-h-20 items-center justify-between gap-4">
+          <Brand />
+          <nav aria-label="Main navigation" className="hidden items-center gap-6 text-sm text-muted-foreground lg:flex xl:gap-8">
+            <a href="#services" className="transition-colors hover:text-foreground">
+              Platform Tools
+            </a>
+            <a href="#how" className="transition-colors hover:text-foreground">
+              How It Works
+            </a>
+            <a href="#samples" className="transition-colors hover:text-foreground">
+              Work Samples
+            </a>
+            <a href="#about" className="transition-colors hover:text-foreground">
+              About
+            </a>
+            <Link href="/earn" className="font-semibold text-primary transition-colors hover:opacity-80">
+              Earn With DropVerse
+            </Link>
+          </nav>
+          <div className="hidden items-center gap-3 lg:flex">
+            <ThemeToggle />
+            {signedIn && auth.user ? (
+              <>
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-2 text-sm font-bold text-foreground transition-colors hover:bg-muted"
+                  >
+                    <ShieldCheck size={16} />
+                    <span>Admin</span>
+                  </Link>
+                )}
+                <UserMenu user={auth.user} isAdmin={isAdmin} />
+              </>
+            ) : (
+              <Link
+                href="/login"
+                className="rounded-full px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                {auth.loading ? '' : 'Login'}
+              </Link>
+            )}
+            <Link
+              href="/earn"
+              className="rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+            >
+              Earn
+            </Link>
+            <a href="#start" className="rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground">
+              Get Started
+            </a>
+          </div>
+          <div className="flex items-center gap-2 lg:hidden">
+            <ThemeToggle />
+            {isAdmin ? (
+              <Link
+                href="/admin"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-foreground"
+                aria-label="Open admin panel"
+              >
+                <ShieldCheck size={17} />
+              </Link>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setMenu((open) => !open)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-muted"
+              aria-label={menu ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-expanded={menu}
+              aria-controls="mobile-navigation"
+            >
+              {menu ? <X size={18} /> : <Menu size={18} />}
+            </button>
+          </div>
+        </div>
+        <div
+          id="mobile-navigation"
+          hidden={!menu}
+          className="border-t border-border bg-background/95 p-5 backdrop-blur-xl lg:hidden"
+        >
+          <nav aria-label="Mobile navigation" className="container flex flex-col gap-1 text-foreground">
+            <a href="#services" onClick={() => setMenu(false)} className="rounded-lg px-3 py-3 hover:bg-muted">
+              Platform Tools
+            </a>
+            <a href="#how" onClick={() => setMenu(false)} className="rounded-lg px-3 py-3 hover:bg-muted">
+              How It Works
+            </a>
+            <a href="#samples" onClick={() => setMenu(false)} className="rounded-lg px-3 py-3 hover:bg-muted">
+              Work Samples
+            </a>
+            <a href="#about" onClick={() => setMenu(false)} className="rounded-lg px-3 py-3 hover:bg-muted">
+              About
+            </a>
+            <Link
+              href="/earn"
+              onClick={() => setMenu(false)}
+              className="rounded-lg px-3 py-3 font-semibold text-primary hover:bg-muted"
+            >
+              Earn With DropVerse
+            </Link>
+            {signedIn ? (
+              <Link href="/dashboard" onClick={() => setMenu(false)} className="rounded-lg px-3 py-3 hover:bg-muted">
+                Dashboard
+              </Link>
+            ) : (
+              <Link href="/login" onClick={() => setMenu(false)} className="rounded-lg px-3 py-3 hover:bg-muted">
+                Login
+              </Link>
+            )}
+            <a
+              href="#start"
+              onClick={() => setMenu(false)}
+              className="mt-3 rounded-full bg-primary px-5 py-3 text-center font-bold text-primary-foreground"
+            >
+              Get Started
+            </a>
+          </nav>
+        </div>
+      </header>
+
+      {/* Hero */}
+      <section className="relative isolate flex min-h-[88svh] items-center overflow-hidden pt-10 sm:pt-16">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,rgb(var(--primary)/.14),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgb(var(--accent)/.06),transparent_45%)]"
+        />
+        <div className="container relative grid items-center gap-14 py-20 sm:py-28 lg:grid-cols-[1.05fr_.95fr] lg:gap-16">
+          <motion.div variants={reveal} initial={reduceMotion ? false : 'hidden'} animate="show" className="max-w-2xl">
+            <motion.div
+              variants={reveal}
+              className="mb-7 inline-flex items-center gap-2 rounded-full border border-border bg-card/80 px-4 py-2 text-xs font-semibold uppercase tracking-[.16em] text-primary shadow-sm"
+            >
+              <Sparkles size={14} /> B2B SaaS workflow management
+            </motion.div>
+            <motion.h1
+              variants={reveal}
+              className="font-display text-5xl font-extrabold leading-[1.02] tracking-[-.04em] text-foreground sm:text-6xl lg:text-7xl"
+            >
+              Project & Workspace Platform
+              <br />
+              <span className="text-primary">for Digital Teams</span>
+            </motion.h1>
+            <motion.p variants={reveal} className="mt-7 max-w-xl text-lg leading-8 text-muted-foreground sm:text-xl">
+              Access automated digital workflow tools, client management templates, and collaborative workspaces.
+            </motion.p>
+            <motion.div variants={reveal} className="mt-9 flex flex-wrap gap-3">
+              <Link
+                href={ctaFor(signedIn, '/login')}
+                className="group inline-flex min-h-12 items-center gap-3 rounded-full bg-primary px-6 py-3.5 font-bold text-primary-foreground"
+              >
+                {signedIn ? 'Create Project' : 'Start Your Journey'}
+                <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
+              </Link>
+              <a
+                href="#services"
+                className="inline-flex min-h-12 items-center gap-2 rounded-full border border-border px-6 py-3.5 font-semibold text-foreground transition-colors hover:bg-muted"
+              >
+                Explore Services <ChevronRight size={18} />
+              </a>
+              <Link
+                href="/earn"
+                className="inline-flex min-h-12 items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-6 py-3.5 font-semibold text-primary transition hover:bg-primary/15"
+              >
+                Earn With DropVerse <ChevronRight size={18} />
+              </Link>
+            </motion.div>
+            <motion.div variants={reveal} className="mt-10 flex flex-wrap gap-x-7 gap-y-3 text-sm text-muted-foreground">
+              <span className="flex items-center gap-2">
+                <Check size={15} className="text-primary" /> Centralized workspaces
+              </span>
+              <span className="flex items-center gap-2">
+                <Check size={15} className="text-primary" /> Automated workflows
+              </span>
+              <span className="flex items-center gap-2">
+                <Check size={15} className="text-primary" /> Built for digital teams
+              </span>
+            </motion.div>
+          </motion.div>
+
+          <motion.div
+            className="relative mx-auto w-full max-w-[500px]"
+            initial={reduceMotion ? false : { opacity: 0, x: 26, scale: 0.97 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            transition={{ duration: reduceMotion ? 0 : 0.9, delay: reduceMotion ? 0 : 0.18, ease: luxuryEase }}
+          >
+            <motion.div
+              className="relative overflow-hidden rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6"
+              animate={reduceMotion ? undefined : { y: [0, -5, 0] }}
+              transition={reduceMotion ? undefined : { duration: 7, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <div className="mb-5 flex items-center justify-between border-b border-border pb-4">
+                <div>
+                  <div className="text-xs uppercase tracking-[.16em] text-muted-foreground">DropVerse platform</div>
+                  <div className="mt-1 font-display font-bold text-foreground">Your team workspace</div>
+                </div>
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-primary">
+                  <Zap size={17} />
+                </div>
+              </div>
+              <div className="space-y-3">
+                {[
+                  ['Talent', 'Collaborative team access', '01'],
+                  ['Service', 'Reusable workflow templates', '02'],
+                  ['Client', 'Client project pipeline', '03'],
+                  ['Sale', 'Workspace insights', '04'],
+                ].map(([a, b, n], i) => (
+                  <div key={a} className="flex items-center gap-4 rounded-2xl border border-border bg-background/70 p-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-xs font-bold text-primary">
+                      {n}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-card-foreground">{a}</div>
+                      <div className="text-sm text-muted-foreground">{b}</div>
+                    </div>
+                    {i < 3 ? (
+                      <ArrowRight size={16} className="text-muted-foreground" />
+                    ) : (
+                      <Sparkles size={16} className="text-primary" />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-5 rounded-2xl border border-border bg-muted/60 p-4">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Business momentum</span>
+                  <span className="font-semibold text-primary">Growing</span>
+                </div>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-border">
+                  <div className="h-full w-[78%] rounded-full bg-primary" />
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Platform tools */}
+      <section id="about" className="border-y border-border bg-card/60 py-20 sm:py-24">
+        <div className="container grid gap-12 lg:grid-cols-[.8fr_1.2fr] lg:gap-16">
+          <div className="max-w-xl">
+            <p className="text-sm font-bold uppercase tracking-[.18em] text-primary">The DropVerse advantage</p>
+            <h2 className="font-display mt-4 text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
+              Your team has the vision.
+              <br />
+              We power the workflow.
+            </h2>
+            <p className="mt-5 max-w-lg leading-7 text-muted-foreground">
+              Build your offer around real services and skilled people—without having to do every part of the work
+              yourself.
+            </p>
+          </div>
+          <motion.div
+            variants={stagger}
+            initial={reduceMotion ? false : 'hidden'}
+            whileInView="show"
+            viewport={{ once: true, amount: 0.12 }}
+            className="grid gap-x-8 gap-y-10 sm:grid-cols-2"
+          >
+            <motion.div variants={staggerItem}>
+              <Feature
+                icon={<Users size={18} />}
+                title="Team Collaboration"
+                text="Give digital teams one structured workspace for people, projects, and assets."
+              />
+            </motion.div>
+            <motion.div variants={staggerItem}>
+              <Feature
+                icon={<Layers size={18} />}
+                title="Workflow Templates"
+                text="Standardize repeatable workflows with reusable templates and operational tools."
+              />
+            </motion.div>
+            <motion.div variants={staggerItem}>
+              <Feature
+                icon={<Globe size={18} />}
+                title="Scale Your Workspace"
+                text="Scale B2B delivery operations with visibility across projects, clients, and teams."
+              />
+            </motion.div>
+            <motion.div variants={staggerItem}>
+              <Feature
+                icon={<Zap size={18} />}
+                title="One Platform"
+                text="Keep projects, client records, assets, and team activity organized as you grow."
+              />
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section id="how" className="container py-20 sm:py-24">
+        <div className="max-w-2xl">
+          <p className="text-sm font-bold uppercase tracking-[.18em] text-primary">Simple by design</p>
+          <h2 className="font-display mt-4 text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
+            From intake to delivery.
+          </h2>
+          <p className="mt-5 text-lg leading-8 text-muted-foreground">
+            Everything digital teams need to move work from intake to delivery.
+          </p>
+        </div>
+        <motion.div
+          variants={stagger}
+          initial={reduceMotion ? false : 'hidden'}
+          whileInView="show"
+          viewport={{ once: true, amount: 0.12 }}
+          className="mt-12 grid gap-4 sm:grid-cols-2 lg:mt-14 lg:grid-cols-4"
+        >
+          {[
+            ['01', 'Create a workspace', 'Set up your account and access the platform.'],
+            ['02', 'Configure workflows', 'Use templates and tools for recurring operations.'],
+            ['03', 'Manage projects', 'Coordinate clients, tasks, assets, and team access.'],
+            ['04', 'Measure delivery', 'Track activity and workspace performance in one place.'],
+          ].map(([n, t, d]) => (
+            <motion.div
+              variants={staggerItem}
+              key={n}
+              className="rounded-2xl border border-border bg-card p-6 transition-transform duration-300 hover:-translate-y-1 motion-reduce:transform-none sm:p-7"
+            >
+              <div className="text-sm font-bold text-primary">{n}</div>
+              <h3 className="font-display mt-7 text-xl font-bold text-card-foreground sm:mt-10">{t}</h3>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">{d}</p>
+            </motion.div>
+          ))}
+        </motion.div>
+      </section>
+
+      {/* Services */}
+      <section id="services" className="border-y border-border bg-card/60 py-20 sm:py-24">
+        <div className="container">
+          <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-[.18em] text-primary">Explore the ecosystem</p>
+              <h2 className="font-display mt-4 text-4xl font-extrabold text-foreground sm:text-5xl">
+                Services built to sell.
+              </h2>
+            </div>
+            <a href="#samples" className="inline-flex items-center gap-2 text-sm font-bold text-foreground transition-colors hover:text-primary">
+              Explore work samples <ArrowRight size={16} />
+            </a>
+          </div>
+          <motion.div
+            variants={stagger}
+            initial={reduceMotion ? false : 'hidden'}
+            whileInView="show"
+            viewport={{ once: true, amount: 0.12 }}
+            className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+          >
+            {services.map(([t, d], i) => (
+              <motion.div
+                variants={staggerItem}
+                key={t + String(i)}
+                className="rounded-2xl border border-border bg-card p-6 transition-transform duration-300 hover:-translate-y-1 motion-reduce:transform-none"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-muted-foreground">0{i + 1}</span>
+                  <ArrowRight size={17} className="text-muted-foreground" />
+                </div>
+                <h3 className="font-display mt-10 text-lg font-bold text-card-foreground">{t}</h3>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{d}</p>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Work library — data-driven with honest empty state */}
+      <section id="samples" className="container py-20 sm:py-24">
+        <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[.18em] text-primary">The work library</p>
+            <h2 className="font-display mt-4 text-4xl font-extrabold text-foreground sm:text-5xl">
+              See what you can sell.
+            </h2>
+            <p className="mt-5 max-w-xl text-muted-foreground">
+              Published services and samples appear here as they go live. Until then, start by listing your first
+              service.
+            </p>
+          </div>
+          <Link
+            href={ctaFor(signedIn, '/login')}
+            className="inline-flex items-center gap-2 text-sm font-bold text-primary"
+          >
+            Start selling your first service <ArrowRight size={16} />
+          </Link>
+        </div>
+
+        {samples && samples.length > 0 ? (
+          <div className="mt-12 grid gap-5 md:grid-cols-3">
+            {samples.map((sample, i) => (
+              <div
+                key={(sample.id || sample.title) + String(i)}
+                className="group overflow-hidden rounded-3xl border border-border bg-card"
+              >
+                <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+                  {sample.media_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={sample.media_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgb(var(--primary)/.2),transparent_40%)]" />
+                  )}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-primary/30 bg-background/70 text-primary backdrop-blur">
+                      <Play size={19} fill="currentColor" />
+                    </div>
+                  </div>
+                  <span className="absolute left-4 top-4 rounded-full bg-background/80 px-3 py-1 text-xs font-semibold text-primary backdrop-blur">
+                    {sample.category || 'Sample'}
+                  </span>
+                </div>
+                <div className="p-5">
+                  <h3 className="font-display font-bold text-foreground">{sample.title}</h3>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-12 rounded-3xl border border-dashed border-border bg-card/50 px-8 py-16 text-center">
+            <p className="font-display text-xl font-bold text-foreground">No published services yet</p>
+            <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
+              When services are published they will show up here. Create your workspace and list your first offer to get
+              started.
+            </p>
+            <Link
+              href={ctaFor(signedIn, '/login')}
+              className="mt-8 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 font-bold text-primary-foreground"
+            >
+              Start selling your first service <ArrowRight size={16} />
+            </Link>
+          </div>
+        )}
+      </section>
+
+      {/* Closing CTA */}
+      <section id="start" className="border-t border-border bg-card/60 py-20 sm:py-24">
+        <div className="container max-w-3xl text-center">
+          <p className="text-sm font-bold uppercase tracking-[.18em] text-primary">Get started</p>
+          <h2 className="font-display mt-4 text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
+            Build your digital team workspace.
+          </h2>
+          <p className="mx-auto mt-5 max-w-xl text-muted-foreground">
+            Join DropVerse to manage projects, collaborate with talent, and deliver client work from one platform.
+          </p>
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href={ctaFor(signedIn, '/login')}
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-7 py-3.5 font-bold text-primary-foreground"
+            >
+              {signedIn ? 'Go to Dashboard' : 'Start Your Journey'} <ArrowRight size={18} />
+            </Link>
+            <Link
+              href="/pricing"
+              className="inline-flex items-center gap-2 rounded-full border border-border px-7 py-3.5 font-semibold text-foreground hover:bg-muted"
+            >
+              View pricing
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <footer className="border-t border-border py-12">
+        <div className="container flex flex-col gap-8 sm:flex-row sm:items-center sm:justify-between">
+          <Brand />
+          <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
+            <Link href="/pricing" className="hover:text-foreground">
+              Pricing
+            </Link>
+            <Link href="/earn" className="hover:text-foreground">
+              Earn
+            </Link>
+            <Link href="/privacy" className="hover:text-foreground">
+              Privacy
+            </Link>
+            <Link href="/terms" className="hover:text-foreground">
+              Terms
+            </Link>
+            <Link href="/login" className="hover:text-foreground">
+              Login
+            </Link>
+          </nav>
+          <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} DropVerse</p>
+        </div>
+      </footer>
+    </main>
   )
 }
