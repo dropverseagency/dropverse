@@ -32,33 +32,40 @@ export default function AdminRouter({ page }: { page: string }) {
 
   useEffect(() => {
     let cancelled = false
-    // Server-authorize: the overview endpoint only succeeds for admins.
-    fetch('/api/admin/data?section=overview').then((r) => {
-      if (cancelled) return
-      if (r.status === 401 || r.status === 403) {
-        setAuthState('denied')
-        return
-      }
-      setAuthState('ok')
-    }).catch(() => !cancelled && setAuthState('denied'))
-    return () => { cancelled = true }
+    fetch('/api/admin/data?section=overview')
+      .then((r) => {
+        if (cancelled) return
+        if (r.status === 401 || r.status === 403) {
+          setAuthState('denied')
+          return
+        }
+        setAuthState('ok')
+      })
+      .catch(() => !cancelled && setAuthState('denied'))
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   if (authState === 'loading') {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#0a211e] text-sm text-[#7f918c]">
+      <div className="flex h-screen items-center justify-center bg-muted text-sm text-muted-foreground">
         Verifying admin access...
       </div>
     )
   }
   if (authState === 'denied') {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-[#0a211e] px-5 text-center">
-        <h1 className="font-display text-3xl font-extrabold text-[#f5a0a0]">403 — Admins only</h1>
-        <p className="max-w-sm text-sm text-[#8fa29c]">
-          This area is restricted to DropVerse administrators. If you believe you should have access, contact dropverseagency@gmail.com.
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-muted px-5 text-center">
+        <h1 className="font-display text-3xl font-extrabold text-danger">403 — Admins only</h1>
+        <p className="max-w-sm text-sm text-muted-foreground">
+          This area is restricted to DropVerse administrators. If you believe you should have access, contact
+          dropverseagency@gmail.com.
         </p>
-        <a href="/dashboard" className="rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] hover:bg-[#f0d98b]">
+        <a
+          href="/dashboard"
+          className="rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground hover:opacity-90"
+        >
           Back to Dashboard
         </a>
       </div>
@@ -70,16 +77,36 @@ export default function AdminRouter({ page }: { page: string }) {
 
   let section: React.ReactNode = <OverviewSection />
   switch (key) {
-    case 'users': section = <UsersSection />; break
-    case 'agencies': section = <AgenciesSection />; break
-    case 'projects': section = <ProjectsSection />; break
-    case 'payments': section = <PaymentsSection />; break
-    case 'affiliates': section = <AffiliatesSection />; break
-    case 'commissions': section = <CommissionsSection />; break
-    case 'services': section = <ServicesSection />; break
-    case 'freelancers': section = <FreelancersSection />; break
-    case 'audit': section = <AuditSection />; break
-    case 'settings': section = <SettingsSection />; break
+    case 'users':
+      section = <UsersSection />
+      break
+    case 'agencies':
+      section = <AgenciesSection />
+      break
+    case 'projects':
+      section = <ProjectsSection />
+      break
+    case 'payments':
+      section = <PaymentsSection />
+      break
+    case 'affiliates':
+      section = <AffiliatesSection />
+      break
+    case 'commissions':
+      section = <CommissionsSection />
+      break
+    case 'services':
+      section = <ServicesSection />
+      break
+    case 'freelancers':
+      section = <FreelancersSection />
+      break
+    case 'audit':
+      section = <AuditSection />
+      break
+    case 'settings':
+      section = <SettingsSection />
+      break
   }
 
   return <AdminShell title={title}>{section}</AdminShell>
