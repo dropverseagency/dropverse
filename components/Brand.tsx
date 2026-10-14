@@ -2,16 +2,15 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { DROPVERSE_ICON_SRC } from '../lib/dropverseLogo'
 
-/** Official DropVerse mark: icon + wordmark (DROP white, VERSE gold). */
+/** Official DropVerse mark: transparent gold icon + wordmark (DROP white, VERSE gold). */
 export default function Brand({ compact = false }: { compact?: boolean }) {
   const icon = compact ? 28 : 36
 
   return (
     <Link href="/" className="inline-flex shrink-0 items-center gap-2.5" aria-label="DropVerse home">
       <Image
-        src={DROPVERSE_ICON_SRC}
+        src="/dropverse-icon.svg"
         alt=""
         width={icon}
         height={icon}
