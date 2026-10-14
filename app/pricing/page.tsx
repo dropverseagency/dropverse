@@ -1,7 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { motion, useReducedMotion } from 'framer-motion'
-import { ArrowRight, Check, Star, Zap, Users, Target } from 'lucide-react'
+import { ArrowRight, Check, Zap, Users, Target } from 'lucide-react'
 import { PLAN_CONFIG, membersLabelFor } from '../../lib/planConfig'
 import SiteHeader from '../../components/SiteHeader'
 import Brand from '../../components/Brand'
@@ -9,52 +8,6 @@ import { useAuth } from '../../lib/useAuth'
 
 function planHref(signedIn: boolean, planId: string): string {
   return signedIn ? `/dashboard?plan=${encodeURIComponent(planId)}` : '/login'
-}
-
-const ALL_FEATURES = [
-  'B2B workspace license',
-  'Digital asset library access',
-  'Asset management tools',
-  'Project workspace',
-  'Client operations templates',
-  'Partner referral tools',
-  'Workspace dashboard',
-  'Multi-user workspace license',
-  'Licensed team members',
-  'Team access management',
-  'Shared client records',
-  'Collaborative project boards',
-  'Team performance analytics',
-  'Partner referral tracking',
-  'Shared digital asset library',
-  'Basic workspace analytics',
-  'Advanced workspace permissions',
-  'Advanced workspace analytics',
-  'Workflow performance tracking',
-  'Project assignment tools',
-  'Operational performance analytics',
-  'Priority workspace support',
-  'Advanced partner analytics',
-  'Custom license limits',
-  'Multiple workspace environments',
-  'Dedicated software support',
-  'Workspace onboarding',
-  'API & integration access',
-  'Enterprise workspace infrastructure',
-  'Custom software billing',
-]
-
-function featureIn(planId: string, feature: string): boolean {
-  const p = PLAN_CONFIG.find((x) => x.id === planId)
-  if (!p) return false
-  const list = p.features
-  if (planId === 'AGENCY' && list.some((f) => f.startsWith('Everything in Starter')))
-    return ALL_FEATURES.filter((f) => PLAN_CONFIG[0].features.includes(f)).includes(feature)
-  if (planId === 'AGENCY_PRO' && list.some((f) => f.startsWith('Everything in Agency')))
-    return ALL_FEATURES.filter((f) => PLAN_CONFIG[1].features.includes(f)).includes(feature)
-  if (planId === 'ENTERPRISE' && list.some((f) => f.startsWith('Everything in Pro')))
-    return ALL_FEATURES.filter((f) => PLAN_CONFIG[2].features.includes(f)).includes(feature)
-  return list.includes(feature)
 }
 
 function priceFor(plan: (typeof PLAN_CONFIG)[number]): string {
@@ -65,8 +18,6 @@ function priceFor(plan: (typeof PLAN_CONFIG)[number]): string {
 export default function PricingPage() {
   const auth = useAuth()
   const signedIn = !auth.loading && Boolean(auth.user)
-  const reduceMotion = useReducedMotion()
-  const luxuryEase = [0.23, 1, 0.32, 1] as const
 
   return (
     <main className="min-h-screen bg-[#071f1d]">
@@ -85,7 +36,7 @@ export default function PricingPage() {
 
         <div className="mt-14 grid gap-6 lg:grid-cols-4">
           {PLAN_CONFIG.map((plan) => {
-            const featured = plan.id === 'AGENCY'
+            const featured = Boolean(plan.highlight) || plan.id === 'AGENCY'
             return (
               <div
                 key={plan.id}
@@ -102,11 +53,6 @@ export default function PricingPage() {
                 )}
                 <div className="flex items-center gap-2">
                   <span className="font-display text-lg font-bold text-[#e8efe9]">{plan.displayName}</span>
-                  {plan.badge && (
-                    <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-bold text-[#849792]">
-                      {plan.badge}
-                    </span>
-                  )}
                 </div>
                 <div className="mt-4 flex items-end gap-1">
                   <span className="font-display text-3xl font-extrabold text-[#e8efe9]">{priceFor(plan)}</span>
@@ -187,7 +133,10 @@ export default function PricingPage() {
             <a href="/#services">Platform Tools</a>
             <Link href="/earn">Earn</Link>
             <Link href="/pricing">Pricing</Link>
-            <a href="mailto:dropverseagency@gmail.com">Contact</a><Link href="/terms">Terms of Service</Link><Link href="/privacy">Privacy Policy</Link><Link href="/refund">Refund Policy</Link>
+            <a href="mailto:dropverseagency@gmail.com">Contact</a>
+            <Link href="/terms">Terms of Service</Link>
+            <Link href="/privacy">Privacy Policy</Link>
+            <Link href="/refund">Refund Policy</Link>
           </div>
           <p className="text-xs text-[#5f726c]">© 2026 DropVerse. All rights reserved.</p>
         </div>
