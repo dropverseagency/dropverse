@@ -2,11 +2,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
+import Brand from '../../../components/Brand'
 import {
   ArrowRight, Rocket, Check, CreditCard,
   HandCoins, Wallet, FileText,
 } from 'lucide-react'
-import Brand from '../../../components/Brand'
 import { createClient } from '../../../lib/supabase'
 import { useAuth } from '../../../lib/useAuth'
 import {
