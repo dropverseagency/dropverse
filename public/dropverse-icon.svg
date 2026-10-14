@@ -1,16 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
-  <defs>
-    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f0d78c"/>
-      <stop offset="50%" stop-color="#d8b45a"/>
-      <stop offset="100%" stop-color="#b8923e"/>
-    </linearGradient>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#0d3530"/>
-      <stop offset="100%" stop-color="#071f1d"/>
-    </linearGradient>
-  </defs>
-  <rect x="3" y="3" width="74" height="74" rx="16" ry="16" fill="url(#bg)" stroke="url(#g)" stroke-width="3.5"/>
-  <path fill="url(#g)" d="M22 22 L48 40 L22 58 L22 50 L38 40 L22 30 Z"/>
-  <path fill="url(#g)" d="M40 28 L58 40 L40 52 L40 46 L50 40 L40 34 Z"/>
-</svg>
+PLACEHOLDER
