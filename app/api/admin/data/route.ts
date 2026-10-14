@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { adminClient, adminJson, parsePage, AuditInput } from '@/lib/adminCore'
+import { adminClient, adminJson, parsePage } from '@/lib/adminCore'
 
 /**
  * Unified admin read API (server-side, service role):
@@ -13,9 +13,9 @@ export async function GET(request: NextRequest) {
     const { offset, limit } = parsePage(searchParams)
     const admin = adminClient()
     const countOf = async (table: string, eq: { column: string; value: string } | null) => {
-      let q: any = admin.from(table).select('*', { count: 'exact', head: true })
-      if (eq) q = q.eq(eq.column, eq.value)
-      const { count } = await q
+      let qry: any = admin.from(table).select('*', { count: 'exact', head: true })
+      if (eq) qry = qry.eq(eq.column, eq.value)
+      const { count } = await qry
       return count ?? 0
     }
 
@@ -38,7 +38,6 @@ export async function GET(request: NextRequest) {
           countOf('services', { column: 'active', value: 'true' }),
           countOf('projects', { column: 'payment_status', value: 'PAYMENT_PENDING' }),
         ])
-        // Revenue: sum of base_amount of approved/paid commissions (ledger-grade, never client-supplied)
         const { data: revRows } = await admin
           .from('referral_commissions')
           .select('base_amount')
@@ -46,13 +45,11 @@ export async function GET(request: NextRequest) {
         const dvRevenue = (revRows ?? []).reduce((s, r) => s + Number(r.base_amount || 0), 0)
         const { data: payoutRows } = await admin.from('payout_requests').select('amount').eq('status', 'paid')
         const payouts = (payoutRows ?? []).reduce((s, r) => s + Number(r.amount || 0), 0)
-        // Last 10 audit entries
         const { data: recentAudit } = await admin
           .from('audit_logs')
           .select('id, actor_id, actor_email, action, entity, entity_id, created_at')
           .order('created_at', { ascending: false })
           .limit(10)
-        // Last 5 projects
         const { data: recentProjects } = await admin
           .from('projects')
           .select('id, title, project_type, billing_interval, client_price, fulfillment_cost, seller_profit, payment_status, status, created_at')
@@ -61,16 +58,16 @@ export async function GET(request: NextRequest) {
         return {
           section: 'overview',
           totals: {
-            users: users,
-            projects: projects,
-            agencies: agencies,
-            paymentsConfirmed: paymentsConfirmed,
-            paymentsPending: paymentsPending,
+            users,
+            projects,
+            agencies,
+            paymentsConfirmed,
+            paymentsPending,
             activeReferrals: affiliatesActive,
-            commissionsPending: commissionsPending,
-            commissionsPaid: commissionsPaid,
-            publishedServices: publishedServices,
-            openProjects: openProjects,
+            commissionsPending,
+            commissionsPaid,
+            publishedServices,
+            openProjects,
             dvRevenue: Math.round(dvRevenue * 100) / 100,
             totalPayouts: Math.round(payouts * 100) / 100,
           },
@@ -86,7 +83,6 @@ export async function GET(request: NextRequest) {
         const { data, count, error } = await query.range(offset, offset + limit - 1)
         if (error) throw error
         const rows = (data ?? []) as unknown as { id: string; [k: string]: unknown }[]
-        // emails come from auth.users via users_view or rest admin — fetch separately
         let emails: { id: string; email: string }[] = []
         if (rows.length > 0) {
           const { data: emailRows } = await admin
@@ -100,7 +96,6 @@ export async function GET(request: NextRequest) {
       }
 
       case 'user_detail': {
-        // Full profile of a single user: identity + projects + referral activity.
         const detailId = (searchParams.get('id') ?? '').trim()
         if (!detailId) return { error: 'MISSING_ID', section: 'user_detail' }
         const { data: prof, error: profError } = await admin
@@ -120,7 +115,6 @@ export async function GET(request: NextRequest) {
             .eq('user_id', detailId).order('created_at', { ascending: false }).limit(50),
           admin.from('organizations').select('id, name, status').eq('owner_id', detailId).limit(20),
         ])
-        // Referral activity (as affiliate)
         const { data: codes } = await admin
           .from('referral_codes')
           .select('id, code, kind, active, created_at')
@@ -135,7 +129,6 @@ export async function GET(request: NextRequest) {
             refs.push({ ...r, referral_code_id: code.id, referral_code: code.code, commissions: comms ?? [] })
           }
         }
-        // Referrals received (as referred user)
         const { data: referredBy } = await admin.from('referrals').select('id, referrer_id, attributed_at').eq('referred_user_id', detailId)
         return {
           section: 'user_detail',
@@ -169,28 +162,63 @@ export async function GET(request: NextRequest) {
       }
 
       case 'payments': {
-        // Payment landscape derived from projects (no payment provider exists yet — foundation only)
-        const [pending, confirmed, failed, disputed] = await Promise.all([
-          select('projects', 'id, title, client_price, payment_method, payment_status, payment_confirmed_at, created_at')
-            .eq('payment_status', 'PAYMENT_PENDING').order('created_at', { ascending: false }),
-          select('projects', 'id, title, client_price, payment_method, payment_status, payment_confirmed_at, created_at')
-            .eq('payment_status', 'PAYMENT_CONFIRMED').order('payment_confirmed_at', { ascending: false }),
-          select('projects', 'id, title, client_price, payment_method, payment_status, created_at')
-            .eq('payment_status', 'PAYMENT_FAILED'),
-          select('projects', 'id, title, client_price, payment_method, payment_status, created_at')
-            .eq('payment_status', 'PAYMENT_DISPUTED'),
+        const [pending, confirmed, failed, disputed, paddleRes, invoicesRes] = await Promise.all([
+          select('projects', 'id, title, client_price, payment_method, payment_status, payment_provider, payment_confirmed_at, payment_transaction_id, created_at')
+            .eq('payment_status', 'PAYMENT_PENDING').order('created_at', { ascending: false }).limit(100),
+          select('projects', 'id, title, client_price, payment_method, payment_status, payment_provider, payment_confirmed_at, payment_transaction_id, created_at')
+            .eq('payment_status', 'PAYMENT_CONFIRMED').order('payment_confirmed_at', { ascending: false }).limit(100),
+          select('projects', 'id, title, client_price, payment_method, payment_status, payment_provider, created_at')
+            .eq('payment_status', 'PAYMENT_FAILED').limit(50),
+          select('projects', 'id, title, client_price, payment_method, payment_status, payment_provider, created_at')
+            .eq('payment_status', 'PAYMENT_DISPUTED').limit(50),
+          admin
+            .from('paddle_orders')
+            .select('id, transaction_id, user_id, status, amount, currency_code, customer_email, plan_id, sample_id, organization_id, metadata, created_at, updated_at')
+            .order('created_at', { ascending: false })
+            .limit(150),
+          admin
+            .from('invoices')
+            .select('id, invoice_number, amount, currency, status, client_name, client_email, project_id, created_at, updated_at')
+            .order('created_at', { ascending: false })
+            .limit(100),
         ])
+
+        const pendingRows = pending.data ?? []
+        const confirmedRows = confirmed.data ?? []
+        const paddleOrders = paddleRes.data ?? []
+        const invoices = invoicesRes.data ?? []
+
+        const confirmedVolume = confirmedRows.reduce((s: number, r: any) => s + Number(r.client_price || 0), 0)
+        const pendingVolume = pendingRows.reduce((s: number, r: any) => s + Number(r.client_price || 0), 0)
+        const paddleCompleted = paddleOrders.filter((o: any) => {
+          const st = String(o.status || '').toLowerCase()
+          return st === 'completed' || st === 'paid' || st === 'billed'
+        })
+        const paddleCompletedVolume = paddleCompleted.reduce((s: number, o: any) => s + Number(o.amount || 0), 0)
+        const invoicesPaid = invoices.filter((i: any) => String(i.status).toUpperCase() === 'PAID')
+        const invoicesPaidVolume = invoicesPaid.reduce((s: number, i: any) => s + Number(i.amount || 0), 0)
+
         return {
           section: 'payments',
-          pending: pending.data ?? [],
-          confirmed: confirmed.data ?? [],
+          pending: pendingRows,
+          confirmed: confirmedRows,
           failed: failed.data ?? [],
           disputed: disputed.data ?? [],
+          paddleOrders,
+          invoices,
+          confirmedVolume: Math.round(confirmedVolume * 100) / 100,
+          pendingVolume: Math.round(pendingVolume * 100) / 100,
+          paddleCompletedCount: paddleCompleted.length,
+          paddleCompletedVolume: Math.round(paddleCompletedVolume * 100) / 100,
+          invoicesPaidCount: invoicesPaid.length,
+          invoicesOpenCount: invoices.length - invoicesPaid.length,
+          invoicesPaidVolume: Math.round(invoicesPaidVolume * 100) / 100,
+          paddleError: paddleRes.error?.message ?? null,
+          invoicesError: invoicesRes.error?.message ?? null,
         }
       }
 
       case 'affiliates': {
-        // affiliates = users with referral codes
         let query = admin
           .from('referral_codes')
           .select('id, user_id, code, kind, active, created_at', { count: 'exact' })
@@ -198,7 +226,6 @@ export async function GET(request: NextRequest) {
         if (q) query = query.ilike('code', `%${q}%`)
         const { data, count, error } = await query.range(offset, offset + limit - 1)
         if (error) throw error
-        // Enrich each code with referral/commission counts + user info
         const rows = await Promise.all(
           (data ?? []).map(async (row: any) => {
             const [{ count: rCount }, { count: eCount }, { data: refs }] = await Promise.all([

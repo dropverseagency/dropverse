@@ -126,9 +126,20 @@ export default function AdminShell({ children, title }: { children: React.ReactN
               <button onClick={() => setOpen(true)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#3a4f38] bg-[#16312b] text-[#f0d98b] lg:hidden" aria-label="Open menu">
                 <Menu size={18} />
               </button>
-              <Link href="/dashboard" className="inline-flex items-center gap-2.5" aria-label="DropVerse home">
-                <Image src="/dropverse-logo.jpeg" alt="DropVerse" width={36} height={36} className="rounded-lg object-cover" priority />
-                <span className="font-display text-lg font-extrabold tracking-[.14em]">DROP<span className="text-[#d8b45a]">VERSE</span></span>
+              <Link href="/dashboard" className="inline-flex shrink-0 items-center gap-2" aria-label="DropVerse home">
+                <Image
+                  src="/dropverse-icon.svg"
+                  alt="DropVerse"
+                  width={36}
+                  height={36}
+                  className="h-9 w-9 object-contain"
+                  priority
+                  unoptimized
+                />
+                <span className="font-display text-lg font-extrabold tracking-tight">
+                  <span className="text-white">DROP</span>
+                  <span className="text-[#d8b45a]">VERSE</span>
+                </span>
               </Link>
               <span className="hidden items-center gap-1.5 rounded-full border border-[#5a4a28] bg-[#2a2414] px-3 py-1 text-xs font-bold text-[#f0d98b] sm:inline-flex">
                 <ShieldCheck size={13} /> Admin

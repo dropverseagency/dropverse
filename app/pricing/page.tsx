@@ -1,65 +1,14 @@
 'use client'
 import Link from 'next/link'
-import Image from 'next/image'
-import { useState } from 'react'
-import { motion, useReducedMotion } from 'framer-motion'
-import { ArrowRight, Check, Star, Zap, Users, Target } from 'lucide-react'
+import { ArrowRight, Check, Zap, Users, Target } from 'lucide-react'
 import { PLAN_CONFIG, membersLabelFor } from '../../lib/planConfig'
 import SiteHeader from '../../components/SiteHeader'
+import Brand from '../../components/Brand'
 import { useAuth } from '../../lib/useAuth'
 import DodoPlanCheckout from '../../components/DodoPlanCheckout'
 
 function planHref(signedIn: boolean, planId: string): string {
-  // Signed-in users choose a plan and go straight to the dashboard;
-  // guests are invited to sign in so their account lands on pricing (redirect).
   return signedIn ? `/dashboard?plan=${encodeURIComponent(planId)}` : '/login'
-}
-
-const ALL_FEATURES = [
-  'B2B workspace license',
-  'Digital asset library access',
-  'Asset management tools',
-  'Project workspace',
-  'Client operations templates',
-  'Partner referral tools',
-  'Workspace dashboard',
-  'Multi-user workspace license',
-  'Licensed team members',
-  'Team access management',
-  'Shared client records',
-  'Collaborative project boards',
-  'Team performance analytics',
-  'Partner referral tracking',
-  'Shared digital asset library',
-  'Basic workspace analytics',
-  'Advanced workspace permissions',
-  'Advanced workspace analytics',
-  'Workflow performance tracking',
-  'Project assignment tools',
-  'Operational performance analytics',
-  'Priority workspace support',
-  'Advanced partner analytics',
-  'Custom license limits',
-  'Multiple workspace environments',
-  'Dedicated software support',
-  'Workspace onboarding',
-  'API & integration access',
-  'Enterprise workspace infrastructure',
-  'Custom software billing',
-]
-
-function featureIn(planId: string, feature: string): boolean {
-  const p = PLAN_CONFIG.find((x) => x.id === planId)
-  if (!p) return false
-  const list = p.features
-  // "Everything in X" plans inherit all previous-plan features
-  if (planId === 'AGENCY' && list.some((f) => f.startsWith('Everything in Starter')))
-    return ALL_FEATURES.filter((f) => PLAN_CONFIG[0].features.includes(f)).includes(feature)
-  if (planId === 'AGENCY_PRO' && list.some((f) => f.startsWith('Everything in Agency')))
-    return ALL_FEATURES.filter((f) => PLAN_CONFIG[1].features.includes(f)).includes(feature)
-  if (planId === 'ENTERPRISE' && list.some((f) => f.startsWith('Everything in Pro')))
-    return ALL_FEATURES.filter((f) => PLAN_CONFIG[2].features.includes(f)).includes(feature)
-  return list.includes(feature)
 }
 
 function priceFor(plan: (typeof PLAN_CONFIG)[number]): string {
@@ -67,32 +16,24 @@ function priceFor(plan: (typeof PLAN_CONFIG)[number]): string {
   return plan.price === 0 ? '$0' : `$${plan.price}`
 }
 
-function perMonth(plan: (typeof PLAN_CONFIG)[number]): string {
-  return plan.enterprise ? 'Tailored to your team' : plan.price === 0 ? 'Free forever' : 'per month'
-}
-
 export default function PricingPage() {
   const auth = useAuth()
   const signedIn = !auth.loading && Boolean(auth.user)
-  const reduceMotion = useReducedMotion()
-  const luxuryEase = [0.23, 1, 0.32, 1] as const
+
   return (
-    <main className="overflow-hidden">
+    <main className="min-h-screen bg-[#071f1d]">
       <SiteHeader highlightEarn={false} />
 
-      {/* Hero */}
-      <section className="grid-bg relative flex min-h-[55vh] items-center pt-20">
-        <div className="absolute left-1/2 top-1/3 h-[380px] w-[380px] -translate-x-1/2 rounded-full bg-[rgba(216,180,90,0.05)] blur-[100px]" />
-        <motion.div initial={reduceMotion ? false : { opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .72, ease: luxuryEase }} className="container relative py-24 text-center">
-          <p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">Plans &amp; Pricing</p>
-          <h1 className="font-display mx-auto mt-5 max-w-3xl text-4xl font-extrabold tracking-tight sm:text-6xl">
-            Choose the workspace that fits <span className="gold-gradient">your business.</span>
+      <section className="container pb-20 pt-28">
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">Pricing</p>
+          <h1 className="font-display mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">
+            Plans built for digital teams
           </h1>
-          <p className="mx-auto mt-6 max-w-xl text-[#95a7a1]">
-            From solo sellers to full agencies — DropVerse scales with you. Start free and upgrade the moment your team grows.
+          <p className="mt-5 text-[#8fa29c]">
+            Start free, then scale with the workspace license that matches your team size and delivery volume.
           </p>
-        </motion.div>
-      </section>
+        </div>
 
       {/* Cards */}
       <section className="container pb-24">
@@ -175,50 +116,41 @@ export default function PricingPage() {
                       {p.highlight ? ' ★' : ''}
                     </th>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {ALL_FEATURES.map((f) => (
-                  <tr key={f} className="border-t border-white/5">
-                    <td className="py-3 pr-4 text-[#c5d2cc]">{f}</td>
-                    {PLAN_CONFIG.map((p) => (
-                      <td key={p.id} className="px-4 py-3">
-                        {featureIn(p.id, f) ? <Check size={16} className="text-[#d8b45a]" /> : <span className="text-[#3d524c]">—</span>}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </ul>
+                <Link
+                  href={plan.enterprise ? 'mailto:dropverseagency@gmail.com' : planHref(signedIn, plan.id)}
+                  className={`mt-8 inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-bold transition ${
+                    featured
+                      ? 'bg-[#d8b45a] text-[#10221f] hover:bg-[#f0d98b]'
+                      : 'border border-[rgba(216,180,90,0.35)] text-[#e4c979] hover:bg-[rgba(216,180,90,0.12)]'
+                  }`}
+                >
+                  {plan.enterprise ? 'Contact sales' : signedIn ? 'Choose plan' : 'Get started'}
+                  <ArrowRight size={14} />
+                </Link>
+              </div>
+            )
+          })}
         </div>
       </section>
 
-      {/* Built for teams that sell */}
-      <section className="relative overflow-hidden py-24">
-        <div className="absolute left-1/2 top-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[rgba(216,180,90,0.05)] blur-[100px]" />
-        <div className="container relative text-center">
-          <p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">For teams</p>
-          <h2 className="font-display mx-auto mt-4 max-w-3xl text-4xl font-extrabold tracking-tight sm:text-5xl">
-            Built for teams that sell.
-          </h2>
-          <p className="mx-auto mt-6 max-w-2xl text-[#95a7a1]">
-            Turn DropVerse into your agency&rsquo;s fulfillment engine. Your sales team brings clients, DropVerse delivers the work through professional freelancers — and you keep the margin.
-          </p>
-          <div className="mx-auto mt-12 flex max-w-4xl flex-col items-center gap-0 sm:flex-row sm:justify-center">
+      <section className="border-y border-white/5 bg-[#0a2926] py-20">
+        <div className="container text-center">
+          <p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">How agency pricing works</p>
+          <h2 className="font-display mt-4 text-3xl font-extrabold sm:text-4xl">You sell. We fulfill. You keep the margin.</h2>
+          <div className="mx-auto mt-12 flex flex-wrap items-center justify-center gap-4">
             {[
-              { icon: Users, title: 'Your Sales Team', sub: 'Pitch and close' },
-              { icon: Zap, title: 'DropVerse Services', sub: 'Fulfillment engine' },
-              { icon: Star, title: 'Professional Freelancers', sub: 'Deliver the work' },
-              { icon: Target, title: 'Client Delivery', sub: 'On time, on brand' },
-            ].map(({ icon: Icon, title, sub }) => (
-              <div key={title} className="flex flex-col items-center">
-                <div className="card flex w-48 flex-col items-center rounded-2xl p-5">
+              [Target, 'Client order', 'You close the deal'],
+              [Users, 'Workspace', 'Project created in DropVerse'],
+              [Zap, 'Fulfillment', 'Our network delivers'],
+            ].map(([Icon, title, sub]) => (
+              <div key={title as string} className="flex flex-col items-center">
+                <div className="flex w-48 flex-col items-center rounded-2xl border border-white/10 bg-[#071f1d] p-5">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[rgba(216,180,90,0.20)] bg-[rgba(216,180,90,0.05)] text-[#d8b45a]">
                     <Icon size={18} />
                   </div>
-                  <p className="font-display mt-3 text-sm font-bold">{title}</p>
-                  <p className="mt-1 text-xs text-[#849792]">{sub}</p>
+                  <p className="font-display mt-3 text-sm font-bold">{title as string}</p>
+                  <p className="mt-1 text-xs text-[#849792]">{sub as string}</p>
                 </div>
               </div>
             ))}
@@ -241,10 +173,7 @@ export default function PricingPage() {
       <footer className="py-12">
         <div className="container flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="inline-flex items-center gap-3">
-              <Image src="/dropverse-logo.jpeg" alt="DropVerse" width={42} height={42} className="rounded-xl object-cover" />
-              <div className="font-display text-xl font-extrabold tracking-[.16em]">DROP<span className="text-[#d8b45a]">VERSE</span></div>
-            </div>
+            <Brand compact />
             <p className="mt-2 text-xs uppercase tracking-[.2em] text-[#6f827c]">B2B SaaS workflow management</p>
             <a href="mailto:dropverseagency@gmail.com" className="mt-2 block text-sm font-semibold text-[#d8b45a] hover:text-[#f0d98b]">dropverseagency@gmail.com</a>
           </div>
@@ -252,7 +181,10 @@ export default function PricingPage() {
             <a href="/#services">Platform Tools</a>
             <Link href="/earn">Earn</Link>
             <Link href="/pricing">Pricing</Link>
-            <a href="mailto:dropverseagency@gmail.com">Contact</a><Link href="/terms">Terms of Service</Link><Link href="/privacy">Privacy Policy</Link><Link href="/refund">Refund Policy</Link>
+            <a href="mailto:dropverseagency@gmail.com">Contact</a>
+            <Link href="/terms">Terms of Service</Link>
+            <Link href="/privacy">Privacy Policy</Link>
+            <Link href="/refund">Refund Policy</Link>
           </div>
           <p className="text-xs text-[#5f726c]">© 2026 DropVerse. All rights reserved.</p>
         </div>

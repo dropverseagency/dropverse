@@ -33,7 +33,12 @@ export const PROJECT_TYPES: { id: ProjectType; label: string; description: strin
   },
 ]
 
-export type PaymentMethod = 'CLIENT_PAYS_DROPVERSE' | 'SPACEREMIT' | 'INVOICE_SEND' | 'SELLER_COLLECTED'
+export type PaymentMethod =
+  | 'CLIENT_PAYS_DROPVERSE'
+  | 'PADDLE'
+  | 'SPACEREMIT'
+  | 'INVOICE_SEND'
+  | 'SELLER_COLLECTED'
 
 export const PAYMENT_METHODS: { id: PaymentMethod; label: string; description: string; recommended?: boolean }[] = [
   {
@@ -43,14 +48,19 @@ export const PAYMENT_METHODS: { id: PaymentMethod; label: string; description: s
     recommended: true,
   },
   {
+    id: 'PADDLE',
+    label: 'International payment',
+    description: 'Pay securely with cards and global payment methods via in-app checkout.',
+  },
+  {
     id: 'SPACEREMIT',
-    label: 'Pay with SpaceRemit',
-    description: 'Pay securely through the SpaceRemit gateway (card or 70+ local payment methods).',
+    label: 'Local payment',
+    description: 'Pay securely with wallets, bank transfer, and 70+ local methods.',
   },
   {
     id: 'INVOICE_SEND',
     label: 'Send Invoice to Client',
-    description: 'Create a payment invoice and send the link to your client. They pay securely (no account needed) and the project is confirmed automatically.',
+    description: 'Create a payment link for your client. Choose International or Local for them.',
   },
   {
     id: 'SELLER_COLLECTED',
@@ -73,7 +83,6 @@ export type ProjectStatus =
   | 'PAST_DUE'
   | 'EXPIRED'
 
-// Payment flow: PAYMENT_PENDING -> PAYMENT_CONFIRMED -> READY_FOR_FULFILLMENT -> IN_PROGRESS
 export const PAYMENT_FLOW = ['PAYMENT_PENDING', 'PAYMENT_CONFIRMED', 'READY_FOR_FULFILLMENT', 'IN_PROGRESS'] as const
 
 export const STATUS_LABELS: Record<ProjectStatus, string> = {
@@ -90,7 +99,6 @@ export const STATUS_LABELS: Record<ProjectStatus, string> = {
   EXPIRED: 'Expired',
 }
 
-/** Allowed transitions from a given status. */
 export const STATUS_TRANSITIONS: Record<ProjectStatus, ProjectStatus[]> = {
   DRAFT: ['PAYMENT_PENDING', 'CANCELLED'],
   PAYMENT_PENDING: ['PAYMENT_CONFIRMED', 'CANCELLED'],
@@ -109,7 +117,6 @@ export function canTransition(from: ProjectStatus, to: ProjectStatus): boolean {
   return STATUS_TRANSITIONS[from].includes(to)
 }
 
-/** Fulfillment statuses require payment confirmation first. */
 export const FULFILLMENT_STATUSES: ProjectStatus[] = [
   'READY_FOR_FULFILLMENT',
   'ACTIVE',
@@ -140,7 +147,6 @@ export interface MoneyLabel {
   fulfillmentMessage: string
 }
 
-/** Labels that adapt to the chosen project type (seller-facing only). */
 export function moneyLabels(type: ProjectType): MoneyLabel {
   switch (type) {
     case 'ONE_TIME':
@@ -182,30 +188,18 @@ export function moneyLabels(type: ProjectType): MoneyLabel {
   }
 }
 
-/**
- * PLATFORM FULFILLMENT RATES (set once by DropVerse, applied automatically).
- * The seller never enters a fulfillment cost — it is computed from the client
- * price using the rate configured for the chosen project type. These rates are
- * derived from the service pricing we will define in the platform later; they
- * are the single source of truth so cost can never be faked by the client.
- *
- * When real per-service pricing tables exist, replace computeFulfillmentCost
- * with a lookup; the interface (type + client price -> cost) stays the same.
- */
 export const FULFILLMENT_RATES: Record<ProjectType, number> = {
-  ONE_TIME: 0.40, // 40% of client price
+  ONE_TIME: 0.40,
   MONTHLY: 0.40,
-  ANNUAL: 0.35,   // discounted rate for annual commitments
+  ANNUAL: 0.35,
   CUSTOM_RECURRING: 0.40,
 }
 
-/** Automatic fulfillment cost from the platform rates. Never trust the client. */
 export function computeFulfillmentCost(type: ProjectType, clientPrice: number): number {
   const cost = clientPrice * (FULFILLMENT_RATES[type] ?? 0.40)
   return Math.round(cost * 100) / 100
 }
 
-/** Server-side rule: profit = client price - fulfillment cost. Never trust the client. */
 export function computeSellerProfit(clientPrice: number, fulfillmentCost: number): number {
   const profit = clientPrice - fulfillmentCost
   return Math.round(profit * 100) / 100
@@ -220,16 +214,13 @@ export interface ProjectDraft {
   description: string
   projectType: ProjectType
   clientPrice: number
-  /** Ignored by the server — fulfillment cost is auto-computed from platform rates. */
   fulfillmentCost: number
   paymentMethod: PaymentMethod
   deliveryNotes: string
   clientContactEmail: string
-  /** SpaceRemit transaction code returned by the checkout (server-verified). */
   spaceremitPaymentId?: string
 }
 
-/** Required upfront payment for the current period (seller-facing "Payment Required Now"). */
 export function paymentRequiredNow(d: ProjectDraft): number {
   switch (d.projectType) {
     case 'ONE_TIME': return d.fulfillmentCost

@@ -1,36 +1,68 @@
 'use client'
 import { useState } from 'react'
-
 import SpaceRemitPayForm from '../../../components/SpaceRemitPayForm'
+import { getPaddleClient, paddleClientTokenConfigured } from '../../../lib/paddle'
+
+type PayRail = 'international' | 'local'
 
 interface Props {
   invoiceId: string
   due: string
   amount: number
+  preferredMethod?: PayRail | null
 }
 
-export default function InvoicePayForm({ invoiceId, due, amount }: Props) {
-  // Buyer info is passed to SpaceRemit as hidden defaults (name = invoice
-  // recipient when available); the client only presses Pay Now.
-  const [fullName] = useState('')
-  const [payEmail] = useState('')
-  const [transactionCode, setTransactionCode] = useState('')
-  const [paying, setPaying] = useState(false)
+export default function InvoicePayForm({ invoiceId, due, amount, preferredMethod = null }: Props) {
+  const [rail, setRail] = useState<PayRail>(
+    preferredMethod === 'local' ? 'local' : 'international',
+  )
+  const [paddleLoading, setPaddleLoading] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
   const [paySuccess, setPaySuccess] = useState(false)
+  const [paying, setPaying] = useState(false)
 
-  async function handlePay() {
+  const showChooser = !preferredMethod
+
+  async function startInternational() {
+    if (paddleLoading) return
+    setPaddleLoading(true)
+    setPayError(null)
+    try {
+      const response = await fetch('/api/paddle/invoice-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoiceId }),
+      })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(payload.error || 'Unable to start international checkout.')
+      const paddle = await getPaddleClient()
+      if (paddle && payload.transactionId) {
+        paddle.Checkout.open({
+          transactionId: payload.transactionId,
+          settings: { displayMode: 'overlay', variant: 'one-page', theme: 'dark' },
+        })
+        setPaddleLoading(false)
+      } else if (payload.checkoutUrl) {
+        window.open(payload.checkoutUrl, 'dropverse_paddle_pay', 'noopener,noreferrer')
+        setPaddleLoading(false)
+      } else if (!paddleClientTokenConfigured()) {
+        throw new Error('International payment is not configured yet.')
+      } else {
+        throw new Error('International checkout is not ready yet.')
+      }
+    } catch (err) {
+      setPayError(err instanceof Error ? err.message : 'Unable to start international checkout.')
+      setPaddleLoading(false)
+    }
+  }
+
+  async function confirmSpaceRemit(code: string) {
     setPaying(true)
     setPayError(null)
     const res = await fetch('/api/invoices/pay', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        invoiceId,
-        paymentId: String(transactionCode || '').trim(),
-        clientName: String(fullName || '').trim() || undefined,
-        clientEmail: String(payEmail || '').trim() || undefined,
-      }),
+      body: JSON.stringify({ invoiceId, paymentId: code }),
     })
     const json = await res.json().catch(() => ({}))
     setPaying(false)
@@ -38,15 +70,13 @@ export default function InvoicePayForm({ invoiceId, due, amount }: Props) {
       if (json.error === 'SP_KEYS_MISSING') {
         setPayError('Payment processing is being set up — please try again in a few minutes.')
       } else if (json.error === 'SPACEREMIT_VERIFY_FAILED' || json.error === 'SP_VERIFY_FAILED') {
-        setPayError('We could not verify that transaction code. Please double-check it and try again.')
+        setPayError('We could not verify that payment. Please try again.')
       } else if (json.error === 'SP_AMOUNT_MISMATCH') {
         setPayError('The transaction amount does not match this invoice. Please contact the seller.')
       } else if (json.error === 'INVOICE_NOT_PAYABLE') {
         setPayError(`This invoice is already ${String(json.status || 'closed').toLowerCase()}.`)
-      } else if (json.error === 'MISSING_PARAMS') {
-        setPayError('Please enter the transaction code.')
       } else {
-        setPayError(String(json.error || json.detail || 'Payment failed — please try again.'))
+        setPayError(String(json.error || json.detail || 'Payment verification failed — please try again.'))
       }
       return
     }
@@ -74,53 +104,39 @@ export default function InvoicePayForm({ invoiceId, due, amount }: Props) {
           <WalletIcon />
         </div>
         <div>
-          <h2 className="font-display text-lg font-bold text-[#d9e0dc]">Pay with SpaceRemit</h2>
+          <h2 className="font-display text-lg font-bold text-[#d9e0dc]">Pay this invoice</h2>
           <p className="text-xs text-[#687d76]">Secure payment · no account required</p>
         </div>
       </div>
 
-      <p className="mt-4 text-[11px] leading-relaxed text-[#687d76]">
-        Select a payment method below, then press Pay Now. Once your payment completes,
-        it is verified automatically and your invoice is marked paid. No account required.
-      </p>
-
-      <SpaceRemitPayForm
-        amount={amount}
-        fullName={fullName || 'Invoice client'}
-        email={payEmail || 'client@example.com'}
-        phone="+0000000000"
-        submitLabel="Pay Now →"
-        publicKey={process.env.NEXT_PUBLIC_SPACEREMIT_PUBLIC_KEY ?? ''}
-        onPaid={async (code: string) => {
-          setPaying(true)
-          setPayError(null)
-          setTransactionCode(code)
-          const res = await fetch('/api/invoices/pay', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              invoiceId,
-              paymentId: code,
-              clientName: String(fullName || '').trim() || undefined,
-              clientEmail: String(payEmail || '').trim() || undefined,
-            }),
-          })
-          const json = await res.json().catch(() => ({}))
-          setPaying(false)
-          if (!res.ok) {
-            if (json.error === 'SP_KEYS_MISSING') {
-              setPayError('Payment processing is being set up — please try again in a few minutes.')
-            } else if (json.error === 'SPACEREMIT_VERIFY_FAILED' || json.error === 'SP_VERIFY_FAILED') {
-              setPayError('We could not verify that payment. Please double-check it and try again.')
-            } else {
-              setPayError(String(json.error || json.detail || 'Payment verification failed — please try again.'))
-            }
-            return
-          }
-          setPaySuccess(true)
-        }}
-        onMessage={(msg: string) => setPayError(msg)}
-      />
+      {showChooser && (
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setRail('international')}
+            className={`rounded-2xl border p-4 text-left transition ${
+              rail === 'international'
+                ? 'border-[rgba(216,180,90,0.55)] bg-[rgba(216,180,90,0.12)]'
+                : 'border-white/10 bg-[#071f1d] hover:border-[rgba(216,180,90,0.30)]'
+            }`}
+          >
+            <div className={`text-sm font-bold ${rail === 'international' ? 'text-[#f0d98b]' : 'text-[#d9e0dc]'}`}>International payment</div>
+            <p className="mt-1 text-[11px] leading-5 text-[#8f9f9a]">Cards and global methods.</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setRail('local')}
+            className={`rounded-2xl border p-4 text-left transition ${
+              rail === 'local'
+                ? 'border-[rgba(216,180,90,0.55)] bg-[rgba(216,180,90,0.12)]'
+                : 'border-white/10 bg-[#071f1d] hover:border-[rgba(216,180,90,0.30)]'
+            }`}
+          >
+            <div className={`text-sm font-bold ${rail === 'local' ? 'text-[#f0d98b]' : 'text-[#d9e0dc]'}`}>Local payment</div>
+            <p className="mt-1 text-[11px] leading-5 text-[#8f9f9a]">Wallets, bank transfer, 70+ local methods.</p>
+          </button>
+        </div>
+      )}
 
       {payError && (
         <div className="mt-4 rounded-xl border border-[rgba(229,115,115,0.40)] bg-[rgba(229,115,115,0.10)] px-4 py-3 text-sm text-[#e57373]">
@@ -128,41 +144,40 @@ export default function InvoicePayForm({ invoiceId, due, amount }: Props) {
         </div>
       )}
 
-      {paying && (
-        <div className="mt-4 text-center text-xs text-[#8f9f9a]">Verifying your payment…</div>
+      {rail === 'international' ? (
+        <div className="mt-5">
+          <p className="mb-3 text-[11px] leading-5 text-[#687d76]">
+            Pay securely with cards and international methods. No account needed.
+          </p>
+          <button
+            type="button"
+            onClick={startInternational}
+            disabled={paddleLoading}
+            className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full bg-[#d8b45a] px-6 py-3.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {paddleLoading ? 'Opening secure checkout…' : `Pay ${due} — International`}
+          </button>
+        </div>
+      ) : (
+        <div className="mt-5">
+          <p className="mb-3 text-[11px] leading-5 text-[#687d76]">
+            Choose a local method below, then press Pay Now.
+          </p>
+          <SpaceRemitPayForm
+            amount={amount}
+            fullName="Invoice client"
+            email="client@invoice.local"
+            phone="+0000000000"
+            hideBuyerInputs
+            submitLabel={`Pay ${due} →`}
+            publicKey={process.env.NEXT_PUBLIC_SPACEREMIT_PUBLIC_KEY ?? ''}
+            onPaid={confirmSpaceRemit}
+            onMessage={(msg: string) => setPayError(msg)}
+          />
+          {paying && <div className="mt-4 text-center text-xs text-[#8f9f9a]">Verifying your payment…</div>}
+        </div>
       )}
     </div>
-  )
-}
-
-function Field({
-  label,
-  placeholder,
-  value,
-  onChange,
-  type = 'text',
-  accent = false,
-}: {
-  label: string
-  placeholder: string
-  value: string
-  onChange: (v: string) => void
-  type?: string
-  accent?: boolean
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[.14em] text-[#849792]">{label}</span>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={`w-full rounded-xl border bg-[#071f1d] px-4 py-3 text-sm text-[#d9e0dc] placeholder:text-[#4a615b] focus:outline-none ${
-          accent ? 'border-[rgba(216,180,90,0.45)] focus:border-[#d8b45a]' : 'border-white/10 focus:border-[rgba(216,180,90,0.45)]'
-        }`}
-      />
-    </label>
   )
 }
 

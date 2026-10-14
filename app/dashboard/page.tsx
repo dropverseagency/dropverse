@@ -1,36 +1,32 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
-import { motion, useReducedMotion } from 'framer-motion'
 import Link from 'next/link'
 import {
   Layers,
-  TrendingUp,
   Wallet,
   ArrowRight,
   Settings as SettingsIcon,
-  Search,
   Clock,
   CheckCircle2,
   Users,
   Receipt,
-  BarChart3,
   Building2,
   ChevronDown,
   Plus,
   LogOut,
+  Eye,
+  Trash2,
+  X,
+  Link2,
+  Copy,
 } from 'lucide-react'
 import Brand from '../../components/Brand'
 import PlanUpgradeBanner from '../../components/PlanUpgradeBanner'
 import MyCharts from '../../components/dashboard/MyCharts'
 import { createClient } from '../../lib/supabase'
-import { canViewFinancials, isManager, type OrgRow } from '../../lib/orgs'
+import { type OrgRow } from '../../lib/orgs'
 import { PLAN_CONFIG, planById, type OrgRole } from '../../lib/planConfig'
-import {
-  PROJECT_TYPES,
-  PAYMENT_METHODS,
-  STATUS_LABELS,
-  formatUsd,
-} from '../../lib/projectConfig'
+import { formatUsd } from '../../lib/projectConfig'
 
 interface Profile {
   id: string
@@ -49,6 +45,7 @@ interface Transaction {
   status: string
   date: string
   detail?: string
+  projectId?: string
 }
 
 interface InvoiceRow {
@@ -80,8 +77,6 @@ interface ProjectRow {
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true)
-  const reduceMotion = useReducedMotion()
-  const luxuryEase = [0.23, 1, 0.32, 1] as const
   const [profile, setProfile] = useState<Profile | null>(null)
   const [signingOut, setSigningOut] = useState(false)
   const [totalEarnings, setTotalEarnings] = useState(0)
@@ -102,8 +97,11 @@ export default function Dashboard() {
   const [creatingInvoice, setCreatingInvoice] = useState<string | null>(null)
   const [invoiceError, setInvoiceError] = useState<string | null>(null)
   const [sessionToken, setSessionToken] = useState<string | null>(null)
-  const baseHost = typeof window !== 'undefined' ? window.location.origin : 'https://dropverse10v.vercel.app'
-  const host = typeof window !== 'undefined' ? window.location.host : 'dropverse10v.vercel.app'
+  const [selectedProject, setSelectedProject] = useState<ProjectRow | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const baseHost = typeof window !== 'undefined' ? window.location.origin : 'https://dropverse-nu.vercel.app'
+  const host = typeof window !== 'undefined' ? window.location.host : 'dropverse-nu.vercel.app'
   useEffect(() => {
     const p = new URLSearchParams(window.location.search).get('plan')
     if (p) setChosenPlan(p.toUpperCase())
@@ -142,14 +140,12 @@ export default function Dashboard() {
       if (profileData) setProfile(profileData as Profile)
       if (profileData?.role === 'admin') setIsAdmin(true)
 
-      // Lightweight affiliate: fetch this user's REAL referral code (auto-provisioned)
       const meRes = await fetch('/api/affiliate/me', { credentials: 'include' })
       if (meRes.ok) {
         const meJson = await meRes.json()
         if (!cancelled && typeof meJson?.code === 'string') setDashLink(meJson.code)
       }
 
-      // Organizations this user belongs to (RLS) + their role
       const { data: orgRows } = await supabase
         .from('organizations')
         .select('id, name, slug, type, plan, owner_id, logo_url, description, industry, team_size, status, created_at, updated_at')
@@ -171,7 +167,6 @@ export default function Dashboard() {
         setActiveOrgId(orgList[0].id)
       }
 
-      // Earnings: approved commissions tied to this user's referrals
       const { data: commissions } = await supabase
         .from('referral_commissions')
         .select('id, commission_amount, status, created_at, referral_id')
@@ -224,7 +219,6 @@ export default function Dashboard() {
       rows.sort((a, b) => (a.date < b.date ? 1 : -1))
       setTransactions(rows.slice(0, 10))
 
-      // Projects created by this user (RLS limits to own rows) — also appear in Activity
       const { data: projRows } = await supabase
         .from('projects')
         .select('id, title, project_type, billing_interval, client_price, fulfillment_cost, seller_profit, payment_method, payment_status, status, created_at')
@@ -232,7 +226,6 @@ export default function Dashboard() {
         .limit(25)
       if (!cancelled) setProjects((projRows as ProjectRow[] | null) ?? [])
 
-      // Invoices this user has issued (via service-read API)
       try {
         const invRes = await fetch('/api/invoices/me', { credentials: 'include' })
         if (invRes.ok) {
@@ -240,7 +233,7 @@ export default function Dashboard() {
           if (!cancelled && Array.isArray(invJson.invoices)) setInvoices(invJson.invoices)
         }
       } catch {
-        // Invoices are an enhancement; failure must not break the dashboard.
+        // ignore invoice load errors
       }
 
       if (!cancelled && projRows) {
@@ -251,6 +244,7 @@ export default function Dashboard() {
           status: p.payment_status.toLowerCase().replace(/_/g, ' '),
           date: p.created_at,
           detail: p.title,
+          projectId: p.id,
         }))
         setTransactions((prev) => [...projectRows, ...prev].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 10))
       }
@@ -271,8 +265,6 @@ export default function Dashboard() {
 
   function selectOrg(id: string) {
     setActiveOrgId(id)
-    const mem = orgs.find((o) => o.id === id)
-    void mem
     setSwitcherOpen(false)
   }
 
@@ -295,7 +287,6 @@ export default function Dashboard() {
       setInvoiceError(`Could not create invoice: ${String(json.error || 'unknown')}`)
       return
     }
-    // Refresh the invoice list.
     const invRes = await fetch('/api/invoices/me', { credentials: 'include' })
     if (invRes.ok) {
       const invJson = await invRes.json()
@@ -308,20 +299,44 @@ export default function Dashboard() {
     try {
       await navigator.clipboard.writeText(url)
     } catch {
-      // clipboard unavailable — nothing to do
       return
     }
     setCopyingInvoice(invoiceId)
     setTimeout(() => setCopyingInvoice(null), 2000)
   }
 
+  function openProjectDetail(project: ProjectRow) {
+    setSelectedProject(project)
+    setDeleteError(null)
+  }
+
+  function openProjectById(id: string) {
+    const p = projects.find((x) => x.id === id)
+    if (p) openProjectDetail(p)
+  }
+
+  async function deleteProject(projectId: string) {
+    if (!confirm('Delete this project permanently? This cannot be undone.')) return
+    setDeletingId(projectId)
+    setDeleteError(null)
+    const supabase = createClient()
+    const { error } = await supabase.from('projects').delete().eq('id', projectId)
+    setDeletingId(null)
+    if (error) {
+      setDeleteError(error.message || 'Could not delete project')
+      return
+    }
+    setProjects((prev) => prev.filter((p) => p.id !== projectId))
+    setTransactions((prev) => prev.filter((t) => t.projectId !== projectId))
+    setInvoices((prev) => prev.filter((inv) => inv.projectId !== projectId))
+    if (selectedProject?.id === projectId) setSelectedProject(null)
+  }
+
   return (
     <main className="min-h-screen grid-bg px-5 py-10 sm:py-14">
       <div className="mx-auto w-full max-w-5xl">
-        {/* Plan upgrade banner when arriving from /pricing */}
         <PlanUpgradeBanner orgs={orgs} activeOrgId={activeOrgId} sessionToken={sessionToken} />
 
-        {/* Top bar: brand — org switcher — settings — sign out */}
         <div className="flex items-center justify-between gap-3">
           <Brand compact />
           <div className="flex items-center gap-3">
@@ -407,7 +422,6 @@ export default function Dashboard() {
           <div className="mt-24 text-center text-sm text-[#718781]">Loading your workspace...</div>
         ) : (
           <>
-            {/* Workspace header with plan badge + org nav */}
             <div className="card mt-10 rounded-3xl p-7 sm:p-9">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -444,178 +458,205 @@ export default function Dashboard() {
                   </Link>
                 </div>
               ) : null}
-
-              <div className="mt-7 grid gap-3 sm:grid-cols-2">
-                <ProfileRow icon={<Layers size={15} />} label="Username" value={profile?.username || '—'} />
-                <ProfileRow icon={<Layers size={15} />} label="Full name" value={profile?.full_name || '—'} />
-                <ProfileRow icon={<Layers size={15} />} label="Mobile" value={profile?.phone || '—'} />
-                <ProfileRow icon={<Layers size={15} />} label="Telegram" value={profile?.telegram_username || 'Not added'} />
-              </div>
             </div>
 
-            {/* Earnings stats */}
-            <motion.div initial="hidden" animate="show" variants={{ hidden: {}, show: { transition: { staggerChildren: .09 } } }} className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-3">
-              <motion.div variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { duration: .5, ease: luxuryEase } } }}><Stat icon={<TrendingUp />} label="Total earnings" value={formatUSD(totalEarnings)} accent /></motion.div>
-              <motion.div variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { duration: .5, ease: luxuryEase } } }}><Stat icon={<Wallet />} label="Pending payout" value={formatUSD(pendingPayout)} /></motion.div>
-              <motion.div variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { duration: .5, ease: luxuryEase } } }}><Stat icon={<CheckCircle2 />} label="Paid out" value={formatUSD(paidPayout)} /></motion.div>
-            </motion.div>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <ActionCard
+                href="/dashboard/create-project"
+                icon={<Layers size={18} />}
+                title="New project"
+                text="Create a client project and track fulfillment."
+              />
+              <ActionCard
+                href="/dashboard/affiliate"
+                icon={<Link2 size={18} />}
+                title="Affiliate"
+                text="Referral link, commissions, and payouts."
+              />
+              <ActionCard
+                href="/dashboard/team"
+                icon={<Users size={18} />}
+                title="Team"
+                text="Invite members and manage roles."
+              />
+              <ActionCard
+                href="/dashboard/billing"
+                icon={<Receipt size={18} />}
+                title="Billing"
+                text="Manage your plan and billing — upgrade anytime."
+              />
+            </div>
 
-              {/* Projects */}
-            <motion.div initial={reduceMotion ? false : { opacity: 0, y: 18 }} whileInView="show" viewport={{ once: true, amount: .1 }} animate="show" variants={{ show: { opacity: 1, y: 0, transition: { duration: .6, ease: luxuryEase } } }} className="card mt-8 rounded-3xl border-[rgba(216,180,90,0.30)] bg-[rgba(216,180,90,0.03)] p-7">
-              <div className="flex items-center justify-between">
-                <h2 className="font-display text-xl font-bold">Projects</h2>
-                <Link
-                  href="/dashboard/create-project"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.10)] px-4 py-2 text-xs font-bold text-[#e4c979] transition hover:bg-[rgba(216,180,90,0.18)]"
-                >
-                  <Plus size={14} /> New Project
-                </Link>
-              </div>
-              {projects.length === 0 ? (
-                <div className="mt-8 text-center">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[.03] text-[#536963]">
-                    <Layers size={22} />
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <StatCard icon={<Wallet size={18} />} label="Total earnings" value={formatUsd(totalEarnings)} />
+              <StatCard icon={<Clock size={18} />} label="Pending payout" value={formatUsd(pendingPayout)} />
+              <StatCard icon={<CheckCircle2 size={18} />} label="Paid out" value={formatUsd(paidPayout)} />
+              <StatCard icon={<Layers size={18} />} label="Projects" value={String(projects.length)} />
+            </div>
+
+            {dashLink && (
+              <div className="card mt-6 rounded-3xl p-5 sm:p-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[.18em] text-[#849792]">Your referral link</p>
+                    <p className="mt-1 font-mono text-sm text-[#d9e0dc]">
+                      {host}/r/{dashLink}
+                    </p>
                   </div>
-                  <p className="mt-4 text-sm font-semibold text-[#8fa29c]">No projects yet</p>
-                  <p className="mt-1.5 text-sm text-[#687d76]">
-                    Create your first project and start selling DropVerse services to your clients.
-                  </p>
-                  <Link
-                    href="/dashboard/create-project"
-                    className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#e4c979]"
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(`${baseHost}/r/${dashLink}`)
+                        setCopied(true)
+                        setTimeout(() => setCopied(false), 2000)
+                      } catch {}
+                    }}
+                    className="rounded-full border border-[rgba(216,180,90,0.40)] px-4 py-2 text-xs font-bold text-[#e4c979] hover:bg-[rgba(216,180,90,0.12)]"
                   >
-                    Create Project <ArrowRight size={15} />
-                  </Link>
+                    {copied ? 'Copied!' : 'Copy link'}
+                  </button>
                 </div>
-              ) : (
-                <div className="mt-5 space-y-3">
-                  {projects.map((p) => (
-                    <ProjectCard
-                      key={p.id}
-                      project={p}
-                      onCreateInvoice={() => createInvoice(p.id)}
-                      creating={creatingInvoice === p.id}
-                    />
-                  ))}
-                </div>
-              )}
-              {invoiceError && (
-                <div className="mt-4 rounded-xl border border-[rgba(229,115,115,0.40)] bg-[rgba(229,115,115,0.10)] px-4 py-3 text-sm text-[#e57373]">
-                  {invoiceError}
-                </div>
-              )}
-            </motion.div>
-
-            {/* Invoices issued to clients */}
-            <motion.div initial={reduceMotion ? false : { opacity: 0, y: 18 }} whileInView="show" viewport={{ once: true, amount: .1 }} animate="show" variants={{ show: { opacity: 1, y: 0, transition: { duration: .6, ease: luxuryEase } } }} className="card mt-8 rounded-3xl p-7">
-              <div className="flex items-center justify-between">
-                <h2 className="font-display text-xl font-bold">Invoices</h2>
-                <span className="text-xs text-[#687d76]">
-                  Send a payment link to your client — no account needed to pay.
-                </span>
               </div>
-              {invoices.length === 0 ? (
-                <div className="mt-8 text-center">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[.03] text-[#536963]">
-                    <Receipt size={22} />
-                  </div>
-                  <p className="mt-4 text-sm font-semibold text-[#8fa29c]">No invoices yet</p>
-                  <p className="mt-1.5 text-sm text-[#687d76]">
-                    Create an invoice from any project above — the client receives a payment page
-                    with the service details and pays through SpaceRemit.
-                  </p>
-                </div>
+            )}
+
+            <div className="card mt-6 rounded-3xl p-5 sm:p-7">
+              <h2 className="font-display text-lg font-bold">Recent activity</h2>
+              {transactions.length === 0 ? (
+                <p className="mt-4 text-sm text-[#718781]">No activity yet. Create a project or share your referral link.</p>
               ) : (
-                <div className="mt-5 space-y-2.5">
-                  {invoices.map((inv) => (
+                <div className="mt-4 space-y-3">
+                  {transactions.map((t, i) => (
                     <div
-                      key={inv.id}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/5 bg-white/[.025] px-4 py-3"
+                      key={`${t.date}-${i}`}
+                      className={`flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/5 bg-white/[.025] px-4 py-3 ${
+                        t.type === 'project' && t.projectId ? 'cursor-pointer transition hover:border-[rgba(216,180,90,0.25)]' : ''
+                      }`}
+                      onClick={() => {
+                        if (t.type === 'project' && t.projectId) openProjectById(t.projectId)
+                      }}
+                      role={t.type === 'project' && t.projectId ? 'button' : undefined}
+                      tabIndex={t.type === 'project' && t.projectId ? 0 : undefined}
+                      onKeyDown={(e) => {
+                        if ((e.key === 'Enter' || e.key === ' ') && t.type === 'project' && t.projectId) {
+                          e.preventDefault()
+                          openProjectById(t.projectId)
+                        }
+                      }}
                     >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-[#d9e0dc]">
-                          <span className="h-2 w-2 rounded-full bg-[#d8b45a]" />
-                          <span className="font-mono text-[11px] text-[#e4c979]">{inv.invoiceNumber}</span>
-                          <span className="hidden sm:inline truncate text-xs text-[#687d76]">· {inv.projectTitle}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-[#d9e0dc]">
+                          {t.label}{t.detail ? `: ${t.detail}` : ''}
                         </div>
-                        <div className="mt-0.5 pl-4 text-xs text-[#687d76]">
-                          {inv.clientName || inv.clientContactEmail || 'No client info'} · {formatDate(inv.createdAt)}
+                        <div className="mt-1 text-[11px] text-[#718781]">
+                          {new Date(t.date).toLocaleString()} · {t.status}
+                          {t.type === 'project' ? ' · Tap for details' : ''}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2.5">
-                        <span
-                          className={`whitespace-nowrap rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[.12em] ${
-                            inv.status === 'PAID'
-                              ? 'border border-[rgba(111,191,115,0.45)] bg-[rgba(111,191,115,0.10)] text-[#6fbf73]'
-                              : inv.status === 'CANCELLED'
-                                ? 'border border-white/15 bg-white/[.04] text-[#849792]'
-                                : 'border border-[rgba(228,201,121,0.45)] bg-[rgba(228,201,121,0.10)] text-[#e4c979]'
-                          }`}
-                        >
-                          {inv.status === 'PAID' ? 'Paid' : inv.status === 'CANCELLED' ? 'Cancelled' : 'Pending'}
-                        </span>
-                        <span className="font-bold text-[#d9e0dc]">{formatUSD(Number(inv.amount || 0))}</span>
-                        {inv.status === 'PENDING' ? (
-                          <button
-                            onClick={() => copyInvoiceLink(inv.id)}
-                            className="rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.10)] px-3 py-1.5 text-[11px] font-bold text-[#e4c979] transition hover:bg-[rgba(216,180,90,0.18)]"
-                          >
-                            {copyingInvoice === inv.id ? 'Link copied!' : 'Copy payment link'}
-                          </button>
-                        ) : (
-                          <Link
-                            href={`/invoice/${inv.id}`}
-                            className="rounded-full border border-white/15 bg-white/[.04] px-3 py-1.5 text-[11px] font-bold text-[#849792] transition hover:border-[rgba(216,180,90,0.35)] hover:text-[#e4c979]"
-                          >
-                            View invoice
-                          </Link>
+                      <div className="flex items-center gap-2">
+                        <div className={`text-sm font-bold ${t.amount >= 0 ? 'text-[#e4c979]' : 'text-[#e89a8d]'}`}>
+                          {t.amount >= 0 ? '+' : ''}{formatUsd(t.amount)}
+                        </div>
+                        {t.type === 'project' && t.projectId && (
+                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => openProjectById(t.projectId!)}
+                              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-[#9aaca6] transition hover:border-[rgba(216,180,90,0.40)] hover:text-[#e4c979]"
+                              title="View details"
+                              aria-label="View details"
+                            >
+                              <Eye size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteProject(t.projectId!)}
+                              disabled={deletingId === t.projectId}
+                              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-[#9aaca6] transition hover:border-red-400/40 hover:text-red-300 disabled:opacity-50"
+                              title="Delete project"
+                              aria-label="Delete project"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
               )}
-            </motion.div>
+              {deleteError && (
+                <p className="mt-3 text-sm text-red-300">{deleteError}</p>
+              )}
+            </div>
 
-            {/* Transactions */}
-            <div className="card mt-8 rounded-3xl p-7">
-              <div className="flex items-center justify-between">
-                <h2 className="font-display text-xl font-bold">Activity</h2>
-                <span className="flex items-center gap-1.5 text-xs text-[#687d76]">
-                  <Search size={13} /> Latest 10
-                </span>
+            <div className="card mt-6 mb-10 rounded-3xl p-5 sm:p-7">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="font-display text-lg font-bold">Your projects</h2>
+                <Link
+                  href="/dashboard/create-project"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.10)] px-3.5 py-1.5 text-xs font-bold text-[#e4c979] transition hover:bg-[rgba(216,180,90,0.18)]"
+                >
+                  <Plus size={13} /> New project
+                </Link>
               </div>
-              {transactions.length === 0 ? (
-                <div className="mt-8 text-center">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[.03] text-[#536963]">
-                    <Clock size={22} />
-                  </div>
-                  <p className="mt-4 text-sm font-semibold text-[#8fa29c]">No activity yet</p>
-                  <p className="mt-1.5 text-sm text-[#687d76]">
-                    Projects you create, your earnings, commissions and payouts will appear here as they happen.
-                  </p>
-                </div>
+              {projects.length === 0 ? (
+                <p className="mt-4 text-sm text-[#718781]">
+                  No projects yet.{' '}
+                  <Link href="/dashboard/create-project" className="font-semibold text-[#d8b45a] hover:text-[#f0d98b]">
+                    Create your first project
+                  </Link>
+                </p>
               ) : (
-                <div className="mt-5 space-y-2.5">
-                  {transactions.map((t, i) => (
+                <div className="mt-4 space-y-3">
+                  {projects.map((p) => (
                     <div
-                      key={i}
-                      className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/[.025] px-4 py-3"
+                      key={p.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/5 bg-white/[.025] px-4 py-3 transition hover:border-[rgba(216,180,90,0.25)]"
                     >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-[#d9e0dc]">
-                          <span
-                            className={`h-2 w-2 rounded-full ${t.type === 'commission' ? 'bg-[#6fbf73]' : t.type === 'project' ? 'bg-[#d8b45a]' : 'bg-[#e4c979]'}`}
-                          />
-                          {t.label}
-                          <span className="hidden sm:inline text-xs text-[#687d76]">{t.status}</span>
+                      <button
+                        type="button"
+                        onClick={() => openProjectDetail(p)}
+                        className="min-w-0 flex-1 text-left"
+                      >
+                        <div className="text-sm font-semibold text-[#d9e0dc]">{p.title}</div>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-[#718781]">
+                          <span>{p.project_type}</span>
+                          <span className="text-white/20">·</span>
+                          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                            p.status === 'completed' || p.status === 'active'
+                              ? 'bg-emerald-500/15 text-emerald-300'
+                              : p.status === 'cancelled' || p.status === 'failed'
+                              ? 'bg-red-500/15 text-red-300'
+                              : 'bg-white/10 text-[#9aaca6]'
+                          }`}>{p.status}</span>
+                          <span className="text-white/20">·</span>
+                          <span>{p.payment_status.replace(/_/g, ' ')}</span>
                         </div>
-                        <div className="mt-0.5 pl-4 text-xs text-[#687d76]">
-                          {t.detail ? `“${t.detail}” · ` : ''}{formatDate(t.date)}
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-bold text-[#e4c979]">
+                          {formatUsd(Number(p.seller_profit || 0))}
                         </div>
-                      </div>
-                      <div className={`font-bold ${t.amount >= 0 ? 'text-[#6fbf73]' : 'text-[#9aaca6]'}`}>
-                        {t.type === 'project' ? '' : t.amount >= 0 ? '+' : ''}{formatUSD(t.amount)}
+                        <button
+                          type="button"
+                          onClick={() => openProjectDetail(p)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-[#9aaca6] transition hover:border-[rgba(216,180,90,0.40)] hover:text-[#e4c979]"
+                          title="View details"
+                          aria-label="View details"
+                        >
+                          <Eye size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteProject(p.id)}
+                          disabled={deletingId === p.id}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-[#9aaca6] transition hover:border-red-400/40 hover:text-red-300 disabled:opacity-50"
+                          title="Delete project"
+                          aria-label="Delete project"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -623,94 +664,123 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Workspace management + quick actions */}
-            <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_.7fr]">
-              <div className="card rounded-3xl p-7">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-display text-xl font-bold">Manage workspace</h2>
-                  <span className="text-xs text-[#687d76]">
-                    {activeOrg?.type === 'personal' ? 'Personal' : `${orgPlan.displayName} plan`}
+            {invoices.length > 0 && (
+              <div className="card mt-6 rounded-3xl p-5 sm:p-7">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 className="font-display text-lg font-bold">Your invoices</h2>
+                  <span className="rounded-full border border-white/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#849792]">
+                    {invoices.length} total
                   </span>
                 </div>
-                <div className="mt-6 space-y-3">
-                  <Action
-                    icon={<Users size={16} />}
-                    title="Team"
-                    text="Invite members and manage roles. Coming soon on paid plans."
-                    href="/dashboard/team"
-                    disabled={!isManager(orgRole ?? 'MEMBER')}
-                  />
-                  <Action
-                    icon={<Receipt size={16} />}
-                    title="Billing"
-                    text="Plan details and payment method. Foundation ready, payments coming soon."
-                    href="/dashboard/billing"
-                  />
-                  <Action
-                    icon={<BarChart3 size={16} />}
-                    title="Analytics"
-                    text={orgPlan.limits.analytics === 'advanced' ? 'Advanced performance insights.' : 'Basic overview of your activity.'}
-                    href="/dashboard/analytics"
-                  />
-                  <Action
-                    icon={<SettingsIcon size={16} />}
-                    title="Settings"
-                    text="Update your profile details or email."
-                    href="/dashboard/settings"
-                  />
-                </div>
-              </div>
-
-              <div className="card rounded-3xl p-7">
-                <p className="text-sm text-[#d8b45a]">Quick actions</p>
-                <h2 className="font-display mt-2 text-xl font-bold">Affiliate &amp; more.</h2>
-                {/* Slim affiliate strip: real link + copy, no big separate card */}
-                <div className="mt-4 overflow-hidden rounded-2xl border border-[rgba(216,180,90,0.25)] bg-[rgba(216,180,90,0.05)]">
-                  <div className="flex items-center gap-3 px-4 py-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[10px] uppercase tracking-[.14em] text-[#718781]">Your referral link</div>
-                      <div className="mt-0.5 truncate font-mono text-sm text-[#f0d98b]">
-                        {dashLink
-                          ? `https://${host}/r/${dashLink}`
-                          : 'Loading your link...'}
+                <div className="mt-4 space-y-3">
+                  {invoices.slice(0, 8).map((inv) => (
+                    <div
+                      key={inv.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/5 bg-white/[.025] px-4 py-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-[#d9e0dc]">
+                          {inv.invoiceNumber}
+                          {inv.clientName ? ` · ${inv.clientName}` : ''}
+                        </div>
+                        <div className="mt-1 text-[11px] text-[#718781]">
+                          {inv.projectTitle} · {inv.status} · {new Date(inv.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-bold text-[#e4c979]">
+                          {formatUsd(Number(inv.amount || 0))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => copyInvoiceLink(inv.id)}
+                          className="flex h-8 items-center gap-1.5 rounded-full border border-white/10 px-3 text-[11px] font-semibold text-[#9aaca6] transition hover:border-[rgba(216,180,90,0.40)] hover:text-[#e4c979]"
+                          title="Copy invoice link"
+                        >
+                          <Copy size={12} />
+                          {copyingInvoice === inv.id ? 'Copied' : 'Copy link'}
+                        </button>
                       </div>
                     </div>
-                    <button
-                      onClick={() => {
-                        if (!dashLink) return
-                        navigator.clipboard?.writeText(`https://${host}/r/${dashLink}`).then(() => {
-                          setCopied(true)
-                          setTimeout(() => setCopied(false), 2000)
-                        })
-                      }}
-                      disabled={!dashLink}
-                      className="shrink-0 rounded-lg bg-[#d8b45a] px-3 py-1.5 text-xs font-bold text-[#10221f] transition hover:bg-[#f0d98b] disabled:opacity-50"
-                    >
-                      {copied ? 'Copied!' : 'Copy'}
-                    </button>
-                  </div>
-                  <Link href="/dashboard/affiliate" className="flex items-center gap-1.5 border-t border-white/5 px-4 py-2.5 text-xs font-bold text-[#e4c979] hover:bg-white/[.03]">
-                    My Referrals <ArrowRight size={12} />
-                  </Link>
-                </div>
-                <h2 className="font-display mt-6 text-xl font-bold">Explore services.</h2>
-                <p className="mt-3 text-sm leading-6 text-[#81948e]">
-                  Explore the library, save strong samples and start building your offer.
-                </p>
-                <div className="mt-5 space-y-3">
-                  <Action title="Explore services" text="Find services you can package and sell." href="/#services" />
-                  <Action title="Browse digital assets" text="Discover reusable assets and workflow examples." href="/#samples" />
-                  <Action title="Earn With DropVerse" text="Turn your network and sales into another revenue stream." href="/earn" />
+                  ))}
                 </div>
               </div>
-            </div>
+            )}
 
-            <p className="mt-10 text-center text-xs text-[#687d76]">
-              Need help? Contact us at{' '}
-              <a href="mailto:dropverseagency@gmail.com" className="text-[#9aaca6] hover:text-[#d8b45a]">
-                dropverseagency@gmail.com
-              </a>
-            </p>
+            {selectedProject && (
+              <div
+                className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-4 sm:items-center"
+                onClick={() => setSelectedProject(null)}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Project details"
+              >
+                <div
+                  className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-white/10 bg-[#0a2926] p-6 shadow-2xl sm:p-8"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#849792]">Project details</p>
+                      <h3 className="font-display mt-1 text-xl font-extrabold text-[#e8efe9]">
+                        {selectedProject.title}
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProject(null)}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-[#9aaca6] transition hover:border-white/25 hover:text-white"
+                      aria-label="Close"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                    <DetailField label="Type" value={selectedProject.project_type} />
+                    <DetailField label="Status" value={selectedProject.status} />
+                    <DetailField label="Payment" value={selectedProject.payment_status.replace(/_/g, ' ')} />
+                    <DetailField label="Method" value={selectedProject.payment_method.replace(/_/g, ' ')} />
+                    <DetailField label="Billing" value={selectedProject.billing_interval.replace(/_/g, ' ')} />
+                    <DetailField
+                      label="Created"
+                      value={new Date(selectedProject.created_at).toLocaleString()}
+                    />
+                    <DetailField label="Client price" value={formatUsd(Number(selectedProject.client_price || 0))} />
+                    <DetailField label="Fulfillment cost" value={formatUsd(Number(selectedProject.fulfillment_cost || 0))} />
+                    <DetailField
+                      label="Your profit"
+                      value={formatUsd(Number(selectedProject.seller_profit || 0))}
+                      highlight
+                    />
+                    <DetailField label="Project ID" value={selectedProject.id.slice(0, 8) + '…'} />
+                  </div>
+
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => createInvoice(selectedProject.id)}
+                      disabled={creatingInvoice === selectedProject.id}
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] px-4 py-2.5 text-sm font-bold text-[#f0d98b] transition hover:bg-[rgba(216,180,90,0.22)] disabled:opacity-60"
+                    >
+                      <Receipt size={15} />
+                      {creatingInvoice === selectedProject.id ? 'Creating…' : 'Create invoice'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteProject(selectedProject.id)}
+                      disabled={deletingId === selectedProject.id}
+                      className="inline-flex items-center justify-center gap-2 rounded-full border border-red-400/30 px-4 py-2.5 text-sm font-bold text-red-300 transition hover:bg-red-500/10 disabled:opacity-60"
+                    >
+                      <Trash2 size={15} />
+                      {deletingId === selectedProject.id ? 'Deleting…' : 'Delete'}
+                    </button>
+                  </div>
+                  {deleteError && <p className="mt-3 text-sm text-red-300">{deleteError}</p>}
+                  {invoiceError && <p className="mt-3 text-sm text-red-300">{invoiceError}</p>}
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -718,171 +788,60 @@ export default function Dashboard() {
   )
 }
 
-function ProjectCard({
-  project,
-  onCreateInvoice,
-  creating,
-}: {
-  project: ProjectRow
-  onCreateInvoice: () => void
-  creating: boolean
-}) {
-  const type = PROJECT_TYPES.find((t) => t.id === project.project_type)
-  const method = PAYMENT_METHODS.find((m) => m.id === project.payment_method)
-  const isPending = project.payment_status === 'PAYMENT_PENDING'
-  return (
-    <div className="rounded-2xl border border-white/5 bg-white/[.02] p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate font-semibold text-[#d9e0dc]">{project.title || 'Untitled project'}</p>
-          <p className="mt-1 text-xs text-[#687d76]">
-            {type?.label ?? project.project_type}
-            {project.billing_interval && project.billing_interval !== 'ONE_TIME' ? ` · per ${project.billing_interval.toLowerCase()}` : ''}
-            {method ? ` · ${method.label}` : ''}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={onCreateInvoice}
-            disabled={creating}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.10)] px-3.5 py-1.5 text-[11px] font-bold text-[#e4c979] transition hover:bg-[rgba(216,180,90,0.18)] disabled:opacity-60"
-            title="Create a public invoice & payment link for this project"
-          >
-            <Receipt size={12} /> {creating ? 'Creating…' : 'Create Invoice'}
-          </button>
-          <span
-            className={`whitespace-nowrap rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[.12em] ${
-              isPending
-                ? 'border border-[rgba(228,201,121,0.45)] bg-[rgba(228,201,121,0.10)] text-[#e4c979]'
-                : 'border border-[rgba(111,191,115,0.45)] bg-[rgba(111,191,115,0.10)] text-[#6fbf73]'
-            }`}
-          >
-            {STATUS_LABELS[project.status as keyof typeof STATUS_LABELS] ?? project.status}
-            {isPending ? ' · Payment pending' : ''}
-          </span>
-        </div>
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <MiniMetric label="Client price" value={formatUsd(Number(project.client_price || 0))} />
-        <MiniMetric label="DropVerse fee" value={formatUsd(Number(project.fulfillment_cost || 0))} />
-        <MiniMetric label="Your profit" value={formatUsd(Number(project.seller_profit || 0))} accent />
-        <MiniMetric label="Created" value={formatDate(project.created_at)} />
-      </div>
-    </div>
-  )
-}
-
-function MiniMetric({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div className="rounded-xl border border-white/5 bg-white/[.025] px-3 py-2">
-      <div className="text-[10px] uppercase tracking-[.12em] text-[#687d76]">{label}</div>
-      <div className={`mt-0.5 text-sm font-bold ${accent ? 'text-[#e4c979]' : 'text-[#d9e0dc]'}`}>{value}</div>
-    </div>
-  )
-}
-
-function formatUSD(n: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n || 0)
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  } catch {
-    return iso
-  }
-}
-
-function formatEvent(event: string): string {
-  const map: Record<string, string> = {
-    commission_approved: 'Referral commission approved',
-    commission_paid: 'Commission paid out',
-    payout_requested: 'Payout requested',
-    payout_completed: 'Payout completed',
-    payout_approved: 'Payout approved',
-  }
-  return map[event] || event.replace(/_/g, ' ')
-}
-
-function ProfileRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[.025] px-4 py-3.5">
-      <span className="text-[#d8b45a]">{icon}</span>
-      <div className="min-w-0">
-        <div className="text-xs text-[#718781]">{label}</div>
-        <div className="truncate text-sm font-semibold text-[#d9e0dc]">{value}</div>
-      </div>
-    </div>
-  )
-}
-
-function Stat({
-  icon,
+function DetailField({
   label,
   value,
-  accent,
+  highlight = false,
 }: {
-  icon: React.ReactNode
   label: string
   value: string
-  accent?: boolean
+  highlight?: boolean
 }) {
   return (
-    <div className="card rounded-2xl p-5">
-      <div className={accent ? 'text-[#d8b45a]' : 'text-[#687d76]'}>{icon}</div>
-      <div className="mt-5 text-2xl font-bold">{value}</div>
-      <div className="mt-1 text-xs text-[#758983]">{label}</div>
+    <div className="rounded-2xl border border-white/5 bg-white/[.03] px-3.5 py-3">
+      <p className="text-[10px] font-bold uppercase tracking-[.14em] text-[#6e817c]">{label}</p>
+      <p className={`mt-1 text-sm font-semibold ${highlight ? 'text-[#e4c979]' : 'text-[#d9e0dc]'}`}>{value}</p>
     </div>
   )
 }
 
-function Action({
-  title,
-  text,
+function formatEvent(event: string) {
+  return event.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="card rounded-3xl p-5">
+      <div className="flex items-center gap-2 text-[#d8b45a]">{icon}<span className="text-xs uppercase tracking-[.14em] text-[#849792]">{label}</span></div>
+      <div className="mt-3 font-display text-2xl font-extrabold text-[#e8efe9]">{value}</div>
+    </div>
+  )
+}
+
+function ActionCard({
   href,
   icon,
-  disabled,
+  title,
+  text,
 }: {
+  href: string
+  icon: React.ReactNode
   title: string
   text: string
-  href: string
-  icon?: React.ReactNode
-  disabled?: boolean
 }) {
-  const body = (
-    <>
-      <div className="flex min-w-0 items-center gap-3">
-        {icon && <span className="text-[#d8b45a]">{icon}</span>}
-        <div className="min-w-0">
-          <div className="font-semibold">{title}</div>
-          <div className="mt-1 text-sm text-[#7f938d]">{text}</div>
-        </div>
-      </div>
-      <ArrowRight size={17} className="shrink-0 text-[#d8b45a]" />
-    </>
-  )
-  if (disabled) {
-    return (
-      <div
-        className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/[.015] p-4 opacity-55"
-        title="Available to owners and admins"
-      >
-        {body}
-      </div>
-    )
-  }
   return (
     <Link
       href={href}
-      className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/[.025] p-4 transition hover:border-[rgba(216,180,90,0.30)]"
+      className="group flex flex-col rounded-2xl border border-white/5 bg-white/[.025] p-4 transition hover:border-[rgba(216,180,90,0.30)] hover:bg-white/[.04]"
     >
-      {body}
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[rgba(216,180,90,0.30)] bg-[rgba(216,180,90,0.08)] text-[#d8b45a]">
+          {icon}
+        </span>
+        <ArrowRight size={14} className="text-[#6e817c] transition group-hover:text-[#d8b45a]" />
+      </div>
+      <span className="font-display mt-3 font-bold text-[#e8efe9]">{title}</span>
+      <p className="mt-1 text-xs leading-5 text-[#849792]">{text}</p>
     </Link>
   )
 }

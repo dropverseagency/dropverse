@@ -26,6 +26,7 @@ export default function BillingPage() {
   const [orders, setOrders] = useState<DodoOrder[]>([])
   const [portalLoading, setPortalLoading] = useState(false)
   const [portalError, setPortalError] = useState<string | null>(null)
+  const [focusPlan, setFocusPlan] = useState<string | null>(null)
 
   async function openPortal() {
     setPortalLoading(true)
@@ -36,6 +37,11 @@ export default function BillingPage() {
     else setPortalError(payload.error === 'NO_DODO_CUSTOMER' ? 'Your Dodo customer portal will be available after the first completed payment.' : 'Unable to open the Dodo Payments portal right now.')
     setPortalLoading(false)
   }
+
+  useEffect(() => {
+    const planQ = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('plan') : null
+    if (planQ) setFocusPlan(planQ)
+  }, [])
 
   useEffect(() => {
     const supabase = createClient()
@@ -78,28 +84,28 @@ export default function BillingPage() {
   const plan = org ? planById(org.plan as never) : PLAN_CONFIG[0]
 
   const otherPlans = useMemo(
-    () => (plan ? PLAN_CONFIG.filter((p) => p.id !== plan.id) : []),
+    () => (plan ? PLAN_CONFIG.filter((p) => p.id !== plan.id && p.id !== 'SOLO') : []),
     [plan],
   )
 
   return (
     <main className="min-h-screen grid-bg px-5 py-10 sm:py-14">
       <div className="mx-auto w-full max-w-4xl">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-[#9aaca6] transition hover:border-[rgba(216,180,90,0.40)] hover:text-[#e4c979]" aria-label="Back to dashboard">
+            <Link href="/dashboard" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 text-[#9aaca6] transition hover:border-[rgba(216,180,90,0.40)] hover:text-[#e4c979]" aria-label="Back to dashboard">
               <ArrowLeft size={17} />
             </Link>
             <div>
               <h1 className="font-display text-2xl font-extrabold sm:text-3xl">Billing</h1>
-              <p className="text-sm text-[#849792]">Plan and usage</p>
+              <p className="text-sm text-[#849792]">Plan and usage · desktop & mobile</p>
             </div>
           </div>
           {orgs.length > 1 && (
             <select
               value={activeOrgId ?? ''}
               onChange={(e) => setActiveOrgId(e.target.value)}
-              className="rounded-full border border-white/10 bg-white/[.04] px-3 py-1.5 text-sm text-[#c1cbc7] outline-none focus:border-[rgba(216,180,90,0.55)]"
+              className="max-w-[40%] rounded-full border border-white/10 bg-white/[.04] px-3 py-1.5 text-sm text-[#c1cbc7] outline-none focus:border-[rgba(216,180,90,0.55)]"
               aria-label="Switch workspace"
             >
               {orgs.map((o) => (
@@ -121,7 +127,7 @@ export default function BillingPage() {
           </div>
         ) : (
           <>
-            <div className={`card mt-8 rounded-3xl p-7 ${plan.highlight ? 'border-[rgba(216,180,90,0.50)]' : ''}`}>
+            <div className={`card mt-8 rounded-3xl p-5 sm:p-7 ${plan.highlight ? 'border-[rgba(216,180,90,0.50)]' : ''}`}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${plan.highlight ? 'bg-[#d8b45a] text-[#10221f]' : 'border border-[rgba(216,180,90,0.30)] bg-[rgba(216,180,90,0.08)] text-[#d8b45a]'}`}>
@@ -158,7 +164,7 @@ export default function BillingPage() {
               {portalError && <p className="mt-2 text-xs text-[#e89a8d]">{portalError}</p>}
             </div>
 
-            <div className="card mt-8 rounded-3xl p-7">
+            <div className="card mt-6 rounded-3xl p-5 sm:p-7">
               <h2 className="font-display text-lg font-bold">What&rsquo;s included</h2>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 {plan.features.map((f) => (
@@ -169,12 +175,21 @@ export default function BillingPage() {
               </div>
             </div>
 
-            <div className="mt-8 mb-8 grid gap-4 sm:grid-cols-2">
+            <div className="mt-6 mb-6 grid gap-4">
+              <h2 className="font-display text-lg font-bold">Upgrade options</h2>
+              <p className="text-xs text-[#849792]">Choose International payment (Paddle) or Local payment (SpaceRemit) on any paid plan.</p>
               {otherPlans.map((p) => (
-                <div key={p.id} className="card rounded-3xl p-6">
-                  <div className="flex items-center justify-between">
+                <div
+                  key={p.id}
+                  className={`card rounded-3xl p-5 sm:p-6 ${
+                    focusPlan === p.id
+                      ? 'border-[rgba(216,180,90,0.55)] bg-[rgba(216,180,90,0.08)]'
+                      : ''
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
                     <h3 className="font-display text-lg font-bold">{p.displayName}</h3>
-                    <span className="text-sm font-bold text-[#d8b45a]">
+                    <span className="shrink-0 text-sm font-bold text-[#d8b45a]">
                       {p.enterprise ? 'Custom' : `$${p.price}/mo`}
                     </span>
                   </div>
@@ -182,7 +197,7 @@ export default function BillingPage() {
                   {p.id === 'ENTERPRISE' ? (
                     <a
                       href="mailto:dropverseagency@gmail.com?subject=Enterprise%20Upgrade"
-                      className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] py-3 text-sm font-bold text-[#e4c979] transition hover:border-[rgba(216,180,90,0.60)]"
+                      className="mt-5 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] py-3.5 text-sm font-bold text-[#e4c979] transition hover:border-[rgba(216,180,90,0.60)]"
                     >
                       Contact Sales
                     </a>
@@ -192,7 +207,8 @@ export default function BillingPage() {
                 </div>
               ))}
             </div>
-            <div className="card mb-10 rounded-3xl p-7">
+
+            <div className="card mb-10 rounded-3xl p-5 sm:p-7">
               <div className="flex items-center justify-between gap-3">
                 <div><h2 className="font-display text-lg font-bold">Order history</h2><p className="mt-1 text-xs text-[#849792]">Your Dodo transactions and subscription status.</p></div>
                 <Receipt size={19} className="text-[#d8b45a]" />
