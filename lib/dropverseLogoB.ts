@@ -1,2 +1,2 @@
-/** Legacy stub – not used. Kept so old imports do not break. */
+/** Legacy stub – unused. Logo is /public/dropverse-icon.svg via Brand. */
 export const _b = ''
