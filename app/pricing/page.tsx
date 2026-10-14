@@ -1,16 +1,14 @@
 'use client'
 import Link from 'next/link'
-import Image from 'next/image'
-import { useState } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { ArrowRight, Check, Star, Zap, Users, Target } from 'lucide-react'
 import { PLAN_CONFIG, membersLabelFor } from '../../lib/planConfig'
 import SiteHeader from '../../components/SiteHeader'
+import Brand from '../../components/Brand'
 import { useAuth } from '../../lib/useAuth'
+import { ButtonLink, Card, SectionLabel } from '../../components/ui'
 
 function planHref(signedIn: boolean, planId: string): string {
-  // Signed-in users choose a plan and go straight to the dashboard;
-  // guests are invited to sign in so their account lands on pricing (redirect).
   return signedIn ? `/dashboard?plan=${encodeURIComponent(planId)}` : '/login'
 }
 
@@ -51,7 +49,6 @@ function featureIn(planId: string, feature: string): boolean {
   const p = PLAN_CONFIG.find((x) => x.id === planId)
   if (!p) return false
   const list = p.features
-  // "Everything in X" plans inherit all previous-plan features
   if (planId === 'AGENCY' && list.some((f) => f.startsWith('Everything in Solo')))
     return ALL_FEATURES.filter((f) => PLAN_CONFIG[0].features.includes(f)).includes(feature)
   if (planId === 'AGENCY_PRO' && list.some((f) => f.startsWith('Everything in Agency')))
@@ -75,60 +72,76 @@ export default function PricingPage() {
   const signedIn = !auth.loading && Boolean(auth.user)
   const reduceMotion = useReducedMotion()
   const luxuryEase = [0.23, 1, 0.32, 1] as const
+
   return (
-    <main className="overflow-hidden">
+    <main className="overflow-hidden bg-background text-foreground">
       <SiteHeader highlightEarn={false} />
 
-      {/* Hero */}
-      <section className="grid-bg relative flex min-h-[55vh] items-center pt-20">
-        <div className="absolute left-1/2 top-1/3 h-[380px] w-[380px] -translate-x-1/2 rounded-full bg-[rgba(216,180,90,0.05)] blur-[100px]" />
-        <motion.div initial={reduceMotion ? false : { opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .72, ease: luxuryEase }} className="container relative py-24 text-center">
-          <p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">Plans &amp; Pricing</p>
-          <h1 className="font-display mx-auto mt-5 max-w-3xl text-4xl font-extrabold tracking-tight sm:text-6xl">
-            Choose the workspace that fits <span className="gold-gradient">your business.</span>
+      <section className="relative flex min-h-[50vh] items-center pt-20">
+        <motion.div
+          initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.72, ease: luxuryEase }}
+          className="container relative py-20 text-center sm:py-24"
+        >
+          <SectionLabel>Plans & Pricing</SectionLabel>
+          <h1 className="font-display mx-auto mt-5 max-w-3xl text-4xl font-extrabold tracking-tight text-foreground sm:text-6xl">
+            Choose the workspace that fits <span className="text-primary">your business.</span>
           </h1>
-          <p className="mx-auto mt-6 max-w-xl text-[#95a7a1]">
-            From solo sellers to full agencies — DropVerse scales with you. Start free and upgrade the moment your team grows.
+          <p className="mx-auto mt-6 max-w-xl text-muted-foreground">
+            From solo sellers to full agencies — DropVerse scales with you. Start free and upgrade the moment your team
+            grows.
           </p>
         </motion.div>
       </section>
 
-      {/* Cards */}
       <section className="container pb-24">
-        <motion.div initial="hidden" whileInView="show" viewport={{ once: true, amount: .12 }} variants={{ hidden: {}, show: { transition: { staggerChildren: .08 } } }} className="grid gap-6 lg:grid-cols-2 xl:grid-cols-4">
+        <motion.div
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.12 }}
+          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08 } } }}
+          className="grid gap-6 lg:grid-cols-2 xl:grid-cols-4"
+        >
           {PLAN_CONFIG.map((plan) => (
             <motion.div
-              variants={{ hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0, transition: { duration: .55, ease: luxuryEase } } }}
-              whileHover={reduceMotion ? undefined : { y: -6, transition: { duration: .22, ease: luxuryEase } }}
+              variants={{
+                hidden: { opacity: 0, y: 18 },
+                show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: luxuryEase } },
+              }}
               key={plan.id}
-              className={`relative flex flex-col rounded-3xl border p-7 transition duration-300 ${
+              className={`relative flex flex-col rounded-3xl border p-7 ${
                 plan.highlight
-                  ? 'border-[rgba(216,180,90,0.55)] bg-gradient-to-b from-[rgba(216,180,90,0.12)] to-[rgba(216,180,90,0.03)] shadow-[0_0_60px_rgba(216,180,90,0.12)]'
-                  : 'card hover:border-[rgba(216,180,90,0.40)]'
+                  ? 'border-primary/50 bg-primary/10 shadow-card'
+                  : 'border-border bg-card'
               }`}
             >
               {plan.highlight && (
-                <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#d8b45a] px-4 py-1 text-xs font-extrabold uppercase tracking-wider text-[#10221f]">
+                <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-primary px-4 py-1 text-xs font-extrabold uppercase tracking-wider text-primary-foreground">
                   Most Popular
                 </span>
               )}
-              <p className="text-xs font-bold uppercase tracking-[.2em] text-[#6e817c]">{plan.displayName} Plan</p>
+              <p className="text-xs font-bold uppercase tracking-[.2em] text-muted-foreground">
+                {plan.displayName} Plan
+              </p>
               <div className="mt-4 flex items-baseline gap-1">
-                <span className="font-display text-4xl font-extrabold">{priceFor(plan)}</span>
-                {!plan.enterprise && <span className="text-sm text-[#849792]">/{perMonth(plan)}</span>}
+                <span className="font-display text-4xl font-extrabold text-foreground">{priceFor(plan)}</span>
+                {!plan.enterprise && (
+                  <span className="text-sm text-muted-foreground">/{perMonth(plan)}</span>
+                )}
               </div>
-              <p className="mt-3 text-sm font-semibold text-[#b9c6c1]">{membersLabelFor(plan)}</p>
+              <p className="mt-3 text-sm font-semibold text-foreground">{membersLabelFor(plan)}</p>
               <ul className="mt-6 flex-1 space-y-2.5">
                 {plan.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2.5 text-sm leading-6 text-[#c5d2cc]">
-                    <Check size={16} className="mt-1 shrink-0 text-[#d8b45a]" /> {f}
+                  <li key={f} className="flex items-start gap-2.5 text-sm leading-6 text-muted-foreground">
+                    <Check size={16} className="mt-1 shrink-0 text-primary" /> {f}
                   </li>
                 ))}
               </ul>
               {plan.enterprise ? (
                 <a
                   href="mailto:dropverseagency@gmail.com?subject=Enterprise%20Inquiry"
-                  className="mt-8 flex items-center justify-center gap-2 rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] px-6 py-3.5 text-sm font-bold text-[#e4c979] transition hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.14)]"
+                  className="mt-8 flex items-center justify-center gap-2 rounded-full border border-border bg-card px-6 py-3.5 text-sm font-bold text-primary transition hover:bg-muted"
                 >
                   Contact Sales <ArrowRight size={16} />
                 </a>
@@ -137,8 +150,8 @@ export default function PricingPage() {
                   href={planHref(signedIn, plan.id)}
                   className={`mt-8 flex items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold transition ${
                     plan.highlight
-                      ? 'bg-[#d8b45a] text-[#10221f] hover:bg-[#f0d98b]'
-                      : 'border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] text-[#e4c979] hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.14)]'
+                      ? 'bg-primary text-primary-foreground hover:opacity-90'
+                      : 'border border-border bg-card text-primary hover:bg-muted'
                   }`}
                 >
                   {signedIn ? `Choose ${plan.displayName}` : plan.cta} <ArrowRight size={16} />
@@ -149,17 +162,19 @@ export default function PricingPage() {
         </motion.div>
       </section>
 
-      {/* Comparison table */}
-      <section className="border-y border-[rgba(216,180,90,0.10)] bg-[#0a2926] py-20">
+      <section className="border-y border-border bg-card/60 py-20">
         <div className="container">
-          <h2 className="font-display text-3xl font-extrabold sm:text-4xl">Compare everything.</h2>
+          <h2 className="font-display text-3xl font-extrabold text-foreground sm:text-4xl">Compare everything.</h2>
           <div className="mt-10 overflow-x-auto">
             <table className="w-full min-w-[720px] border-collapse text-sm">
-              <thead>
+              <thead className="sticky top-0 bg-card">
                 <tr className="text-left">
-                  <th className="py-3 pr-4 font-semibold text-[#849792]">Feature</th>
+                  <th className="py-3 pr-4 font-semibold text-muted-foreground">Feature</th>
                   {PLAN_CONFIG.map((p) => (
-                    <th key={p.id} className={`px-4 py-3 font-bold ${p.highlight ? 'text-[#d8b45a]' : 'text-[#c1cbc7]'}`}>
+                    <th
+                      key={p.id}
+                      className={`px-4 py-3 font-bold ${p.highlight ? 'text-primary' : 'text-foreground'}`}
+                    >
                       {p.displayName}
                       {p.highlight ? ' ★' : ''}
                     </th>
@@ -168,11 +183,15 @@ export default function PricingPage() {
               </thead>
               <tbody>
                 {ALL_FEATURES.map((f) => (
-                  <tr key={f} className="border-t border-white/5">
-                    <td className="py-3 pr-4 text-[#c5d2cc]">{f}</td>
+                  <tr key={f} className="border-t border-border">
+                    <td className="py-3 pr-4 text-muted-foreground">{f}</td>
                     {PLAN_CONFIG.map((p) => (
                       <td key={p.id} className="px-4 py-3">
-                        {featureIn(p.id, f) ? <Check size={16} className="text-[#d8b45a]" /> : <span className="text-[#3d524c]">—</span>}
+                        {featureIn(p.id, f) ? (
+                          <Check size={16} className="text-primary" />
+                        ) : (
+                          <span className="text-muted-foreground/40">—</span>
+                        )}
                       </td>
                     ))}
                   </tr>
@@ -183,67 +202,67 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* Built for teams that sell */}
-      <section className="relative overflow-hidden py-24">
-        <div className="absolute left-1/2 top-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[rgba(216,180,90,0.05)] blur-[100px]" />
-        <div className="container relative text-center">
-          <p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">For teams</p>
-          <h2 className="font-display mx-auto mt-4 max-w-3xl text-4xl font-extrabold tracking-tight sm:text-5xl">
+      <section className="py-24">
+        <div className="container text-center">
+          <SectionLabel>For teams</SectionLabel>
+          <h2 className="font-display mx-auto mt-4 max-w-3xl text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
             Built for teams that sell.
           </h2>
-          <p className="mx-auto mt-6 max-w-2xl text-[#95a7a1]">
-            Turn DropVerse into your agency&rsquo;s fulfillment engine. Your sales team brings clients, DropVerse delivers the work through professional freelancers — and you keep the margin.
+          <p className="mx-auto mt-6 max-w-2xl text-muted-foreground">
+            Turn DropVerse into your agency&rsquo;s fulfillment engine. Your sales team brings clients, DropVerse
+            delivers the work through professional freelancers — and you keep the margin.
           </p>
-          <div className="mx-auto mt-12 flex max-w-4xl flex-col items-center gap-0 sm:flex-row sm:justify-center">
+          <div className="mx-auto mt-12 grid max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
               { icon: Users, title: 'Your Sales Team', sub: 'Pitch and close' },
               { icon: Zap, title: 'DropVerse Services', sub: 'Fulfillment engine' },
               { icon: Star, title: 'Professional Freelancers', sub: 'Deliver the work' },
               { icon: Target, title: 'Client Delivery', sub: 'On time, on brand' },
             ].map(({ icon: Icon, title, sub }) => (
-              <div key={title} className="flex flex-col items-center">
-                <div className="card flex w-48 flex-col items-center rounded-2xl p-5">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[rgba(216,180,90,0.20)] bg-[rgba(216,180,90,0.05)] text-[#d8b45a]">
-                    <Icon size={18} />
-                  </div>
-                  <p className="font-display mt-3 text-sm font-bold">{title}</p>
-                  <p className="mt-1 text-xs text-[#849792]">{sub}</p>
+              <Card key={title} className="flex flex-col items-center p-5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-muted text-primary">
+                  <Icon size={18} />
                 </div>
-              </div>
+                <p className="font-display mt-3 text-sm font-bold text-foreground">{title}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{sub}</p>
+              </Card>
             ))}
-            <div className="flex flex-col items-center">
-              <div className="flex w-48 flex-col items-center rounded-2xl border border-[rgba(216,180,90,0.55)] bg-gradient-to-b from-[rgba(216,180,90,0.12)] to-[rgba(216,180,90,0.03)] p-5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#d8b45a] text-[#10221f]">
-                  <span className="font-display text-sm font-extrabold">$</span>
-                </div>
-                <p className="font-display mt-3 text-sm font-bold text-[#e4c979]">Agency Revenue</p>
-                <p className="mt-1 text-xs text-[#849792]">You keep the margin</p>
-              </div>
-            </div>
           </div>
-          <Link href={planHref(signedIn, 'AGENCY')} className="mt-12 inline-flex items-center gap-3 rounded-full bg-[#d8b45a] px-7 py-4 font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
-            {signedIn ? 'Create your agency workspace' : 'Get started free'} <ArrowRight size={18} />
-          </Link>
+          <div className="mt-12">
+            <ButtonLink href={planHref(signedIn, 'AGENCY')} size="lg">
+              {signedIn ? 'Create your agency workspace' : 'Get started free'} <ArrowRight size={18} />
+            </ButtonLink>
+          </div>
         </div>
       </section>
 
-      <footer className="py-12">
+      <footer className="border-t border-border py-12">
         <div className="container flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="inline-flex items-center gap-3">
-              <Image src="/dropverse-logo.jpeg" alt="DropVerse" width={42} height={42} className="rounded-xl object-cover" />
-              <div className="font-display text-xl font-extrabold tracking-[.16em]">DROP<span className="text-[#d8b45a]">VERSE</span></div>
-            </div>
-            <p className="mt-2 text-xs uppercase tracking-[.2em] text-[#6f827c]">Linking talent to sales</p>
-            <a href="mailto:dropverseagency@gmail.com" className="mt-2 block text-sm font-semibold text-[#d8b45a] hover:text-[#f0d98b]">dropverseagency@gmail.com</a>
+            <Brand />
+            <p className="mt-2 text-xs uppercase tracking-[.2em] text-muted-foreground">Linking talent to sales</p>
+            <a
+              href="mailto:dropverseagency@gmail.com"
+              className="mt-2 block text-sm font-semibold text-primary hover:opacity-80"
+            >
+              dropverseagency@gmail.com
+            </a>
           </div>
-          <div className="flex flex-wrap gap-6 text-sm text-[#80938d]">
-            <a href="/#services">Services</a>
-            <Link href="/earn">Earn</Link>
-            <Link href="/pricing">Pricing</Link>
-            <a href="mailto:dropverseagency@gmail.com">Contact</a>
+          <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
+            <a href="/#services" className="hover:text-foreground">
+              Services
+            </a>
+            <Link href="/earn" className="hover:text-foreground">
+              Earn
+            </Link>
+            <Link href="/pricing" className="hover:text-foreground">
+              Pricing
+            </Link>
+            <a href="mailto:dropverseagency@gmail.com" className="hover:text-foreground">
+              Contact
+            </a>
           </div>
-          <p className="text-xs text-[#5f726c]">© 2026 DropVerse. All rights reserved.</p>
+          <p className="text-xs text-muted-foreground">© 2026 DropVerse. All rights reserved.</p>
         </div>
       </footer>
     </main>
