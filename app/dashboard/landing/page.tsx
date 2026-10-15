@@ -138,7 +138,13 @@ export default function AgencyLandingDashboardPage() {
     const json = await res.json()
     setSaving(false)
     if (!res.ok) {
-      setError(json.error || 'PUBLISH_FAILED')
+      const msg =
+        json.error === 'NO_PACKAGES'
+          ? 'Add active packages in Admin → Packages before publishing.'
+          : json.error === 'NO_SERVICES'
+            ? 'Select at least one service before publishing.'
+            : json.error || 'PUBLISH_FAILED'
+      setError(msg)
       return
     }
     setPublished(Boolean(json.published))
