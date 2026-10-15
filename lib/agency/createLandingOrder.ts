@@ -65,7 +65,18 @@ export async function createLandingPageOrder(input: LandingOrderInput) {
       .eq('idempotency_key', idempotencyKey)
       .maybeSingle()
     if (existing?.project_id) {
-      return { success: true as const, projectId: existing.project_id as string, duplicate: true as const }
+      const { data: existingProject } = await admin
+        .from('projects')
+        .select('client_price, currency')
+        .eq('id', existing.project_id)
+        .maybeSingle()
+      return {
+        success: true as const,
+        projectId: existing.project_id as string,
+        duplicate: true as const,
+        amount: Number(existingProject?.client_price || 0) || undefined,
+        currency: (existingProject?.currency as string) || 'USD',
+      }
     }
   }
 
@@ -117,6 +128,13 @@ export async function createLandingPageOrder(input: LandingOrderInput) {
     .filter(Boolean)
     .join('\n')
 
+  // Prefer SPACEREMIT when public key is configured; otherwise CLIENT_PAYS_DROPVERSE
+  // (valid CHECK value) so the order still enters the existing workflow.
+  const spaceremitPublic = (process.env.NEXT_PUBLIC_SPACEREMIT_PUBLIC_KEY || '').trim()
+  const useSpaceRemit = Boolean(spaceremitPublic) && !spaceremitPublic.startsWith('PLACEHOLDER')
+  const paymentMethod = useSpaceRemit ? 'SPACEREMIT' : 'CLIENT_PAYS_DROPVERSE'
+  const paymentProvider = useSpaceRemit ? 'SPACEREMIT' : null
+
   const projectRow: Record<string, unknown> = {
     user_id: org.owner_id,
     title,
@@ -127,7 +145,7 @@ export async function createLandingPageOrder(input: LandingOrderInput) {
     client_price: retailPrice,
     fulfillment_cost: fulfillmentCost,
     seller_profit: sellerProfit,
-    payment_method: 'SPACEREMIT',
+    payment_method: paymentMethod,
     payment_status: 'PAYMENT_PENDING',
     status: 'DRAFT',
     current_billing_period: 1,
@@ -135,7 +153,9 @@ export async function createLandingPageOrder(input: LandingOrderInput) {
     client_contact_email: customerEmail,
   }
 
-  const withOrg = { ...projectRow, organization_id: org.id, payment_provider: 'SPACEREMIT' }
+  const withOrg = paymentProvider
+    ? { ...projectRow, organization_id: org.id, payment_provider: paymentProvider }
+    : { ...projectRow, organization_id: org.id }
 
   let projectId: string | null = null
   {
@@ -170,6 +190,9 @@ export async function createLandingPageOrder(input: LandingOrderInput) {
 
   if (attrErr) {
     console.error('[agency-order] attribution failed', attrErr.code, attrErr.message)
+    // Avoid orphan projects without attribution (agency never sees them).
+    await admin.from('projects').delete().eq('id', projectId)
+    return { error: 'ATTRIBUTION_FAILED' as const }
   }
 
   await admin.from('audit_logs').insert({
