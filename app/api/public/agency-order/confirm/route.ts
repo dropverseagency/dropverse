@@ -10,6 +10,19 @@ import { type ProjectStatus } from '../../../../../lib/projectConfig'
 
 const SPACEREMIT_INFO = 'https://spaceremit.com/api/v2/payment_info/'
 
+const confirmHits = new Map<string, { count: number; resetAt: number }>()
+function confirmRateLimit(key: string): boolean {
+  const now = Date.now()
+  const row = confirmHits.get(key)
+  if (!row || now > row.resetAt) {
+    confirmHits.set(key, { count: 1, resetAt: now + 60_000 })
+    return true
+  }
+  if (row.count >= 20) return false
+  row.count += 1
+  return true
+}
+
 function admin() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,6 +32,14 @@ function admin() {
 }
 
 export async function POST(request: NextRequest) {
+  const ip =
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip') ||
+    'unknown'
+  if (!confirmRateLimit(`agency-confirm:${ip}`)) {
+    return NextResponse.json({ error: 'RATE_LIMITED' }, { status: 429 })
+  }
+
   const body = await request.json().catch(() => ({}))
   const projectId = String(body.projectId || '').trim()
   const paymentId = String(body.paymentId || '').trim()
@@ -116,7 +137,6 @@ export async function POST(request: NextRequest) {
       .from('projects')
       .update({ ...base, payment_confirmed_at: now })
       .eq('id', projectId)
-    // Fallback if payment_confirmed_at column is absent on this DB.
     if (upErr) {
       ;({ error: upErr } = await db.from('projects').update(base).eq('id', projectId))
     }
