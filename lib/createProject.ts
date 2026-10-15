@@ -44,18 +44,11 @@ export async function createProjectServer(draft: ProjectDraft) {
   const sellerProfit = computeSellerProfit(clientPrice, fulfillmentCost)
   const billingInterval = billingIntervalFor(draft.projectType)
 
-  // Live DB may only allow the original four payment_method values.
-  // International (Paddle) is stored as CLIENT_PAYS_DROPVERSE + payment_provider=PADDLE
-  // when a strict check constraint rejects 'PADDLE'.
+  // payment_method must match DB CHECK + TS PaymentMethod enum.
+  // External gateways stay behind NEXT_PUBLIC_PAYMENTS_ENABLED at the UI/API layer.
   const requestedMethod = draft.paymentMethod
-  const storedMethod =
-    requestedMethod === 'PADDLE' ? 'CLIENT_PAYS_DROPVERSE' : requestedMethod
-  const paymentProvider =
-    requestedMethod === 'PADDLE'
-      ? 'PADDLE'
-      : requestedMethod === 'SPACEREMIT'
-        ? 'SPACEREMIT'
-        : null
+  const storedMethod = requestedMethod
+  const paymentProvider = requestedMethod === 'SPACEREMIT' ? 'SPACEREMIT' : null
 
   const baseRow: Record<string, unknown> = {
     user_id: user.id,
@@ -95,19 +88,6 @@ export async function createProjectServer(draft: ProjectDraft) {
     const res = await supabase.from('projects').insert(baseRow).select('id').single()
     data = res.data
     insertError = res.error
-  }
-
-  // Retry with explicit PADDLE as payment_method if preferred by a newer schema.
-  if (insertError && requestedMethod === 'PADDLE') {
-    const res = await supabase
-      .from('projects')
-      .insert({ ...baseRow, payment_method: 'PADDLE' })
-      .select('id')
-      .single()
-    if (!res.error && res.data) {
-      data = res.data
-      insertError = null
-    }
   }
 
   if (insertError || !data?.id) {

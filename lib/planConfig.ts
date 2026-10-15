@@ -59,6 +59,7 @@ export const PLAN_CONFIG: PlanConfig[] = [
       'Partner referral tracking',
       'Shared digital asset library',
       'Basic workspace analytics',
+      'Branded agency landing page',
     ],
     limits: { analytics: 'basic' },
     enterprise: false,
@@ -80,6 +81,7 @@ export const PLAN_CONFIG: PlanConfig[] = [
       'Operational performance analytics',
       'Priority workspace support',
       'Advanced partner analytics',
+      'Branded agency landing page',
     ],
     limits: { analytics: 'advanced' },
     enterprise: false,
@@ -102,6 +104,7 @@ export const PLAN_CONFIG: PlanConfig[] = [
       'API & integration access',
       'Enterprise workspace infrastructure',
       'Custom software billing',
+      'Branded agency landing page',
     ],
     limits: { analytics: 'advanced' },
     enterprise: true,
@@ -127,11 +130,16 @@ export const TEAM_SIZES = ['1–5', '6–20', '21–50', '50+'] as const
 /** Minimum team headcount implied by a team-size option. */
 export function minTeamHeadcount(size: string): number {
   switch (size) {
-    case '1–5': return 1
-    case '6–20': return 6
-    case '21–50': return 21
-    case '50+': return 51
-    default: return 1
+    case '1–5':
+      return 1
+    case '6–20':
+      return 6
+    case '21–50':
+      return 21
+    case '50+':
+      return 51
+    default:
+      return 1
   }
 }
 
@@ -192,4 +200,12 @@ export function membersLabelFor(plan: PlanConfig): string {
   if (plan.maxMembers === null) return 'Unlimited team members'
   if (plan.maxMembers === 1) return '1 user'
   return `Up to ${plan.maxMembers} team members`
+}
+
+/** Plans that unlock agency branded landing pages (server-side entitlement). */
+export const AGENCY_LANDING_PLANS: readonly PlanId[] = ['AGENCY', 'AGENCY_PRO', 'ENTERPRISE'] as const
+
+export function planAllowsAgencyLanding(plan: string | null | undefined): boolean {
+  if (!plan) return false
+  return (AGENCY_LANDING_PLANS as readonly string[]).includes(plan)
 }

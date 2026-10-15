@@ -9,6 +9,8 @@ import PaymentsSection from '@/components/admin/sections/PaymentsSection'
 import AffiliatesSection from '@/components/admin/sections/AffiliatesSection'
 import CommissionsSection from '@/components/admin/sections/CommissionsSection'
 import ServicesSection from '@/components/admin/sections/ServicesSection'
+import PackagesSection from '@/components/admin/sections/PackagesSection'
+import AgencyLandingsSection from '@/components/admin/sections/AgencyLandingsSection'
 import FreelancersSection from '@/components/admin/sections/FreelancersSection'
 import AuditSection from '@/components/admin/sections/AuditSection'
 import SettingsSection from '@/components/admin/sections/SettingsSection'
@@ -22,6 +24,8 @@ const SECTION_TITLES: Record<string, string> = {
   affiliates: 'Affiliates & Referrals',
   commissions: 'Commission Ledger',
   services: 'Services Catalog',
+  packages: 'Service Packages',
+  'agency-landings': 'Agency Landings',
   freelancers: 'Freelancers',
   audit: 'Audit Logs',
   settings: 'Platform Settings',
@@ -32,7 +36,6 @@ export default function AdminRouter({ page }: { page: string }) {
 
   useEffect(() => {
     let cancelled = false
-    // Server-authorize: the overview endpoint only succeeds for admins.
     fetch('/api/admin/data?section=overview').then((r) => {
       if (cancelled) return
       if (r.status === 401 || r.status === 403) {
@@ -77,6 +80,8 @@ export default function AdminRouter({ page }: { page: string }) {
     case 'affiliates': section = <AffiliatesSection />; break
     case 'commissions': section = <CommissionsSection />; break
     case 'services': section = <ServicesSection />; break
+    case 'packages': section = <PackagesSection />; break
+    case 'agency-landings': section = <AgencyLandingsSection />; break
     case 'freelancers': section = <FreelancersSection />; break
     case 'audit': section = <AuditSection />; break
     case 'settings': section = <SettingsSection />; break

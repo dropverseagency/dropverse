@@ -1,0 +1,89 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+
+type OrderRow = {
+  projectId: string
+  title: string
+  status: string
+  paymentStatus: string
+  retailPrice: number
+  currency: string
+  customerName: string | null
+  customerEmail: string | null
+  createdAt: string
+}
+
+/** Displays agency landing orders without fulfillment costs. */
+export default function AgencyLandingOrders({ organizationId }: { organizationId: string }) {
+  const [orders, setOrders] = useState<OrderRow[]>([])
+  const [summary, setSummary] = useState<{
+    orderCount: number
+    totalRetail: number
+    confirmedCount: number
+    confirmedRetail: number
+  } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const res = await fetch(`/api/agency/orders?organizationId=${encodeURIComponent(organizationId)}`)
+      const json = await res.json().catch(() => ({}))
+      if (cancelled) return
+      if (!res.ok) {
+        setError(json.error || 'LOAD_FAILED')
+        return
+      }
+      setOrders(json.orders || [])
+      if (json.summary) setSummary(json.summary)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [organizationId])
+
+  return (
+    <section className="card rounded-3xl p-6">
+      <h2 className="font-display font-bold">Landing page orders</h2>
+      <p className="mt-1 text-xs text-[#849792]">Retail amounts only. Fulfillment costs are not shown.</p>
+      {summary ? (
+        <div className="mt-3 grid gap-2 sm:grid-cols-3 text-xs text-[#9aaca6]">
+          <div className="rounded-xl border border-white/10 px-3 py-2">
+            Orders <span className="block text-sm font-semibold text-[#d9e0dc]">{summary.orderCount}</span>
+          </div>
+          <div className="rounded-xl border border-white/10 px-3 py-2">
+            Retail total{' '}
+            <span className="block text-sm font-semibold text-[#d9e0dc]">{summary.totalRetail.toLocaleString()}</span>
+          </div>
+          <div className="rounded-xl border border-white/10 px-3 py-2">
+            Confirmed{' '}
+            <span className="block text-sm font-semibold text-[#d9e0dc]">
+              {summary.confirmedCount} · {summary.confirmedRetail.toLocaleString()}
+            </span>
+          </div>
+        </div>
+      ) : null}
+      {error ? <p className="mt-3 text-sm text-red-300">{error}</p> : null}
+      <div className="mt-4 space-y-2">
+        {orders.length === 0 ? (
+          <p className="text-sm text-[#849792]">No orders through this page yet.</p>
+        ) : (
+          orders.map((o) => (
+            <div key={o.projectId} className="rounded-xl border border-white/10 px-3 py-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-semibold text-[#d9e0dc]">{o.title}</span>
+                <span className="text-xs text-[#849792]">
+                  {o.currency} {Number(o.retailPrice).toLocaleString()} · {o.paymentStatus}
+                </span>
+              </div>
+              <div className="mt-1 text-xs text-[#7f918c]">
+                {o.customerName || 'Customer'} · {o.customerEmail || '—'} · {o.status}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  )
+}
