@@ -17,6 +17,12 @@ type OrderRow = {
 /** Displays agency landing orders without fulfillment costs. */
 export default function AgencyLandingOrders({ organizationId }: { organizationId: string }) {
   const [orders, setOrders] = useState<OrderRow[]>([])
+  const [summary, setSummary] = useState<{
+    orderCount: number
+    totalRetail: number
+    confirmedCount: number
+    confirmedRetail: number
+  } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -30,6 +36,7 @@ export default function AgencyLandingOrders({ organizationId }: { organizationId
         return
       }
       setOrders(json.orders || [])
+      if (json.summary) setSummary(json.summary)
     })()
     return () => {
       cancelled = true
@@ -40,6 +47,23 @@ export default function AgencyLandingOrders({ organizationId }: { organizationId
     <section className="card rounded-3xl p-6">
       <h2 className="font-display font-bold">Landing page orders</h2>
       <p className="mt-1 text-xs text-[#849792]">Retail amounts only. Fulfillment costs are not shown.</p>
+      {summary ? (
+        <div className="mt-3 grid gap-2 sm:grid-cols-3 text-xs text-[#9aaca6]">
+          <div className="rounded-xl border border-white/10 px-3 py-2">
+            Orders <span className="block text-sm font-semibold text-[#d9e0dc]">{summary.orderCount}</span>
+          </div>
+          <div className="rounded-xl border border-white/10 px-3 py-2">
+            Retail total{' '}
+            <span className="block text-sm font-semibold text-[#d9e0dc]">{summary.totalRetail.toLocaleString()}</span>
+          </div>
+          <div className="rounded-xl border border-white/10 px-3 py-2">
+            Confirmed{' '}
+            <span className="block text-sm font-semibold text-[#d9e0dc]">
+              {summary.confirmedCount} · {summary.confirmedRetail.toLocaleString()}
+            </span>
+          </div>
+        </div>
+      ) : null}
       {error ? <p className="mt-3 text-sm text-red-300">{error}</p> : null}
       <div className="mt-4 space-y-2">
         {orders.length === 0 ? (
