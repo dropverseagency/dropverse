@@ -125,7 +125,10 @@ export default function AgencyPublicLandingPage() {
     <main className="min-h-screen bg-[#061916] text-[#e8eeeb]">
       <header className="border-b border-white/5 px-5 py-6">
         <div className="mx-auto flex max-w-4xl items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold" style={{ background: accent, color: '#10221f' }}>
+          <span
+            className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold"
+            style={{ background: accent, color: '#10221f' }}
+          >
             {page.display_name.slice(0, 1).toUpperCase()}
           </span>
           <div>
@@ -179,19 +182,57 @@ export default function AgencyPublicLandingPage() {
                   ? `${selected.serviceTitle} — ${selected.name} (${selected.currency} ${selected.retail_price})`
                   : 'Choose a package'}
               </div>
-              <input required className="rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm" placeholder="Name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
-              <input required type="email" className="rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm" placeholder="Email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} />
-              <input className="rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm sm:col-span-2" placeholder="Phone (optional)" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
-              <input required className="rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm sm:col-span-2" placeholder="Project title" value={briefTitle} onChange={(e) => setBriefTitle(e.target.value)} />
-              <textarea required rows={4} className="rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm sm:col-span-2" placeholder="Brief" value={briefNotes} onChange={(e) => setBriefNotes(e.target.value)} />
+              <input
+                required
+                className="rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm"
+                placeholder="Name"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+              />
+              <input
+                required
+                type="email"
+                className="rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm"
+                placeholder="Email"
+                value={customerEmail}
+                onChange={(e) => setCustomerEmail(e.target.value)}
+              />
+              <input
+                className="rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm sm:col-span-2"
+                placeholder="Phone (optional)"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+              />
+              <input
+                required
+                className="rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm sm:col-span-2"
+                placeholder="Project title"
+                value={briefTitle}
+                onChange={(e) => setBriefTitle(e.target.value)}
+              />
+              <textarea
+                required
+                rows={4}
+                className="rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm sm:col-span-2"
+                placeholder="Brief"
+                value={briefNotes}
+                onChange={(e) => setBriefNotes(e.target.value)}
+              />
               {formError ? <p className="text-sm text-red-300 sm:col-span-2">{formError}</p> : null}
-              <button type="submit" disabled={submitting || !packageId} className="sm:col-span-2 rounded-full px-6 py-3 text-sm font-bold text-[#10221f] disabled:opacity-50" style={{ background: accent }}>
+              <button
+                type="submit"
+                disabled={submitting || !packageId}
+                className="sm:col-span-2 rounded-full px-6 py-3 text-sm font-bold text-[#10221f] disabled:opacity-50"
+                style={{ background: accent }}
+              >
                 {submitting ? 'Submitting…' : 'Submit order'}
               </button>
             </form>
           ) : (
             <div className="mt-6 space-y-4">
-              <p className="text-sm text-[#9fd8a4]">Order received ({orderResult.projectId.slice(0, 8)}…). Payment pending.</p>
+              <p className="text-sm text-[#9fd8a4]">
+                Order received ({orderResult.projectId.slice(0, 8)}…). Payment pending.
+              </p>
               {orderResult.paymentsConfigured && orderResult.spaceremitPublicKey ? (
                 <SpaceRemitPayForm
                   amount={orderResult.amount}
@@ -200,14 +241,28 @@ export default function AgencyPublicLandingPage() {
                   email={customerEmail}
                   phone={customerPhone}
                   publicKey={orderResult.spaceremitPublicKey}
-                  onPaid={() => {
-                    /* confirmation is server-side only */
+                  onPaid={async (code) => {
+                    const res = await fetch('/api/public/agency-order/confirm', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        projectId: orderResult.projectId,
+                        paymentId: code,
+                        customerEmail,
+                      }),
+                    })
+                    const json = await res.json().catch(() => ({}))
+                    if (!res.ok) setFormError(json.error || 'Could not verify payment yet')
+                    else if (!json.confirmed)
+                      setFormError(json.message || 'Payment reference saved; awaiting confirmation')
+                    else setFormError(null)
                   }}
                   submitLabel="Pay DropVerse →"
                 />
               ) : (
                 <p className="rounded-xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] px-4 py-3 text-sm text-[#e4c979]">
-                  Online payment is not configured here. DropVerse will contact {customerEmail}. Order remains payment pending.
+                  Online payment is not configured here. DropVerse will contact {customerEmail}. Order remains
+                  payment pending.
                 </p>
               )}
             </div>
