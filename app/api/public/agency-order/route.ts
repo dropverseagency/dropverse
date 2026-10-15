@@ -36,15 +36,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: result.error }, { status: map[result.error] || 400 })
   }
 
+  // Duplicate idempotent responses may only include projectId.
+  const amount = 'amount' in result ? result.amount : null
+  const currency = 'currency' in result ? result.currency : 'USD'
+  const packageName = 'packageName' in result ? result.packageName : null
+  const serviceTitle = 'serviceTitle' in result ? result.serviceTitle : null
+  const agencyName = 'agencyName' in result ? result.agencyName : null
+
   return NextResponse.json({
     success: true,
     projectId: result.projectId,
-    amount: result.amount,
-    currency: result.currency,
-    packageName: result.packageName,
-    serviceTitle: result.serviceTitle,
-    agencyName: result.agencyName,
+    amount,
+    currency,
+    packageName,
+    serviceTitle,
+    agencyName,
     paymentStatus: 'PAYMENT_PENDING',
+    duplicate: 'duplicate' in result ? Boolean(result.duplicate) : false,
     spaceremitPublicKey: process.env.NEXT_PUBLIC_SPACEREMIT_PUBLIC_KEY || null,
     paymentsConfigured: Boolean(process.env.NEXT_PUBLIC_SPACEREMIT_PUBLIC_KEY),
   })
