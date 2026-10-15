@@ -1,7 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createLandingPageOrder } from '../../../../lib/agency/createLandingOrder'
 
+/** Simple in-memory rate limit (per serverless instance). Best-effort only. */
+const hits = new Map<string, { count: number; resetAt: number }>()
+const WINDOW_MS = 60_000
+const MAX_PER_WINDOW = 12
+
+function rateLimit(key: string): boolean {
+  const now = Date.now()
+  const row = hits.get(key)
+  if (!row || now > row.resetAt) {
+    hits.set(key, { count: 1, resetAt: now + WINDOW_MS })
+    return true
+  }
+  if (row.count >= MAX_PER_WINDOW) return false
+  row.count += 1
+  return true
+}
+
+function sanitizeText(value: string, max: number): string {
+  return value
+    .replace(/<[^>]*>/g, '')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .trim()
+    .slice(0, max)
+}
+
 export async function POST(request: NextRequest) {
+  const ip =
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip') ||
+    'unknown'
+  if (!rateLimit(`agency-order:${ip}`)) {
+    return NextResponse.json({ error: 'RATE_LIMITED' }, { status: 429 })
+  }
+
   const body = await request.json().catch(() => ({}))
   const idempotencyKey =
     request.headers.get('idempotency-key') ||
@@ -10,12 +43,12 @@ export async function POST(request: NextRequest) {
   const result = await createLandingPageOrder({
     slug: String(body.slug || ''),
     packageId: String(body.packageId || ''),
-    customerName: String(body.customerName || ''),
-    customerEmail: String(body.customerEmail || ''),
-    customerPhone: body.customerPhone ? String(body.customerPhone) : undefined,
-    briefTitle: String(body.briefTitle || ''),
-    briefNotes: String(body.briefNotes || ''),
-    idempotencyKey,
+    customerName: sanitizeText(String(body.customerName || ''), 120),
+    customerEmail: String(body.customerEmail || '').trim().toLowerCase().slice(0, 254),
+    customerPhone: body.customerPhone ? sanitizeText(String(body.customerPhone), 40) : undefined,
+    briefTitle: sanitizeText(String(body.briefTitle || ''), 200),
+    briefNotes: sanitizeText(String(body.briefNotes || ''), 4000),
+    idempotencyKey: idempotencyKey ? String(idempotencyKey).slice(0, 80) : undefined,
   })
 
   if ('error' in result && result.error) {
@@ -31,12 +64,12 @@ export async function POST(request: NextRequest) {
       PACKAGE_NOT_ON_PAGE: 400,
       SERVICE_INACTIVE: 400,
       INVALID_PRICE: 400,
+      ATTRIBUTION_FAILED: 500,
       DB_ERROR: 500,
     }
     return NextResponse.json({ error: result.error }, { status: map[result.error] || 400 })
   }
 
-  // Duplicate idempotent responses may only include projectId.
   const amount = 'amount' in result ? result.amount : null
   const currency = 'currency' in result ? result.currency : 'USD'
   const packageName = 'packageName' in result ? result.packageName : null
