@@ -14,6 +14,7 @@ export const ADMIN_SECTIONS = [
   { id: 'projects', label: 'Projects', group: 'Work', icon: FolderKanban },
   { id: 'payments', label: 'Payments', group: 'Work', icon: CreditCard },
   { id: 'services', label: 'Services', group: 'Work', icon: Package },
+  { id: 'packages', label: 'Packages', group: 'Work', icon: Package },
   { id: 'freelancers', label: 'Freelancers', group: 'Work', icon: Wrench },
   { id: 'users', label: 'Users', group: 'People', icon: Users },
   { id: 'agencies', label: 'Agencies', group: 'People', icon: Briefcase },
