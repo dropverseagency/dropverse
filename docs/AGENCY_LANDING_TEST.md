@@ -14,6 +14,8 @@
 3. Set a test organization `plan` to `AGENCY`, `AGENCY_PRO`, or `ENTERPRISE`
 4. Ensure the test user is `organization_members.role` = `OWNER` or `ADMIN` with `status` = `active`
 
+Optional SQL template: `supabase/seeds/agency_landing_packages.example.sql`
+
 ## Agency flow
 1. Sign in → dashboard should show **Agency landing page** entry (eligible plans only)
 2. Open `/dashboard/landing`
@@ -31,6 +33,8 @@
 - If SpaceRemit keys are **present**: widget can run; confirm API matches **retail** `client_price`, not fulfillment cost
 
 ## Negative checks
+- Publish without packages: API returns `NO_PACKAGES`
+- More than ~12 orders/minute from one IP: `RATE_LIMITED` (best-effort per instance)
 - Org on SOLO/TEAM plan: `/dashboard/landing` shows upgrade; APIs return `PLAN_REQUIRED`
 - Unpublished page: `/a/{slug}` → not found
 - Package not linked to page services: order API rejects
