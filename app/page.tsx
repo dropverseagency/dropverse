@@ -7,6 +7,7 @@ import { ArrowRight, Check, ChevronRight, Menu, Play, Sparkles, Users, Zap, Glob
 import { createClient } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
 import { ctaFor } from '../lib/authCta'
+import Brand from '../components/Brand'
 import DodoSampleCheckout from '../components/DodoSampleCheckout'
 
 const fallbackServices = [
