@@ -142,6 +142,11 @@ export default function AgencyPublicLandingPage() {
           {page.headline || page.display_name}
         </h1>
         {page.description ? <p className="mt-4 text-sm text-[#aebcb7]">{page.description}</p> : null}
+        {page.services.every((s) => !s.packages.length) ? (
+          <p className="mt-8 rounded-2xl border border-white/10 bg-[#0c2420] px-4 py-6 text-sm text-[#849792]">
+            No sellable packages are available on this page yet. Please check back soon.
+          </p>
+        ) : null}
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
           {page.services.map((s) => (
             <div key={s.id} className="rounded-2xl border border-white/10 bg-[#0c2420] p-5">
