@@ -13,7 +13,7 @@ export function paddleApiBase() {
 
 export function paddleClientTokenConfigured() {
   const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || ''
-  return Boolean(token) && !token.startsWith('ضع_هنا_') && !token.startsWith('YOUR_') && !token.includes('placeholder')
+  return Boolean(token) && !token.startsWith('\u0648\u0636\u0639_\u0647\u0646\u0627_') && !token.startsWith('YOUR_') && !token.includes('placeholder')
 }
 
 /**
@@ -48,8 +48,11 @@ export function getPaddleClient(): Promise<PaddleLike | undefined> {
   if (!paddlePromise) {
     paddlePromise = (async () => {
       try {
-        // Optional dependency — do not hard-fail the app bundle if missing.
-        const mod = await import('@paddle/paddle-js').catch(() => null)
+        // Optional dependency — ignore at webpack build time if package is not installed.
+        const mod = await import(
+          /* webpackIgnore: true */
+          '@paddle/paddle-js'
+        ).catch(() => null)
         if (!mod?.initializePaddle) return undefined
         const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || ''
         const paddle = await mod.initializePaddle({
