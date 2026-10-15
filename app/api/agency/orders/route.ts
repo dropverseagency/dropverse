@@ -59,5 +59,18 @@ export async function GET(request: NextRequest) {
     }
   })
 
-  return NextResponse.json({ orders })
+  const totalRetail = orders.reduce((s, o) => s + Number(o.retailPrice || 0), 0)
+  const confirmed = orders.filter((o) => o.paymentStatus === 'PAYMENT_CONFIRMED')
+  const confirmedRetail = confirmed.reduce((s, o) => s + Number(o.retailPrice || 0), 0)
+
+  return NextResponse.json({
+    orders,
+    summary: {
+      orderCount: orders.length,
+      totalRetail: Math.round(totalRetail * 100) / 100,
+      confirmedCount: confirmed.length,
+      confirmedRetail: Math.round(confirmedRetail * 100) / 100,
+      // Fulfillment costs intentionally omitted for agency clients
+    },
+  })
 }
