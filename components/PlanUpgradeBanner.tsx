@@ -74,7 +74,7 @@ export default function PlanUpgradeBanner({ orgs, activeOrgId, sessionToken }: P
       if (!response.ok) throw new Error(payload.error || 'Unable to start international checkout.')
       const paddle = await getPaddleClient()
       if (paddle && payload.transactionId) {
-        paddle.Checkout.open({
+        paddle.Checkout?.open({
           transactionId: payload.transactionId,
           settings: { displayMode: 'overlay', variant: 'one-page', theme: 'dark' },
         })
