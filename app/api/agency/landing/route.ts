@@ -196,17 +196,37 @@ export async function POST(request: NextRequest) {
   if (!page) return NextResponse.json({ error: 'PAGE_MISSING' }, { status: 404 })
 
   if (action === 'publish') {
-    const { count } = await supabase
+    const { data: links } = await supabase
       .from('agency_landing_page_services')
-      .select('service_id', { count: 'exact', head: true })
+      .select('service_id')
       .eq('page_id', page.id)
-    if (!count) return NextResponse.json({ error: 'NO_SERVICES' }, { status: 400 })
+    const serviceIds = (links || []).map((l) => l.service_id)
+    if (!serviceIds.length) {
+      return NextResponse.json({ error: 'NO_SERVICES' }, { status: 400 })
+    }
+
+    // Require at least one active retail package on selected services.
+    const { data: pkgs } = await supabase
+      .from('service_packages')
+      .select('id')
+      .in('service_id', serviceIds)
+      .eq('active', true)
+      .limit(1)
+    if (!pkgs?.length) {
+      return NextResponse.json(
+        { error: 'NO_PACKAGES', message: 'Add active packages in Admin → Packages before publishing.' },
+        { status: 400 },
+      )
+    }
   }
 
-  const { error } = await supabase
-    .from('agency_landing_pages')
-    .update({ published: action === 'publish', updated_at: new Date().toISOString() })
-    .eq('id', page.id)
+  const now = new Date().toISOString()
+  const patch =
+    action === 'publish'
+      ? { published: true, published_at: now, updated_at: now }
+      : { published: false, updated_at: now }
+
+  const { error } = await supabase.from('agency_landing_pages').update(patch).eq('id', page.id)
 
   if (error) return NextResponse.json({ error: 'UPDATE_FAILED' }, { status: 500 })
   return NextResponse.json({ ok: true, published: action === 'publish', slug: page.slug })
