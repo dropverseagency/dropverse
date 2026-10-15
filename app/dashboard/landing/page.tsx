@@ -6,6 +6,7 @@ import { ArrowLeft, Check, Copy, ExternalLink, Globe, Save } from 'lucide-react'
 import { createClient } from '../../../lib/supabase'
 import { type OrgRow } from '../../../lib/orgs'
 import { planById } from '../../../lib/planConfig'
+import AgencyLandingOrders from '../../../components/AgencyLandingOrders'
 
 type Svc = { id: string; title: string; slug: string; description: string }
 
@@ -39,7 +40,9 @@ export default function AgencyLandingDashboardPage() {
       }
       const { data: orgRows } = await supabase
         .from('organizations')
-        .select('id, name, slug, type, plan, owner_id, logo_url, description, industry, team_size, status, created_at, updated_at')
+        .select(
+          'id, name, slug, type, plan, owner_id, logo_url, description, industry, team_size, status, created_at, updated_at',
+        )
         .eq('status', 'active')
         .order('created_at', { ascending: false })
       if (cancelled) return
@@ -180,12 +183,43 @@ export default function AgencyLandingDashboardPage() {
         ) : (
           <div className="mt-8 space-y-4">
             <div className="card rounded-3xl p-6 space-y-3">
-              <input className="w-full rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name" />
-              <input className="w-full rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm font-mono" value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase())} placeholder="slug" />
-              <input className="w-full rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm font-mono" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} placeholder="#e2b656" />
-              <input className="w-full rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm" value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder="Headline" />
-              <textarea className="w-full rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" />
-              <input className="w-full rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="Logo URL" />
+              <input
+                className="w-full rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Display name"
+              />
+              <input
+                className="w-full rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm font-mono"
+                value={slug}
+                onChange={(e) => setSlug(e.target.value.toLowerCase())}
+                placeholder="slug"
+              />
+              <input
+                className="w-full rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm font-mono"
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                placeholder="#e2b656"
+              />
+              <input
+                className="w-full rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm"
+                value={headline}
+                onChange={(e) => setHeadline(e.target.value)}
+                placeholder="Headline"
+              />
+              <textarea
+                className="w-full rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm"
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Description"
+              />
+              <input
+                className="w-full rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm"
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                placeholder="Logo URL"
+              />
             </div>
             <div className="card rounded-3xl p-6 space-y-2">
               <h2 className="font-display font-bold">Services</h2>
@@ -203,18 +237,37 @@ export default function AgencyLandingDashboardPage() {
               ))}
             </div>
             <div className="flex flex-wrap gap-3">
-              <button type="button" disabled={saving} onClick={save} className="inline-flex items-center gap-2 rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f]">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={save}
+                className="inline-flex items-center gap-2 rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f]"
+              >
                 <Save size={16} /> Save
               </button>
-              <button type="button" disabled={saving} onClick={togglePublish} className="rounded-full border border-[rgba(216,180,90,0.4)] px-5 py-2.5 text-sm font-bold text-[#e4c979]">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={togglePublish}
+                className="rounded-full border border-[rgba(216,180,90,0.4)] px-5 py-2.5 text-sm font-bold text-[#e4c979]"
+              >
                 {published ? 'Unpublish' : 'Publish'}
               </button>
               {published && publicUrl ? (
                 <>
-                  <a href={publicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-[#d8b45a]">
+                  <a
+                    href={publicUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-[#d8b45a]"
+                  >
                     Open <ExternalLink size={14} />
                   </a>
-                  <button type="button" onClick={() => navigator.clipboard.writeText(publicUrl)} className="inline-flex items-center gap-1 text-sm text-[#9aaca6]">
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(publicUrl)}
+                    className="inline-flex items-center gap-1 text-sm text-[#9aaca6]"
+                  >
                     <Copy size={14} /> Copy
                   </button>
                 </>
@@ -226,6 +279,7 @@ export default function AgencyLandingDashboardPage() {
               ) : null}
             </div>
             {error ? <p className="text-sm text-red-300">{error}</p> : null}
+            {orgId ? <AgencyLandingOrders organizationId={orgId} /> : null}
           </div>
         )}
       </div>
