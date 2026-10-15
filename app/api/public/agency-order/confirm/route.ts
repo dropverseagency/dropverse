@@ -106,15 +106,25 @@ export async function POST(request: NextRequest) {
   const nextStatus =
     status === 'DRAFT' || status === 'PAYMENT_PENDING' || status === 'PAST_DUE' ? 'PAYMENT_CONFIRMED' : status
 
-  await db
-    .from('projects')
-    .update({
-      payment_status: 'PAYMENT_CONFIRMED',
+  {
+    const base = {
+      payment_status: 'PAYMENT_CONFIRMED' as const,
       spaceremit_payment_id: paymentId,
       status: nextStatus,
-      payment_confirmed_at: now,
-    })
-    .eq('id', projectId)
+    }
+    let { error: upErr } = await db
+      .from('projects')
+      .update({ ...base, payment_confirmed_at: now })
+      .eq('id', projectId)
+    // Fallback if payment_confirmed_at column is absent on this DB.
+    if (upErr) {
+      ;({ error: upErr } = await db.from('projects').update(base).eq('id', projectId))
+    }
+    if (upErr) {
+      console.error('[agency-confirm] update failed', upErr.message)
+      return NextResponse.json({ error: 'UPDATE_FAILED' }, { status: 500 })
+    }
+  }
 
   await db.from('audit_logs').insert({
     actor_id: null,
