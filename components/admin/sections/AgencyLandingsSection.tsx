@@ -24,6 +24,16 @@ type OrderRow = {
 export default function AgencyLandingsSection() {
   const [pages, setPages] = useState<PageRow[]>([])
   const [orders, setOrders] = useState<OrderRow[]>([])
+  const [margins, setMargins] = useState<{
+    totals: {
+      retail: number
+      fulfillmentCost: number
+      grossMargin: number
+      confirmedRetail: number
+      confirmedMargin: number
+      orderCount: number
+    }
+  } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -40,6 +50,11 @@ export default function AgencyLandingsSection() {
       }
       setPages(json.pages || [])
       setOrders(json.recentOrders || [])
+      const mRes = await fetch('/api/admin/agency-margins?limit=50')
+      if (mRes.ok) {
+        const mJson = await mRes.json()
+        if (!cancelled) setMargins({ totals: mJson.totals })
+      }
     })()
     return () => {
       cancelled = true
@@ -49,6 +64,37 @@ export default function AgencyLandingsSection() {
   return (
     <div className="space-y-6">
       {loading || error ? <LoadingOrError loading={loading} error={error} /> : null}
+
+      {margins?.totals ? (
+        <Card title="Agency order margins (admin only)">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-sm">
+            <div>
+              <div className="text-xs text-[#849792]">Orders</div>
+              <div className="font-semibold text-[#d9e0dc]">{margins.totals.orderCount}</div>
+            </div>
+            <div>
+              <div className="text-xs text-[#849792]">Retail</div>
+              <div className="font-semibold text-[#d9e0dc]">{margins.totals.retail.toLocaleString()}</div>
+            </div>
+            <div>
+              <div className="text-xs text-[#849792]">Fulfillment cost</div>
+              <div className="font-semibold text-[#d9e0dc]">
+                {margins.totals.fulfillmentCost.toLocaleString()}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-[#849792]">Gross margin</div>
+              <div className="font-semibold text-[#e4c979]">
+                {margins.totals.grossMargin.toLocaleString()}
+              </div>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-[#7f918c]">
+            Confirmed retail {margins.totals.confirmedRetail.toLocaleString()} · confirmed margin{' '}
+            {margins.totals.confirmedMargin.toLocaleString()}. Never shown to agencies.
+          </p>
+        </Card>
+      ) : null}
 
       <Card title="Agency landing pages">
         <p className="mb-4 text-sm text-[#8fa29c]">
