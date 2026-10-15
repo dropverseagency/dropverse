@@ -1,6 +1,6 @@
 'use client'
-import { useState } from 'react'
-import { Card, LoadingOrError, adminMutate, useAdminData } from '@/components/admin/shared'
+import { useEffect, useState } from 'react'
+import { Card, LoadingOrError } from '@/components/admin/shared'
 
 type PackageRow = {
   id: string
@@ -14,42 +14,70 @@ type PackageRow = {
   active: boolean
 }
 
-type ServiceRow = {
-  id: string
-  title: string
-  active: boolean
-}
+type ServiceRow = { id: string; title: string; active: boolean }
 
 export default function PackagesSection() {
-  const { data, loading, error } = useAdminData('packages')
-  const services = useAdminData('services')
+  const [rows, setRows] = useState<PackageRow[]>([])
+  const [serviceRows, setServiceRows] = useState<ServiceRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [serviceId, setServiceId] = useState('')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [retailPrice, setRetailPrice] = useState('99')
   const [busy, setBusy] = useState(false)
 
-  const rows = (data?.rows as PackageRow[] | undefined) ?? []
-  const serviceRows = (services.data?.rows as ServiceRow[] | undefined) ?? []
+  async function load() {
+    setLoading(true)
+    setError(null)
+    const res = await fetch('/api/admin/packages')
+    const json = await res.json().catch(() => ({}))
+    setLoading(false)
+    if (!res.ok) {
+      setError(json.error || 'LOAD_FAILED')
+      return
+    }
+    setRows(json.rows || [])
+    setServiceRows(json.services || [])
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
 
   async function createPackage() {
     setBusy(true)
-    const res = await adminMutate('create_package', {
-      serviceId,
-      name,
-      description,
-      retailPrice: Number(retailPrice) || 0,
-      active: true,
+    const res = await fetch('/api/admin/packages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        serviceId,
+        name,
+        description,
+        retailPrice: Number(retailPrice) || 0,
+        active: true,
+      }),
     })
+    const json = await res.json().catch(() => ({}))
     setBusy(false)
-    if (res.error) alert(String(res.error))
-    else window.location.reload()
+    if (!res.ok || json.error) {
+      alert(String(json.error || 'CREATE_FAILED'))
+      return
+    }
+    setName('')
+    setDescription('')
+    await load()
   }
 
   async function toggle(pkg: PackageRow) {
-    const res = await adminMutate('update_package', { packageId: pkg.id, active: !pkg.active })
-    if (res.error) alert(String(res.error))
-    else window.location.reload()
+    const res = await fetch('/api/admin/packages', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ packageId: pkg.id, active: !pkg.active }),
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok || json.error) alert(String(json.error || 'UPDATE_FAILED'))
+    else await load()
   }
 
   return (
@@ -58,8 +86,8 @@ export default function PackagesSection() {
 
       <Card title="Create retail package">
         <p className="mb-4 text-sm text-[#8fa29c]">
-          Packages are DropVerse-managed retail SKUs shown on agency landing pages. Agencies select services only;
-          they cannot set package prices.
+          Packages are DropVerse-managed retail SKUs on agency landing pages. Agencies choose services only; they
+          cannot set package prices.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <select
@@ -111,7 +139,7 @@ export default function PackagesSection() {
         <div className="space-y-2">
           {rows.length === 0 ? (
             <p className="text-sm text-[#849792]">
-              No packages yet. Create one after the agency landing migration is applied.
+              No packages yet. Apply the agency landing migration, then create packages here.
             </p>
           ) : (
             rows.map((pkg) => (
