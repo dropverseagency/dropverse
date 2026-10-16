@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { Paperclip, X } from 'lucide-react'
 import SpaceRemitPayForm from '../../../components/SpaceRemitPayForm'
 
 type Pkg = { id: string; name: string; description: string; retail_price: number; currency: string }
@@ -30,6 +31,9 @@ export default function AgencyPublicLandingPage() {
   const [briefNotes, setBriefNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [payMsg, setPayMsg] = useState<string | null>(null)
+  const [attachments, setAttachments] = useState<{ url: string; name: string }[]>([])
+  const [uploading, setUploading] = useState(false)
   const [orderResult, setOrderResult] = useState<{
     projectId: string
     amount: number
@@ -70,11 +74,26 @@ export default function AgencyPublicLandingPage() {
     return null
   }, [page, packageId])
 
+  async function uploadBriefFile(file: File) {
+    if (attachments.length >= 5) { setFormError('Maximum 5 files'); return }
+    setUploading(true); setFormError(null)
+    try {
+      const body = new FormData()
+      body.append('slug', slug)
+      body.append('file', file)
+      const res = await fetch('/api/public/agency-order/upload', { method: 'POST', body })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) { setFormError(json.error || 'Upload failed'); return }
+      setAttachments((prev) => [...prev, { url: String(json.url), name: String(json.name || file.name) }])
+    } finally { setUploading(false) }
+  }
+
   async function submitOrder(e: React.FormEvent) {
     e.preventDefault()
     if (submitting) return
     setSubmitting(true)
     setFormError(null)
+    setPayMsg(null)
     const idempotencyKey =
       typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`
     const res = await fetch('/api/public/agency-order', {
@@ -88,6 +107,7 @@ export default function AgencyPublicLandingPage() {
         customerPhone,
         briefTitle,
         briefNotes,
+        attachmentUrls: attachments.map((a) => a.url),
         idempotencyKey,
       }),
     })
@@ -125,12 +145,14 @@ export default function AgencyPublicLandingPage() {
     <main className="min-h-screen bg-[#061916] text-[#e8eeeb]">
       <header className="border-b border-white/5 px-5 py-6">
         <div className="mx-auto flex max-w-4xl items-center gap-3">
-          <span
-            className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold"
-            style={{ background: accent, color: '#10221f' }}
-          >
-            {page.display_name.slice(0, 1).toUpperCase()}
-          </span>
+          {page.logo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={page.logo_url} alt={page.display_name} className="h-10 w-10 rounded-full border border-white/10 object-cover" />
+          ) : (
+            <span className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold" style={{ background: accent, color: '#10221f' }}>
+              {page.display_name.slice(0, 1).toUpperCase()}
+            </span>
+          )}
           <div>
             <div className="font-display text-lg font-extrabold">{page.display_name}</div>
             <div className="text-xs text-[#849792]">Services fulfilled by DropVerse</div>
@@ -223,20 +245,36 @@ export default function AgencyPublicLandingPage() {
                 value={briefNotes}
                 onChange={(e) => setBriefNotes(e.target.value)}
               />
+              <div className="sm:col-span-2 rounded-2xl border border-white/10 p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">Work files (optional, max 5)</p>
+                  <label className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-[#e4c979]">
+                    <Paperclip size={14} />{uploading ? 'Uploading…' : 'Add files'}
+                    <input type="file" className="hidden" disabled={uploading || attachments.length >= 5} accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.ppt,.pptx,.txt,.mp4,image/*,application/pdf" onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadBriefFile(f); e.target.value = '' }} />
+                  </label>
+                </div>
+                {attachments.map((a) => (
+                  <div key={a.url} className="mt-2 flex items-center justify-between gap-2 text-xs">
+                    <a href={a.url} target="_blank" rel="noreferrer" className="truncate hover:underline">{a.name}</a>
+                    <button type="button" onClick={() => setAttachments((p) => p.filter((x) => x.url !== a.url))}><X size={14} /></button>
+                  </div>
+                ))}
+              </div>
+
               {formError ? <p className="text-sm text-red-300 sm:col-span-2">{formError}</p> : null}
               <button
                 type="submit"
-                disabled={submitting || !packageId}
+                disabled={submitting || !packageId || uploading}
                 className="sm:col-span-2 rounded-full px-6 py-3 text-sm font-bold text-[#10221f] disabled:opacity-50"
                 style={{ background: accent }}
               >
-                {submitting ? 'Submitting…' : 'Submit order'}
+                {submitting ? 'Submitting…' : 'Submit order & pay'}
               </button>
             </form>
           ) : (
             <div className="mt-6 space-y-4">
               <p className="text-sm text-[#9fd8a4]">
-                Order received ({orderResult.projectId.slice(0, 8)}…). Payment pending.
+                Order received ({orderResult.projectId.slice(0, 8)}…). Pay below to start fulfillment.
               </p>
               {orderResult.paymentsConfigured && orderResult.spaceremitPublicKey ? (
                 <SpaceRemitPayForm
@@ -244,25 +282,21 @@ export default function AgencyPublicLandingPage() {
                   currency={orderResult.currency}
                   fullName={customerName}
                   email={customerEmail}
-                  phone={customerPhone}
+                  phone={customerPhone || "0000000000"}
                   publicKey={orderResult.spaceremitPublicKey}
                   onPaid={async (code) => {
+                    setPayMsg(null); setFormError(null)
                     const res = await fetch('/api/public/agency-order/confirm', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        projectId: orderResult.projectId,
-                        paymentId: code,
-                        customerEmail,
-                      }),
+                      body: JSON.stringify({ projectId: orderResult.projectId, paymentId: code, customerEmail }),
                     })
                     const json = await res.json().catch(() => ({}))
                     if (!res.ok) setFormError(json.error || 'Could not verify payment yet')
-                    else if (!json.confirmed)
-                      setFormError(json.message || 'Payment reference saved; awaiting confirmation')
-                    else setFormError(null)
+                    else if (!json.confirmed) setPayMsg(json.message || 'Payment reference saved; awaiting confirmation')
+                    else setPayMsg('Payment confirmed. DropVerse will start fulfillment.')
                   }}
-                  submitLabel="Pay DropVerse →"
+                  submitLabel="Pay with SpaceRemit →"
                 />
               ) : (
                 <p className="rounded-xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] px-4 py-3 text-sm text-[#e4c979]">
@@ -270,6 +304,7 @@ export default function AgencyPublicLandingPage() {
                   payment pending.
                 </p>
               )}
+              {payMsg ? <p className="text-sm text-[#9fd8a4]">{payMsg}</p> : null}
             </div>
           )}
         </section>
