@@ -7,6 +7,7 @@ import { createClient } from '../../../lib/supabase'
 import { type OrgRow } from '../../../lib/orgs'
 import { planById } from '../../../lib/planConfig'
 import AgencyLandingOrders from '../../../components/AgencyLandingOrders'
+import AgencyLogoUpload from '../../../components/AgencyLogoUpload'
 
 type Svc = { id: string; title: string; slug: string; description: string }
 
@@ -220,12 +221,9 @@ export default function AgencyLandingDashboardPage() {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Description"
               />
-              <input
-                className="w-full rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm"
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
-                placeholder="Logo URL"
-              />
+              {orgId ? (
+                <AgencyLogoUpload orgId={orgId} logoUrl={logoUrl} onLogoUrl={setLogoUrl} />
+              ) : null}
             </div>
             <div className="card rounded-3xl p-6 space-y-2">
               <h2 className="font-display font-bold">Services</h2>
