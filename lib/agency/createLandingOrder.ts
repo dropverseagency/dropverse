@@ -16,6 +16,8 @@ export type LandingOrderInput = {
   customerPhone?: string
   briefTitle: string
   briefNotes: string
+  /** Public URLs of brief files uploaded via /api/public/agency-order/upload */
+  attachmentUrls?: string[]
   idempotencyKey?: string
 }
 
@@ -26,6 +28,10 @@ export async function createLandingPageOrder(input: LandingOrderInput) {
   const customerName = String(input.customerName || '').trim()
   const briefTitle = String(input.briefTitle || '').trim()
   const briefNotes = String(input.briefNotes || '').trim()
+  const attachmentUrls = (input.attachmentUrls || [])
+    .map((u) => String(u || '').trim())
+    .filter((u) => /^https:\/\//i.test(u))
+    .slice(0, 5)
   const idempotencyKey = input.idempotencyKey?.trim() || null
 
   if (!slug || !packageId) return { error: 'INVALID_INPUT' as const }
@@ -115,6 +121,11 @@ export async function createLandingPageOrder(input: LandingOrderInput) {
   const sellerProfit = computeSellerProfit(retailPrice, fulfillmentCost)
 
   const title = briefTitle.slice(0, 200)
+  const attachmentBlock =
+    attachmentUrls.length > 0
+      ? ['', 'Attachments:', ...attachmentUrls.map((u, i) => `${i + 1}. ${u}`)].join('\n')
+      : ''
+
   const description = [
     `Agency landing order via /a/${page.slug}`,
     `Agency: ${page.display_name}`,
@@ -124,6 +135,7 @@ export async function createLandingPageOrder(input: LandingOrderInput) {
     input.customerPhone ? `Phone: ${String(input.customerPhone).trim()}` : null,
     '',
     briefNotes.slice(0, 4000),
+    attachmentBlock,
   ]
     .filter(Boolean)
     .join('\n')
@@ -149,7 +161,7 @@ export async function createLandingPageOrder(input: LandingOrderInput) {
     payment_status: 'PAYMENT_PENDING',
     status: 'DRAFT',
     current_billing_period: 1,
-    delivery_notes: briefNotes.slice(0, 2000),
+    delivery_notes: (briefNotes + (attachmentUrls.length ? '\n\nFiles:\n' + attachmentUrls.join('\n') : '')).slice(0, 4000),
     client_contact_email: customerEmail,
   }
 
@@ -190,7 +202,6 @@ export async function createLandingPageOrder(input: LandingOrderInput) {
 
   if (attrErr) {
     console.error('[agency-order] attribution failed', attrErr.code, attrErr.message)
-    // Avoid orphan projects without attribution (agency never sees them).
     await admin.from('projects').delete().eq('id', projectId)
     return { error: 'ATTRIBUTION_FAILED' as const }
   }

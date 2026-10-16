@@ -40,6 +40,12 @@ export async function POST(request: NextRequest) {
     request.headers.get('idempotency-key') ||
     (typeof body.idempotencyKey === 'string' ? body.idempotencyKey : undefined)
 
+  const rawAttachments = Array.isArray(body.attachmentUrls) ? body.attachmentUrls : []
+  const attachmentUrls = rawAttachments
+    .map((u: unknown) => String(u || '').trim())
+    .filter((u: string) => /^https:\/\//i.test(u))
+    .slice(0, 5)
+
   const result = await createLandingPageOrder({
     slug: String(body.slug || ''),
     packageId: String(body.packageId || ''),
@@ -48,6 +54,7 @@ export async function POST(request: NextRequest) {
     customerPhone: body.customerPhone ? sanitizeText(String(body.customerPhone), 40) : undefined,
     briefTitle: sanitizeText(String(body.briefTitle || ''), 200),
     briefNotes: sanitizeText(String(body.briefNotes || ''), 4000),
+    attachmentUrls,
     idempotencyKey: idempotencyKey ? String(idempotencyKey).slice(0, 80) : undefined,
   })
 
