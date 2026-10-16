@@ -64,7 +64,7 @@ export default function CreateProjectPage() {
       const payload = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(payload.error || 'Unable to start checkout.')
       const paddle = await getPaddleClient()
-      if (paddle && payload.transactionId) {
+      if (paddle?.Checkout?.open && payload.transactionId) {
         paddle.Checkout.open({
           transactionId: payload.transactionId,
           settings: { displayMode: 'overlay', variant: 'one-page', theme: 'dark' },
@@ -100,8 +100,12 @@ export default function CreateProjectPage() {
       return
     }
     const id = res.projectId ? String(res.projectId) : null
-    if (paymentMethod === 'SPACEREMIT' || paymentMethod === 'PADDLE') {
+    if (paymentMethod === 'SPACEREMIT') {
       if (id) setPendingProjectId(id)
+      return
+    }
+    if (paymentMethod === 'CLIENT_PAYS_DROPVERSE' && id) {
+      setPendingProjectId(id)
       return
     }
     if (paymentMethod === 'INVOICE_SEND' && id) {
@@ -253,7 +257,7 @@ export default function CreateProjectPage() {
                       }
                     >
                       <div className="flex items-center gap-2">
-                        {m.id === 'CLIENT_PAYS_DROPVERSE' || m.id === 'PADDLE' ? <CreditCard size={18} className="text-[#d8b45a]" /> : m.id === 'SPACEREMIT' ? <Wallet size={18} className="text-[#d8b45a]" /> : m.id === 'INVOICE_SEND' ? <FileText size={18} className="text-[#d8b45a]" /> : <HandCoins size={18} className="text-[#d8b45a]" />}
+                        {m.id === 'CLIENT_PAYS_DROPVERSE' ? <CreditCard size={18} className="text-[#d8b45a]" /> : m.id === 'SPACEREMIT' ? <Wallet size={18} className="text-[#d8b45a]" /> : m.id === 'INVOICE_SEND' ? <FileText size={18} className="text-[#d8b45a]" /> : <HandCoins size={18} className="text-[#d8b45a]" />}
                         <span className="font-semibold text-[#d9e0dc]">{m.label}</span>
                       </div>
                       <p className="mt-1 text-xs text-[#8f9f9a]">{m.description}</p>
@@ -284,7 +288,7 @@ export default function CreateProjectPage() {
                 <Link href="/dashboard" className="mt-4 inline-flex rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f]">Go to Dashboard</Link>
               </div>
             )}
-            {pendingProjectId && (paymentMethod === 'PADDLE' || paymentMethod === 'CLIENT_PAYS_DROPVERSE') && (
+            {pendingProjectId && paymentMethod === 'CLIENT_PAYS_DROPVERSE' && (
               <div className="mt-6">
                 <button type="button" onClick={() => startPaddleProjectCheckout(pendingProjectId)} disabled={paddleLoading} className="w-full rounded-full bg-[#d8b45a] px-6 py-3 font-bold text-[#10221f] disabled:opacity-60">{paddleLoading ? 'Opening checkout…' : 'Pay with card'}</button>
                 {payError && <p className="mt-2 text-sm text-red-300">{payError}</p>}
