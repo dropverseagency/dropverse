@@ -1,34 +1,18 @@
 # DropVerse
 
-B2B SaaS project and workspace management platform. Next.js 15 App Router, React 19, Tailwind CSS 3, Supabase, deployed on Vercel.
+Next.js 15 app for DropVerse (workspace + agency storefronts).
 
-Live site: https://dropverse-nu.vercel.app
-
-Intended custom domain: dropverse.js.org (added in Vercel, waiting on the js.org pull request and DNS).
-
-## What is live
-
-- Landing, pricing, login, earn, dashboard, admin, organizations, projects, invoices, referrals
-- Supabase auth and Row Level Security
-- SpaceRemit verification for project payments
-- Privacy and Terms pages
-
-## Local run
+## Setup
 
 ```bash
 pnpm install
-```
-
-Copy `.env.example` to `.env.local` and set the public Supabase values. Server routes also need `SUPABASE_SERVICE_ROLE_KEY`. Do not commit secrets.
-
-```bash
+cp .env.example .env.local
+# fill Supabase + SpaceRemit values
 pnpm dev
 ```
 
-Do not rerun the old `supabase/schema.sql` on the live project. The live database has newer migrations.
+Server routes need `SUPABASE_SERVICE_ROLE_KEY` (never expose to the browser).
 
-## Notes
+Payments: SpaceRemit (local). Paddle and Dodo checkout routes are disabled (HTTP 410).
 
-- Landing samples are format previews, not published client work.
-- Paid plan checkout is not live. Solo stays free.
-- Admin pages are gated in `app/admin/layout.tsx` and again in `/api/admin/*`.
+See `.env.example` for the full list of environment variables.
