@@ -1,11 +1,10 @@
 'use client'
 import { useEffect, useState } from 'react'
 
-import { CreditCard, Wallet, CheckCircle2, Globe } from 'lucide-react'
+import { CreditCard, Wallet, CheckCircle2 } from 'lucide-react'
 import { createClient } from '../lib/supabase'
 import { type OrgRow } from '../lib/orgs'
 import { PLAN_CONFIG, planById, type PlanId } from '../lib/planConfig'
-import { getPaddleClient } from '@/lib/paddle'
 import SpaceRemitPayForm from '@/components/SpaceRemitPayForm'
 
 interface PlanUpgradeBannerProps {
@@ -24,7 +23,7 @@ export default function PlanUpgradeBanner({ orgs, activeOrgId, sessionToken }: P
 
   const [open, setOpen] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
-  const [method, setMethod] = useState<'SPACEREMIT' | 'PADDLE' | 'DIRECT' | null>(null)
+  const [method, setMethod] = useState<'SPACEREMIT' | 'DIRECT' | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
@@ -58,36 +57,6 @@ export default function PlanUpgradeBanner({ orgs, activeOrgId, sessionToken }: P
       return
     }
     setDone(`Your workspace is now on the ${plan.displayName} plan.`)
-  }
-
-  async function openPaddleCheckout() {
-    if (!org || !selectedPlan || busy) return
-    setBusy(true); setError(null)
-    try {
-      const response = await fetch('/api/paddle/plan-checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ planId: selectedPlan as PlanId, organizationId: org.id }),
-      })
-      const payload = await response.json()
-      if (!response.ok) throw new Error(payload.error || 'Unable to start international checkout.')
-      const paddle = await getPaddleClient()
-      if (paddle && payload.transactionId) {
-        paddle.Checkout?.open({
-          transactionId: payload.transactionId,
-          settings: { displayMode: 'overlay', variant: 'one-page', theme: 'dark' },
-        })
-      } else if (payload.checkoutUrl) {
-        window.location.assign(payload.checkoutUrl)
-      } else {
-        throw new Error('Paddle checkout is not ready yet.')
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to start international checkout.')
-    } finally {
-      setBusy(false)
-    }
   }
 
   async function onLocalPaid(transactionCode: string) {
@@ -142,7 +111,7 @@ export default function PlanUpgradeBanner({ orgs, activeOrgId, sessionToken }: P
             {plan.displayName} Plan — {plan.price === 0 ? 'Free' : `$${plan.price}/month`}
           </h2>
           <p className="mt-1 text-xs leading-5 text-[#8fa29c]">
-            You chose this plan from Pricing. Pick International or Local payment.
+            You chose this plan from Pricing. Complete payment with a local method below.
           </p>
         </div>
         <button
@@ -153,25 +122,7 @@ export default function PlanUpgradeBanner({ orgs, activeOrgId, sessionToken }: P
         </button>
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => { setMethod('PADDLE'); openPaddleCheckout() }}
-          disabled={busy || !canPay}
-          className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${
-            method === 'PADDLE'
-              ? 'border-[rgba(216,180,90,0.55)] bg-[rgba(216,180,90,0.10)]'
-              : canPay
-                ? 'border-white/10 bg-[#071f1d] hover:border-[rgba(216,180,90,0.30)]'
-                : 'cursor-not-allowed border-white/5 bg-[#071f1d]/40 opacity-40'
-          }`}
-        >
-          <Globe size={18} className="shrink-0 text-[#d8b45a]" />
-          <div>
-            <div className="text-[10px] font-bold uppercase tracking-[.14em] text-[#d8b45a]">International payment</div>
-            <div className="text-sm font-bold text-[#d9e0dc]">Paddle</div>
-          </div>
-        </button>
+      <div className="mt-5 grid gap-3 sm:grid-cols-1">
         <button
           type="button"
           onClick={() => setMethod('SPACEREMIT')}
@@ -233,9 +184,6 @@ export default function PlanUpgradeBanner({ orgs, activeOrgId, sessionToken }: P
         </div>
       )}
 
-      {method === 'PADDLE' && error && (
-        <p className="mt-3 rounded-xl border border-red-400/25 bg-red-400/10 px-4 py-3 text-xs font-semibold text-red-300">{error}</p>
-      )}
     </div>
   )
 }

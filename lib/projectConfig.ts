@@ -41,15 +41,15 @@ export type PaymentMethod =
 
 export const PAYMENT_METHODS: { id: PaymentMethod; label: string; description: string; recommended?: boolean }[] = [
   {
-    id: 'CLIENT_PAYS_DROPVERSE',
-    label: 'Client Pays DropVerse',
-    description: 'The client pays the required amount directly to DropVerse.',
-    recommended: true,
-  },
-  {
     id: 'SPACEREMIT',
     label: 'Local payment',
     description: 'Pay securely with wallets, bank transfer, and 70+ local methods.',
+    recommended: true,
+  },
+  {
+    id: 'CLIENT_PAYS_DROPVERSE',
+    label: 'Client Pays DropVerse',
+    description: 'Record that the client pays DropVerse directly (manual confirmation — card gateway removed).',
   },
   {
     id: 'INVOICE_SEND',
