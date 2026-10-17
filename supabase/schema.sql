@@ -102,7 +102,6 @@ create policy "users create own saves" on public.saved_samples for insert with c
 drop policy if exists "users delete own saves" on public.saved_samples;
 create policy "users delete own saves" on public.saved_samples for delete using (auth.uid() = user_id);
 
--- Admin write policies: only users whose profile role = 'admin' can manage content.
 drop policy if exists "admins manage categories" on public.categories;
 create policy "admins manage categories" on public.categories for all using (
   (select role from public.profiles where id = auth.uid()) = 'admin') with check (
@@ -125,5 +124,71 @@ create index if not exists idx_saved_samples_user on public.saved_samples(user_i
 create index if not exists idx_work_samples_featured on public.work_samples(featured) where featured = true;
 create index if not exists idx_services_category on public.services(category_id) where active = true;
 
--- Partner program (unchanged logic; see prior schema for full referral tables)
--- Full partner schema continues in the repository history; keep applying existing production state.
+-- Partner program tables: restored from main (production already has these).
+-- Full definitions: see git history of this file on main if re-bootstrapping a new DB.
+create table if not exists public.program_config (
+  id integer primary key default 1,
+  referral_eligibility_months integer not null default 12,
+  referral_kind text[] not null default '{user,client}',
+  terms_version text not null default '1',
+  updated_at timestamptz not null default now()
+);
+create table if not exists public.referral_tiers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  min_active_referrals integer not null,
+  max_active_referrals integer,
+  commission_rate numeric not null check (commission_rate > 0 and commission_rate <= 1),
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+create table if not exists public.referral_codes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null unique references auth.users(id) on delete cascade,
+  code text not null unique,
+  kind text not null default 'user' check (kind in ('user','client')),
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+create table if not exists public.referrals (
+  id uuid primary key default gen_random_uuid(),
+  referral_code_id uuid not null references public.referral_codes(id) on delete cascade,
+  referrer_id uuid not null references auth.users(id) on delete cascade,
+  referred_user_id uuid references auth.users(id) on delete set null,
+  kind text not null default 'user' check (kind in ('user','client')),
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  status text not null default 'active' check (status in ('active','expired','cancelled')),
+  source_url text,
+  source_channel text
+);
+create table if not exists public.referral_commissions (
+  id uuid primary key default gen_random_uuid(),
+  referral_id uuid not null references public.referrals(id) on delete cascade,
+  project_id uuid,
+  eligible_profit numeric not null default 0 check (eligible_profit >= 0),
+  commission_rate numeric not null check (commission_rate > 0 and commission_rate <= 1),
+  commission_amount numeric not null default 0 check (commission_amount >= 0),
+  status text not null default 'pending' check (status in ('pending','approved','paid','cancelled')),
+  created_at timestamptz not null default now(),
+  reviewed_at timestamptz,
+  paid_at timestamptz
+);
+create table if not exists public.commission_ledger (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  commission_id uuid references public.referral_commissions(id) on delete set null,
+  event text not null,
+  amount numeric not null default 0,
+  balance_after numeric,
+  created_at timestamptz not null default now()
+);
+create table if not exists public.payout_requests (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  amount numeric not null default 0 check (amount > 0),
+  status text not null default 'pending' check (status in ('pending','approved','paid','cancelled')),
+  requested_at timestamptz not null default now(),
+  reviewed_at timestamptz,
+  paid_at timestamptz
+);
