@@ -226,19 +226,21 @@ export default function Home() {
             <motion.div variants={reveal} className="mb-6 inline-flex items-center gap-2 rounded-full border border-[rgba(226,182,86,0.25)] bg-[rgba(226,182,86,0.08)] px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-[#e2b656]">
               <Sparkles size={13} /> Linking talent to sales
             </motion.div>
-            <motion.h1 variants={reveal} className="font-display text-[2.6rem] font-extrabold leading-[1.05] tracking-[-0.04em] sm:text-5xl lg:text-[3.6rem]">
-              Bridge the gap between <span className="gold-gradient">freelance talent</span> &amp; high-paying clients
+            <motion.h1 variants={reveal} className="font-display text-[2.35rem] font-extrabold leading-[1.08] tracking-[-0.04em] sm:text-[2.75rem] lg:text-[3.25rem]">
+              Pitch Proven Samples.{" "}
+              <span className="gold-gradient">Close High-Paying Clients.</span>{" "}
+              Keep the Profit Margin.
             </motion.h1>
-            <motion.p variants={reveal} className="mt-6 max-w-lg text-base leading-7 text-[#e2e8f0] sm:text-lg">
-              DropVerse is the workspace platform for digital teams — manage services, pitch samples, run projects, and scale fulfillment in one place.
+            <motion.p variants={reveal} className="mt-6 max-w-xl text-base leading-7 text-[#e2e8f0] sm:text-lg">
+              DropVerse empowers agencies and drop-servicers to scale faster. Access a curated vault of verified freelancer portfolios, white-label client proposals, and automated client acquisition assets — zero upfront hiring needed.
             </motion.p>
             <motion.div variants={reveal} className="mt-8 flex flex-wrap gap-3">
-              <Link href={ctaFor(signedIn, '/login')} className="brand-button-primary group inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold">
-                {signedIn ? 'Create project' : 'Start your journey'}
+              <Link href="/samples" className="brand-button-primary group inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold">
+                Explore Samples Vault
                 <ArrowRight size={17} className="transition group-hover:translate-x-0.5" />
               </Link>
-              <a href="#samples" className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.03] px-6 py-3.5 text-sm font-semibold text-white transition hover:border-[rgba(226,182,86,0.4)]">
-                Browse work samples <ChevronRight size={17} />
+              <a href="#how" className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.03] px-6 py-3.5 text-sm font-semibold text-white transition hover:border-[rgba(226,182,86,0.4)]">
+                How It Works <ChevronRight size={17} />
               </a>
             </motion.div>
             <motion.div variants={reveal} className="mt-10 flex flex-wrap gap-x-7 gap-y-2 text-sm text-[#e2e8f0]/90">
