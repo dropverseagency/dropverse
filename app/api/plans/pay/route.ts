@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { limitPublicForm, rateLimitResponse } from '@/lib/rateLimit'
 import { createServiceClient } from '../../../../lib/supabaseService'
 import { PLAN_CONFIG } from '../../../../lib/planConfig'
 
@@ -8,6 +9,9 @@ const SPACEREMIT_API = 'https://spaceremit.com/api/v2/payment_info/'
 // Caller must be the organization owner. Stores the spaceremit id on the org
 // and updates the plan to PAID once the payment is confirmed on SpaceRemit's side.
 export async function POST(request: NextRequest) {
+  const _rl = await limitPublicForm(request)
+  if (!_rl.success) return rateLimitResponse(_rl)
+
   try {
     const body = await request.json()
     const paymentId = String(body?.paymentId ?? '')

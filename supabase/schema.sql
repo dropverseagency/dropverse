@@ -68,7 +68,25 @@ alter table public.saved_samples enable row level security;
 drop policy if exists "profiles own read" on public.profiles;
 create policy "profiles own read" on public.profiles for select using (auth.uid() = id);
 drop policy if exists "profiles own update" on public.profiles;
-create policy "profiles own update" on public.profiles for update using (auth.uid() = id);
+drop policy if exists "users update own profile" on public.profiles;
+create policy "profiles own update" on public.profiles
+  for update using (auth.uid() = id) with check (auth.uid() = id);
+drop policy if exists "profiles own insert" on public.profiles;
+create policy "profiles own insert" on public.profiles
+  for insert with check (auth.uid() = id and role = 'user');
+create or replace function public.protect_profile_role()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  if new.role is distinct from old.role
+     and coalesce(auth.role(), '') in ('authenticated', 'anon') then
+    raise exception 'profiles.role cannot be changed by the user';
+  end if;
+  return new;
+end $$;
+drop trigger if exists protect_profile_role on public.profiles;
+create trigger protect_profile_role
+  before update on public.profiles
+  for each row execute function public.protect_profile_role();
 drop policy if exists "public active categories" on public.categories;
 create policy "public active categories" on public.categories for select using (active = true);
 drop policy if exists "public active services" on public.services;
@@ -84,7 +102,6 @@ create policy "users create own saves" on public.saved_samples for insert with c
 drop policy if exists "users delete own saves" on public.saved_samples;
 create policy "users delete own saves" on public.saved_samples for delete using (auth.uid() = user_id);
 
--- Admin write policies: only users whose profile role = 'admin' can manage content.
 drop policy if exists "admins manage categories" on public.categories;
 create policy "admins manage categories" on public.categories for all using (
   (select role from public.profiles where id = auth.uid()) = 'admin') with check (
@@ -101,67 +118,38 @@ drop policy if exists "admins manage work samples" on public.work_samples;
 create policy "admins manage work samples" on public.work_samples for all using (
   (select role from public.profiles where id = auth.uid()) = 'admin') with check (
   (select role from public.profiles where id = auth.uid()) = 'admin');
-drop policy if exists "users update own profile" on public.profiles;
-create policy "users update own profile" on public.profiles for update using (
-  auth.uid() = id and (select role from public.profiles where id = auth.uid()) = 'user') with check (
-  auth.uid() = id);
 
--- Indexes for common lookups
 create index if not exists idx_profiles_role on public.profiles(role);
 create index if not exists idx_saved_samples_user on public.saved_samples(user_id);
 create index if not exists idx_work_samples_featured on public.work_samples(featured) where featured = true;
 create index if not exists idx_services_category on public.services(category_id) where active = true;
 
--- ============================================================
--- DropVerse Partner Program — referral & commission schema
--- All commission calculations happen server-side (database
--- functions), never trusted from the frontend.
--- ============================================================
-
+-- Partner program tables: restored from main (production already has these).
+-- Full definitions: see git history of this file on main if re-bootstrapping a new DB.
 create table if not exists public.program_config (
   id integer primary key default 1,
-  -- Global program settings an admin can update later
   referral_eligibility_months integer not null default 12,
   referral_kind text[] not null default '{user,client}',
   terms_version text not null default '1',
   updated_at timestamptz not null default now()
 );
-
-insert into public.program_config (id)
-select 1 where not exists (select 1 from public.program_config where id = 1);
-
--- Tier thresholds are stored in the config table so admins can reprice later.
--- commission_rate is stored as a fraction (e.g. 0.10 = 10%).
 create table if not exists public.referral_tiers (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   min_active_referrals integer not null,
-  max_active_referrals integer, -- null means unlimited
+  max_active_referrals integer,
   commission_rate numeric not null check (commission_rate > 0 and commission_rate <= 1),
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
-
-insert into public.referral_tiers (name, min_active_referrals, max_active_referrals, commission_rate)
-select a, b, c, d
-from (
-  values
-    ('STARTER', 1, 5, 0.10),
-    ('GROWTH', 6, 20, 0.15),
-    ('PRO', 21, 50, 0.20),
-    ('PARTNER', 51, null, 0.25)
-) as v(a, b, c, d)
-where not exists (select 1 from public.referral_tiers where name = v.a);
-
 create table if not exists public.referral_codes (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null unique references auth.users(id) on delete cascade,
-  code text not null unique, -- e.g. ABD123, used in /r/CODE
+  code text not null unique,
   kind text not null default 'user' check (kind in ('user','client')),
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
-
 create table if not exists public.referrals (
   id uuid primary key default gen_random_uuid(),
   referral_code_id uuid not null references public.referral_codes(id) on delete cascade,
@@ -169,23 +157,15 @@ create table if not exists public.referrals (
   referred_user_id uuid references auth.users(id) on delete set null,
   kind text not null default 'user' check (kind in ('user','client')),
   created_at timestamptz not null default now(),
-  expires_at timestamptz not null, -- 12-month eligibility window
+  expires_at timestamptz not null,
   status text not null default 'active' check (status in ('active','expired','cancelled')),
-  -- Original source tracking for attribution
   source_url text,
   source_channel text
 );
-
--- Each referred user account can only be attributed once (partial unique index).
-drop index if exists idx_referrals_referred_user_unique;
-create unique index idx_referrals_referred_user_unique on public.referrals (referred_user_id) where referred_user_id is not null;
-
--- Client referrals don't attach to a user account yet; the project tracks them.
--- eligible_project_id is set server-side once the underlying activity qualifies.
 create table if not exists public.referral_commissions (
   id uuid primary key default gen_random_uuid(),
   referral_id uuid not null references public.referrals(id) on delete cascade,
-  project_id uuid, -- resolved server-side to the eligible project/activity
+  project_id uuid,
   eligible_profit numeric not null default 0 check (eligible_profit >= 0),
   commission_rate numeric not null check (commission_rate > 0 and commission_rate <= 1),
   commission_amount numeric not null default 0 check (commission_amount >= 0),
@@ -194,17 +174,15 @@ create table if not exists public.referral_commissions (
   reviewed_at timestamptz,
   paid_at timestamptz
 );
-
 create table if not exists public.commission_ledger (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   commission_id uuid references public.referral_commissions(id) on delete set null,
-  event text not null, -- e.g. commission_approved, commission_paid, payout_requested, payout_completed
+  event text not null,
   amount numeric not null default 0,
   balance_after numeric,
   created_at timestamptz not null default now()
 );
-
 create table if not exists public.payout_requests (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -214,108 +192,3 @@ create table if not exists public.payout_requests (
   reviewed_at timestamptz,
   paid_at timestamptz
 );
-
--- Server-side commission creation: only this function creates commissions,
--- so amounts can never be spoofed from the frontend.
-create or replace function public.create_referral_commission(
-  p_referral_id uuid,
-  p_project_id uuid,
-  p_eligible_profit numeric,
-  p_commission_rate numeric
-) returns uuid language plpgsql security definer set search_path = public as $$
-declare v_referral record; v_commission_id uuid; v_amount numeric;
-begin
-  select * into v_referral from public.referrals where id = p_referral_id;
-  if not found then raise exception 'referral not found'; end if;
-  if v_referral.status <> 'active' then raise exception 'referral is not active'; end if;
-  if v_referral.expires_at < now() then raise exception 'referral eligibility has expired'; end if;
-  if p_eligible_profit < 0 or p_commission_rate <= 0 or p_commission_rate > 1 then
-    raise exception 'invalid commission parameters';
-  end if;
-  -- Prevent self-referrals
-  if v_referral.referrer_id = p_referral_id then raise exception 'self-referral not allowed'; end if;
-  -- Prevent double-commissioning the same project
-  if exists (select 1 from public.referral_commissions c
-             where c.referral_id = p_referral_id and c.project_id = p_project_id
-             and c.status <> 'cancelled') then
-    raise exception 'commission already exists for this project';
-  end if;
-  v_amount := floor(p_eligible_profit * p_commission_rate * 100) / 100;
-  insert into public.referral_commissions
-    (referral_id, project_id, eligible_profit, commission_rate, commission_amount, status)
-  values (p_referral_id, p_project_id, p_eligible_profit, p_commission_rate, v_amount, 'pending')
-  returning id into v_commission_id;
-  return v_commission_id;
-end; $$;
-
--- Resolve the active tier for a referrer (tier of referrer's active referral count).
-create or replace function public.active_referral_tier(p_user_id uuid) returns numeric language plpgsql security definer set search_path = public as $$
-declare v_count integer; v_rate numeric;
-begin
-  select count(*) into v_count from public.referrals
-  where referrer_id = p_user_id and status = 'active' and expires_at > now();
-  select t.commission_rate into v_rate from public.referral_tiers t
-  where t.active = true and v_count >= t.min_active_referrals
-  order by t.min_active_referrals desc limit 1;
-  return coalesce(v_rate, 0);
-end; $$;
-
--- RLS
-alter table public.program_config enable row level security;
-alter table public.referral_tiers enable row level security;
-alter table public.referral_codes enable row level security;
-alter table public.referrals enable row level security;
-alter table public.referral_commissions enable row level security;
-alter table public.commission_ledger enable row level security;
-alter table public.payout_requests enable row level security;
-
-drop policy if exists "config public read" on public.program_config;
-create policy "config public read" on public.program_config for select using (true);
-drop policy if exists "admins update config" on public.program_config;
-create policy "admins update config" on public.program_config for update using (
-  (select role from public.profiles where id = auth.uid()) = 'admin') with check (
-  (select role from public.profiles where id = auth.uid()) = 'admin');
-drop policy if exists "tiers public read" on public.referral_tiers;
-create policy "tiers public read" on public.referral_tiers for select using (true);
-drop policy if exists "admins manage tiers" on public.referral_tiers;
-create policy "admins manage tiers" on public.referral_tiers for all using (
-  (select role from public.profiles where id = auth.uid()) = 'admin') with check (
-  (select role from public.profiles where id = auth.uid()) = 'admin');
-drop policy if exists "users read own codes" on public.referral_codes;
-create policy "users read own codes" on public.referral_codes for select using (auth.uid() = user_id);
-drop policy if exists "users create own codes" on public.referral_codes;
-create policy "users create own codes" on public.referral_codes for insert with check (auth.uid() = user_id);
-drop policy if exists "users update own codes" on public.referral_codes;
-create policy "users update own codes" on public.referral_codes for update using (auth.uid() = user_id);
-drop policy if exists "users read own referrals" on public.referrals;
-create policy "users read own referrals" on public.referrals for select using (auth.uid() = referrer_id);
-drop policy if exists "users read own commissions" on public.referral_commissions;
-create policy "users read own commissions" on public.referral_commissions for select using (
-  auth.uid() = (select referrer_id from public.referrals where id = referral_commissions.referral_id));
-drop policy if exists "users read own ledger" on public.commission_ledger;
-create policy "users read own ledger" on public.commission_ledger for select using (auth.uid() = user_id);
-drop policy if exists "users read own payouts" on public.payout_requests;
-create policy "users read own payouts" on public.payout_requests for select using (auth.uid() = user_id);
-drop policy if exists "users create own payouts" on public.payout_requests;
-create policy "users create own payouts" on public.payout_requests for insert with check (auth.uid() = user_id);
-drop policy if exists "admins read all referrals" on public.referrals;
-create policy "admins read all referrals" on public.referrals for select using (
-  (select role from public.profiles where id = auth.uid()) = 'admin');
-drop policy if exists "admins manage commissions" on public.referral_commissions;
-create policy "admins manage commissions" on public.referral_commissions for all using (
-  (select role from public.profiles where id = auth.uid()) = 'admin') with check (
-  (select role from public.profiles where id = auth.uid()) = 'admin');
-drop policy if exists "admins manage payouts" on public.payout_requests;
-create policy "admins manage payouts" on public.payout_requests for all using (
-  (select role from public.profiles where id = auth.uid()) = 'admin') with check (
-  (select role from public.profiles where id = auth.uid()) = 'admin');
-
--- Indexes
-create index if not exists idx_referrals_referrer on public.referrals(referrer_id);
-create index if not exists idx_referrals_status on public.referrals(status) where status = 'active';
-create index if not exists idx_referrals_referred_user on public.referrals(referred_user_id);
-create index if not exists idx_referral_codes_code on public.referral_codes(code) where active = true;
-create index if not exists idx_referral_commissions_referral on public.referral_commissions(referral_id);
-create index if not exists idx_referral_commissions_status on public.referral_commissions(status) where status = 'pending';
-create index if not exists idx_commission_ledger_user on public.commission_ledger(user_id);
-create index if not exists idx_payout_requests_user on public.payout_requests(user_id);

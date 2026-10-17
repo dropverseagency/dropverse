@@ -9,8 +9,6 @@ import { createClient } from '../../lib/supabase'
 import { COUNTRIES, type Country } from '../../lib/countries'
 import { applyPendingReferral } from '../../lib/attributeReferralAction'
 
-// Google OAuth is wired in Supabase but kept hidden from the UI until Google
-// verification is complete. Flip to true (or NEXT_PUBLIC_GOOGLE_SIGN_IN=true) to restore.
 const GOOGLE_SIGN_IN_ENABLED = process.env.NEXT_PUBLIC_GOOGLE_SIGN_IN === 'true'
 
 export default function LoginPage() {
@@ -22,19 +20,26 @@ export default function LoginPage() {
 }
 
 function LoginPageInner() {
-  // Use next/navigation's useSearchParams() so the values are always accurate
-  // after client-side (soft) navigation — window.location.search is stale during
-  // Next.js soft transitions and caused the ref mode to be missed.
   const searchParams = useSearchParams()
   const [redirectTo] = useState(() => searchParams.get('redirect') || '/dashboard')
-  // Visitors arriving from an affiliate link (/r/CODE → /login?ref=CODE) land
-  // directly on the sign-up form instead of the sign-in form.
   const [mode, setMode] = useState<'login' | 'signup'>(() => searchParams.get('ref') ? 'signup' : 'login')
   const [referralPrefill] = useState(() => searchParams.get('ref') || '')
   const [loading, setLoading] = useState(false)
   const [providerLoading, setProviderLoading] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const key = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+    if (!key) return
+    if (document.querySelector('script[data-turnstile]')) return
+    const s = document.createElement('script')
+    s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+    s.async = true
+    s.defer = true
+    s.dataset.turnstile = '1'
+    document.head.appendChild(s)
+  }, [])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -48,6 +53,26 @@ function LoginPageInner() {
     const supabase = createClient()
 
     try {
+      // Server rate-limit + optional Turnstile. Client guard can be bypassed —
+      // also enable Supabase Auth CAPTCHA (Turnstile) in the dashboard.
+      const turnstileToken =
+        (typeof form.get('cf-turnstile-response') === 'string' && form.get('cf-turnstile-response'))
+          ? String(form.get('cf-turnstile-response'))
+          : null
+      const guardRes = await fetch('/api/auth/guard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ turnstileToken }),
+      })
+      if (guardRes.status === 429) {
+        const retry = guardRes.headers.get('Retry-After') || '60'
+        throw new Error(`Too many attempts. Please wait ${retry} seconds and try again.`)
+      }
+      if (!guardRes.ok) {
+        const g = (await guardRes.json().catch(() => ({}))) as { message?: string }
+        throw new Error(g.message || 'Security check failed. Please try again.')
+      }
+
       if (mode === 'signup') {
         const fullName = String(form.get('full_name') || '').trim()
         const phone = String(form.get('phone') || '').trim()
@@ -60,7 +85,7 @@ function LoginPageInner() {
         if (referralCode) {
           try {
             await fetch('/api/referral/pending?code=' + encodeURIComponent(referralCode))
-          } catch { /* non-fatal — attribution retries after signup */ }
+          } catch { /* non-fatal */ }
         }
 
         const { data, error: signUpError } = await supabase.auth.signUp({
@@ -69,6 +94,7 @@ function LoginPageInner() {
           options: {
             emailRedirectTo: `${window.location.origin}/login`,
             data: { full_name: fullName, phone, username, telegram_username: telegramUsername },
+            ...(turnstileToken ? { captchaToken: turnstileToken } : {}),
           },
         })
         if (signUpError) {
@@ -79,18 +105,17 @@ function LoginPageInner() {
           }
           throw signUpError
         }
-        // Apply any pending referral code (from a /r/... link the user clicked before signing up).
         applyPendingReferral().catch(() => undefined)
         if (data.session) window.location.assign(redirectTo)
         else setMessage('Account created. Please open the confirmation email we sent to your inbox, then sign in.')
       } else {
-        const { error: signInError, data: signInData } = await supabase.auth.signInWithPassword({ email, password })
+        const { error: signInError, data: signInData } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+          ...(turnstileToken ? { options: { captchaToken: turnstileToken } } : {}),
+        })
         if (signInError) throw signInError
-        // Apply any pending referral code (from a /r/... link clicked before signing in).
-        // Applies once to the now-authenticated user; safe and idempotent.
         applyPendingReferral().catch(() => undefined)
-        // New users (no workspace yet) start at Pricing to pick a plan;
-        // existing users with a workspace go straight to the dashboard.
         window.location.assign(await firstLoginTarget(supabase, signInData?.user?.id ?? ''))
       }
     } catch (submitError) {
@@ -115,8 +140,6 @@ function LoginPageInner() {
     }
   }
 
-  // Decide where a signed-in user should land: existing users -> dashboard,
-  // brand-new users (no workspace yet) -> /pricing to choose a plan.
   async function firstLoginTarget(
     supabase: ReturnType<typeof createClient>,
     userId: string,
@@ -127,8 +150,6 @@ function LoginPageInner() {
     return '/pricing'
   }
 
-  // Handle email confirmation hash: /auth/v1/verify lands on the site with the token in the URL.
-  // When the user follows the confirm link, exchange the hash and redirect.
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (window.location.hash.length < 3) return
@@ -179,6 +200,11 @@ function LoginPageInner() {
             <label className="block text-sm font-medium text-[#d9e0dc]">Password<input name="password" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="password" placeholder="At least 8 characters" required minLength={8} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} /></label>
             {message && <p className="rounded-lg border border-[rgba(216,180,90,0.30)] bg-[rgba(216,180,90,0.10)] px-4 py-2.5 text-sm text-[#f0d98b]">{message}</p>}
             {error && <p className="rounded-lg border border-red-400/30 bg-red-400/10 px-4 py-2.5 text-sm text-red-200">{error}</p>}
+            {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? (
+              <div className="flex justify-center">
+                <div className="cf-turnstile" data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY} data-theme="dark" />
+              </div>
+            ) : null}
             <button disabled={loading || Boolean(providerLoading)} className="w-full rounded-xl bg-[#d8b45a] px-5 py-3.5 font-bold text-[#10221f] transition hover:bg-[#f0d98b] disabled:opacity-60">{loading ? 'Processing...' : mode === 'login' ? 'Sign In' : 'Create Account'}</button>
           </form>
           {mode === 'signup' && <p className="mt-4 text-xs leading-5 text-[#81948e]">Please make sure your phone number works on WhatsApp or Telegram so we can contact you when needed.</p>}
