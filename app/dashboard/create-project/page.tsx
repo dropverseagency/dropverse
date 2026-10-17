@@ -14,7 +14,6 @@ import {
   type ProjectType, type PaymentMethod,
 } from '../../../lib/projectConfig'
 import { createProjectServer } from '../../../lib/createProject'
-import { getPaddleClient } from '../../../lib/paddle'
 
 type Step = 'basics' | 'billing' | 'summary'
 
@@ -26,7 +25,7 @@ export default function CreateProjectPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [clientPrice, setClientPrice] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CLIENT_PAYS_DROPVERSE')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('SPACEREMIT')
   const [clientContactEmail, setClientContactEmail] = useState('')
   const [deliveryNotes, setDeliveryNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -35,7 +34,6 @@ export default function CreateProjectPage() {
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null)
   const [invoiceId, setInvoiceId] = useState<string | null>(null)
   const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null)
-  const [paddleLoading, setPaddleLoading] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -49,37 +47,6 @@ export default function CreateProjectPage() {
   const typeBlocked = projectType === 'CUSTOM_RECURRING'
   const basicsValid = title.trim().length >= 3 && description.trim().length >= 5
   const billingValid = cp > 0
-
-  async function startPaddleProjectCheckout(projectId: string) {
-    if (!projectId || paddleLoading) return
-    setPaddleLoading(true)
-    setPayError(null)
-    try {
-      const response = await fetch('/api/paddle/project-checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ projectId }),
-      })
-      const payload = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(payload.error || 'Unable to start checkout.')
-      const paddle = await getPaddleClient()
-      if (paddle?.Checkout?.open && payload.transactionId) {
-        paddle.Checkout.open({
-          transactionId: payload.transactionId,
-          settings: { displayMode: 'overlay', variant: 'one-page', theme: 'dark' },
-        })
-        setPaddleLoading(false)
-      } else if (payload.checkoutUrl) {
-        window.location.assign(payload.checkoutUrl)
-      } else {
-        throw new Error('Checkout is not ready yet.')
-      }
-    } catch (err) {
-      setPayError(err instanceof Error ? err.message : 'Unable to start checkout.')
-      setPaddleLoading(false)
-    }
-  }
 
   async function handleSubmit() {
     if (submitting || created || pendingProjectId) return
@@ -289,8 +256,8 @@ export default function CreateProjectPage() {
               </div>
             )}
             {pendingProjectId && paymentMethod === 'CLIENT_PAYS_DROPVERSE' && (
-              <div className="mt-6">
-                <button type="button" onClick={() => startPaddleProjectCheckout(pendingProjectId)} disabled={paddleLoading} className="w-full rounded-full bg-[#d8b45a] px-6 py-3 font-bold text-[#10221f] disabled:opacity-60">{paddleLoading ? 'Opening checkout…' : 'Pay with card'}</button>
+              <div className="mt-6 rounded-2xl border border-white/10 bg-[#071f1d] p-4 text-sm text-[#8fa29c]">
+                Card checkout is unavailable. Choose <span className="font-semibold text-[#d8b45a]">Local payment (SpaceRemit)</span> or send an invoice to continue.
                 {payError && <p className="mt-2 text-sm text-red-300">{payError}</p>}
               </div>
             )}
