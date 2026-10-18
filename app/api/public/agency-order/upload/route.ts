@@ -4,6 +4,7 @@
  * Files land in public bucket agency-order-files under order-drafts/.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { limitPublicForm, rateLimitResponse } from '@/lib/rateLimit'
 import { createClient } from '@supabase/supabase-js'
 
 const ALLOWED = new Set([
@@ -22,19 +23,6 @@ const ALLOWED = new Set([
 ])
 const MAX_BYTES = 10 * 1024 * 1024
 
-const hits = new Map<string, { count: number; resetAt: number }>()
-function rateLimit(key: string): boolean {
-  const now = Date.now()
-  const row = hits.get(key)
-  if (!row || now > row.resetAt) {
-    hits.set(key, { count: 1, resetAt: now + 60_000 })
-    return true
-  }
-  if (row.count >= 20) return false
-  row.count += 1
-  return true
-}
-
 function admin() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -44,13 +32,8 @@ function admin() {
 }
 
 export async function POST(request: NextRequest) {
-  const ip =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    request.headers.get('x-real-ip') ||
-    'unknown'
-  if (!rateLimit(`agency-file:${ip}`)) {
-    return NextResponse.json({ error: 'RATE_LIMITED' }, { status: 429 })
-  }
+  const _rl = await limitPublicForm(request)
+  if (!_rl.success) return rateLimitResponse(_rl, 'Too many uploads. Please wait and try again.')
 
   const form = await request.formData().catch(() => null)
   if (!form) return NextResponse.json({ error: 'INVALID_FORM' }, { status: 400 })
@@ -72,7 +55,6 @@ export async function POST(request: NextRequest) {
   }
 
   const db = admin()
-  // Ensure page is published (do not accept uploads for random slugs)
   const { data: page } = await db
     .from('agency_landing_pages')
     .select('id')
