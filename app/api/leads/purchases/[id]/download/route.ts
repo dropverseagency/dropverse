@@ -20,7 +20,7 @@ export async function GET(
     const admin = adminClient()
     const { data: purchase, error } = await admin
       .from('lead_pack_purchases')
-      .select('id, buyer_id, status, pack_id, lead_packs!inner(storage_path, title, file_content_type)')
+      .select('id, buyer_id, status, pack_id')
       .eq('id', purchaseId)
       .single()
 
@@ -34,12 +34,13 @@ export async function GET(
       return NextResponse.json({ error: 'NOT_PAID' }, { status: 403 })
     }
 
-    const pack = purchase.lead_packs as {
-      storage_path: string | null
-      title: string
-      file_content_type: string | null
-    }
-    if (!pack.storage_path) {
+    const { data: pack, error: packErr } = await admin
+      .from('lead_packs')
+      .select('storage_path, title, file_content_type')
+      .eq('id', purchase.pack_id)
+      .single()
+
+    if (packErr || !pack?.storage_path) {
       return NextResponse.json({ error: 'FILE_MISSING' }, { status: 404 })
     }
 
@@ -61,7 +62,7 @@ export async function GET(
     return NextResponse.json({
       url: signed.data.signedUrl,
       expiresIn: SIGNED_SECONDS,
-      title: pack.title,
+      title: pack.title as string,
     })
   } catch (e) {
     if ((e as Error).message === 'NOT_AUTHENTICATED') {

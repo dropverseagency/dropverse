@@ -13,7 +13,10 @@ export const runtime = 'nodejs'
 export async function POST(request: NextRequest) {
   try {
     const { userId, email } = await requireUser()
-    const body = await request.json().catch(() => ({}))
+    const body = (await request.json().catch(() => ({}))) as {
+      purchaseId?: string
+      paymentId?: string
+    }
     const purchaseId = String(body?.purchaseId || '').trim()
     const paymentId = String(body?.paymentId || '').trim()
     if (!purchaseId || !paymentId) {
@@ -28,7 +31,9 @@ export async function POST(request: NextRequest) {
     const admin = adminClient()
     const { data: purchase, error } = await admin
       .from('lead_pack_purchases')
-      .select('*, lead_packs!inner(id, seller_id, max_buyers, admin_max_buyers, sold_count, status, price_usd)')
+      .select(
+        'id, buyer_id, pack_id, price_usd, seller_net_usd, platform_fee_usd, status',
+      )
       .eq('id', purchaseId)
       .single()
 
@@ -45,14 +50,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'NOT_PAYABLE' }, { status: 409 })
     }
 
-    const pack = purchase.lead_packs as {
-      id: string
-      seller_id: string
-      max_buyers: number
-      admin_max_buyers: number | null
-      sold_count: number
-      status: string
-      price_usd: number
+    const { data: pack, error: packErr } = await admin
+      .from('lead_packs')
+      .select('id, seller_id, max_buyers, admin_max_buyers, sold_count, status, price_usd')
+      .eq('id', purchase.pack_id)
+      .single()
+
+    if (packErr || !pack) {
+      return NextResponse.json({ error: 'PACK_NOT_FOUND' }, { status: 404 })
     }
 
     const spRes = await fetch('https://spaceremit.com/api/v2/payment_info/', {
@@ -60,7 +65,10 @@ export async function POST(request: NextRequest) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ private_key: privateKey, payment_id: paymentId }),
     })
-    let spData: { response_status?: string; data?: { total_amount?: number | string; currency?: string; status?: string } } | null = null
+    let spData: {
+      response_status?: string
+      data?: { total_amount?: number | string; currency?: string; status?: string }
+    } | null = null
     try {
       spData = await spRes.json()
     } catch {
@@ -76,12 +84,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'SP_AMOUNT_MISMATCH' }, { status: 422 })
     }
 
-    const effective = effectiveMaxBuyers(Number(pack.max_buyers), pack.admin_max_buyers)
+    const effective = effectiveMaxBuyers(
+      Number(pack.max_buyers),
+      pack.admin_max_buyers as number | null,
+    )
     if (Number(pack.sold_count) >= effective) {
       return NextResponse.json({ error: 'SOLD_OUT' }, { status: 409 })
     }
 
-    // Mark purchase paid (idempotent on spaceremit_payment_id collision handled lightly)
     const { error: payErr } = await admin
       .from('lead_pack_purchases')
       .update({
@@ -103,7 +113,6 @@ export async function POST(request: NextRequest) {
 
     await admin.from('lead_packs').update(packPatch).eq('id', pack.id)
 
-    // Seller balance after this credit
     const { data: prior } = await admin
       .from('lead_marketplace_ledger')
       .select('amount')

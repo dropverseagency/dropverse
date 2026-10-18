@@ -15,7 +15,10 @@ export async function POST(
   try {
     const adminUser = await requireAdmin()
     const { purchaseId } = await ctx.params
-    const body = await request.json().catch(() => ({}))
+    const body = (await request.json().catch(() => ({}))) as {
+      reason?: string
+      restoreSeat?: boolean
+    }
     const reason = String(body?.reason || '').trim()
     const restoreSeat = body?.restoreSeat !== false
 
@@ -26,7 +29,7 @@ export async function POST(
     const admin = adminClient()
     const { data: purchase, error } = await admin
       .from('lead_pack_purchases')
-      .select('*, lead_packs!inner(id, seller_id, sold_count, status, max_buyers, admin_max_buyers)')
+      .select('id, pack_id, status, seller_net_usd')
       .eq('id', purchaseId)
       .single()
 
@@ -35,11 +38,14 @@ export async function POST(
       return NextResponse.json({ error: 'NOT_PAID' }, { status: 409 })
     }
 
-    const pack = purchase.lead_packs as {
-      id: string
-      seller_id: string
-      sold_count: number
-      status: string
+    const { data: pack, error: packErr } = await admin
+      .from('lead_packs')
+      .select('id, seller_id, sold_count, status')
+      .eq('id', purchase.pack_id)
+      .single()
+
+    if (packErr || !pack) {
+      return NextResponse.json({ error: 'PACK_NOT_FOUND' }, { status: 404 })
     }
 
     const { error: upErr } = await admin
