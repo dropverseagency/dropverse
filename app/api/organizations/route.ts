@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ organization: org })
 }
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   const cookieStore = await cookies()
   const ssr = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
