@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '../../../../lib/supabaseService'
+import { limitPublicForm, rateLimitResponse } from '@/lib/rateLimit'
 import {
   STATUS_TRANSITIONS,
   type ProjectStatus,
@@ -28,7 +29,6 @@ async function verifyWithSpaceRemit(privateKey: string, paymentId: string) {
     return { ok: false, error: 'SPACEREMIT_API_ERROR', status: res.status }
   }
   const json = await res.json()
-  // Normalizes both {"response_status":"success", "data":{...}} and flat shapes.
   const data = json?.data ?? json
   const status = String(json?.response_status ?? data?.status ?? '').toLowerCase()
   if (status !== 'success') {
@@ -38,6 +38,9 @@ async function verifyWithSpaceRemit(privateKey: string, paymentId: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const _rl = await limitPublicForm(request)
+  if (!_rl.success) return rateLimitResponse(_rl)
+
   const body = (await request.json()) as {
     invoiceId?: string
     paymentId?: string
@@ -55,7 +58,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'SP_KEYS_MISSING' }, { status: 503 })
   }
 
-  // 1. Load the invoice (any status, for a clear error message).
   const { data: invoice, error: getError } = await getServiceSupabase()
     .from('invoices')
     .select('id, project_id, status, amount, currency, spaceremit_payment_id')
@@ -72,23 +74,20 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // 2. Verify the transaction code with SpaceRemit.
   const verification = await verifyWithSpaceRemit(privateKey, paymentId)
   if (!verification.ok) {
     return NextResponse.json(
-      { error: verification.error, detail: verification.detail },
+      { error: verification.error, detail: (verification as any).detail },
       { status: 402 },
     )
   }
 
-  // 2b. Cross-check amount & currency against the invoice amount.
   const expected = Number((invoice as any).amount || 0)
   const paid = Number(verification.data?.total_amount || 0)
   if (verification.data?.currency !== ((invoice as any).currency || 'USD') || !(Math.abs(paid - expected) < 0.01)) {
     return NextResponse.json({ error: 'SP_AMOUNT_MISMATCH' }, { status: 422 })
   }
 
-  // 3. Mark the invoice PAID and record the transaction code.
   const { error: invError } = await getServiceSupabase()
     .from('invoices')
     .update({
@@ -104,7 +103,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'DB_ERROR' }, { status: 500 })
   }
 
-  // 4. Promote the linked project (same promotion as the authenticated flow).
   const projectId = (invoice as any).project_id
   const { data: project } = await getServiceSupabase()
     .from('projects')
@@ -113,18 +111,13 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (project && (project as any).payment_status === 'PAYMENT_PENDING') {
-    // Advance through allowed status transitions, exactly like the
-    // authenticated verify route.
     let currentStatus: ProjectStatus = ((project as any).status || 'DRAFT') as ProjectStatus
     const path: ProjectStatus[] = [currentStatus, 'PAYMENT_PENDING', 'PAYMENT_CONFIRMED']
     for (let i = 0; i < path.length - 1; i++) {
       const from = path[i]
       const to = path[i + 1]
       if (from === to) continue
-      if (!STATUS_TRANSITIONS[from].includes(to)) {
-        // Transition blocked — still mark the invoice PAID (payment was real).
-        break
-      }
+      if (!STATUS_TRANSITIONS[from].includes(to)) break
       await getServiceSupabase()
         .from('projects')
         .update({ status: to, payment_status: to })
@@ -142,8 +135,7 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', projectId)
 
-    // Audit trail (best-effort, non-fatal).
-    const auditInsert = getServiceSupabase().from('audit_logs').insert({
+    void getServiceSupabase().from('audit_logs').insert({
       actor_id: (project as any).user_id,
       action: 'spaceremit_payment_confirmed',
       entity: 'invoice',
@@ -155,13 +147,6 @@ export async function POST(request: NextRequest) {
         amount_usd: verification.data?.total_amount,
       }),
     })
-    void (async () => {
-      try {
-        await auditInsert
-      } catch (e: unknown) {
-        console.error('audit log failed:', e)
-      }
-    })()
   }
 
   return NextResponse.json({ success: true, paymentId })
