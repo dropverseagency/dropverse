@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabaseService'
 import { processEmailQueue } from '@/lib/ops/email'
 import { sendAdminAlert } from '@/lib/ops/telegram'
 import { transitionOrder } from '@/lib/orderEngine'
+import { runAfterPaymentConfirmed } from '@/lib/ops/sideEffects'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -49,7 +50,6 @@ export async function GET(request: NextRequest) {
         idempotencyKey: `cron:cancel:${row.id}`,
       })
       if (r.ok && !('noop' in r && r.noop)) cancelled += 1
-      else if (r.ok) cancelled += 0
     }
     summary.cancelled_stale = cancelled
   } catch (e) {
@@ -107,23 +107,70 @@ export async function GET(request: NextRequest) {
     summary.rl_cleanup = 0
   }
 
+  // Reconcile: pending_payment older than 1h with spaceremit_payment_id → payment_info
   try {
-    const { data: mismatches } = await supabase
+    const privateKey = process.env.SPACEREMIT_PRIVATE_KEY || ''
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    const { data: pending } = await supabase
       .from('projects')
-      .select('id')
+      .select('id, spaceremit_payment_id, client_price, fulfillment_cost')
       .eq('payment_status', 'PAYMENT_PENDING')
       .not('spaceremit_payment_id', 'is', null)
-      .limit(20)
-    summary.reconcile_candidates = mismatches?.length ?? 0
-    if (mismatches && mismatches.length > 0) {
+      .lt('created_at', oneHourAgo)
+      .limit(25)
+
+    let confirmed = 0
+    let flagged = 0
+    for (const row of pending || []) {
+      const paymentId = String(row.spaceremit_payment_id || '').trim()
+      if (!paymentId || !privateKey || privateKey.startsWith('PLACEHOLDER')) {
+        flagged += 1
+        continue
+      }
+      try {
+        const spRes = await fetch('https://spaceremit.com/api/v2/payment_info/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ private_key: privateKey, payment_id: paymentId }),
+        })
+        const spData = await spRes.json().catch(() => null)
+        if (spData?.response_status !== 'success' || !spData?.data) {
+          flagged += 1
+          continue
+        }
+        const tx = spData.data
+        const txStatus = String(tx?.status || '').toUpperCase()
+        const paidOk = ['SUCCESS', 'CONFIRMED', 'COMPLETED'].includes(txStatus)
+        const expected = Number(row.client_price || row.fulfillment_cost || 0)
+        const paid = Number(tx.total_amount || 0)
+        const amountOk = expected <= 0 || Math.abs(paid - expected) < 0.05
+        if (paidOk && amountOk) {
+          // Idempotent: transitionOrder no-ops if already confirmed
+          await runAfterPaymentConfirmed({
+            projectId: row.id,
+            paymentId,
+            actorType: 'system',
+            source: 'spaceremit_callback',
+          })
+          confirmed += 1
+        } else {
+          flagged += 1
+        }
+      } catch {
+        flagged += 1
+      }
+    }
+    summary.reconcile_confirmed = confirmed
+    summary.reconcile_flagged = flagged
+    if (flagged > 0) {
       await sendAdminAlert({
         key: `reconcile:${new Date().toISOString().slice(0, 10)}`,
-        text: `DropVerse: ${mismatches.length} pending payment(s) have a SpaceRemit id — review admin exceptions.`,
+        text: `DropVerse reconcile: confirmed=${confirmed}, still pending/flagged=${flagged}`,
         dedupeSeconds: 20 * 60 * 60,
       })
     }
-  } catch {
-    /* ignore */
+  } catch (e) {
+    summary.reconcile_error = e instanceof Error ? e.message : 'error'
   }
 
   return NextResponse.json({ status: 'ok', summary, time: new Date().toISOString() })

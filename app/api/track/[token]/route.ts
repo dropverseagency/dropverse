@@ -147,16 +147,17 @@ export async function POST(
       idempotencyKey: `revision:${project.id}:${revCount + 1}`,
     })
     if (!r.ok) return NextResponse.json({ error: r.error }, { status: 409 })
-    await supabase
-      .from('projects')
-      .update({ revision_count: revCount + 1, last_activity_at: new Date().toISOString() })
-      .eq('id', project.id)
+    // revision_count is incremented inside transitionOrder
     void runAfterLifecycleEmail({
       projectId: project.id,
       to: 'revision_requested',
       customerEmail: project.client_contact_email,
     })
-    return NextResponse.json({ ok: true, lifecycle: 'revision_requested', revisionsUsed: revCount + 1 })
+    return NextResponse.json({
+      ok: true,
+      lifecycle: 'revision_requested',
+      revisionsUsed: revCount + 1,
+    })
   }
 
   return NextResponse.json({ error: 'INVALID_ACTION' }, { status: 400 })

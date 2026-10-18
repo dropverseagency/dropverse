@@ -109,7 +109,7 @@ export async function transitionOrder(input: TransitionInput): Promise<Transitio
   const supabase = admin()
   const { data: project, error } = await supabase
     .from('projects')
-    .select('id, status, payment_status')
+    .select('id, status, payment_status, revision_count, revision_limit')
     .eq('id', input.projectId)
     .maybeSingle()
 
@@ -132,6 +132,14 @@ export async function transitionOrder(input: TransitionInput): Promise<Transitio
     return { ok: false, error: 'ILLEGAL_TRANSITION' }
   }
 
+  if (to === 'revision_requested') {
+    const revCount = Number(project.revision_count || 0)
+    const revLimit = Number(project.revision_limit ?? 2)
+    if (revCount >= revLimit) {
+      return { ok: false, error: 'REVISION_LIMIT' }
+    }
+  }
+
   const dbStatus = LIFECYCLE_TO_DB[to]
   const now = new Date().toISOString()
   const patch: Record<string, unknown> = {
@@ -151,6 +159,9 @@ export async function transitionOrder(input: TransitionInput): Promise<Transitio
   }
   if (to === 'delivered') {
     patch.delivered_at = now
+  }
+  if (to === 'revision_requested') {
+    patch.revision_count = Number(project.revision_count || 0) + 1
   }
 
   const { error: updErr } = await supabase.from('projects').update(patch).eq('id', input.projectId)
