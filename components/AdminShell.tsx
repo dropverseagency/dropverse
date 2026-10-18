@@ -6,13 +6,14 @@ import { createClient } from '@/lib/supabase'
 import Image from 'next/image'
 import {
   LayoutDashboard, Users, Briefcase, FolderKanban, CreditCard, Users2,
-  Coins, Package, Wrench, ScrollText, Settings, LogOut, ShieldCheck, Menu, X,
+  Coins, Package, Wrench, ScrollText, Settings, LogOut, ShieldCheck, Menu, X, ListChecks,
 } from 'lucide-react'
 
 export const ADMIN_SECTIONS = [
   { id: 'overview', label: 'Overview', group: 'Work', icon: LayoutDashboard },
   { id: 'projects', label: 'Projects', group: 'Work', icon: FolderKanban },
   { id: 'payments', label: 'Payments', group: 'Work', icon: CreditCard },
+  { id: 'leads', label: 'Lead packs', group: 'Work', icon: ListChecks },
   { id: 'services', label: 'Services', group: 'Work', icon: Package },
   { id: 'packages', label: 'Packages', group: 'Work', icon: Package },
   { id: 'agency-landings', label: 'Agency pages', group: 'Work', icon: Briefcase },
@@ -181,7 +182,7 @@ export default function AdminShell({ children, title }: { children: React.ReactN
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#1e3d36] bg-[#071915] px-2 py-2 lg:hidden">
         <div className="grid grid-cols-5 gap-1">
-          {ADMIN_SECTIONS.filter((s) => ['overview', 'projects', 'users', 'commissions', 'services'].includes(s.id)).map((s) => {
+          {ADMIN_SECTIONS.filter((s) => ['overview', 'projects', 'leads', 'users', 'commissions'].includes(s.id)).map((s) => {
             const active = current === s.id
             const Icon = s.icon
             const tone = GROUP_STYLE[s.group]
