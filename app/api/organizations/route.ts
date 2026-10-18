@@ -3,6 +3,7 @@ import { createClient as createBrowserClient } from '@supabase/supabase-js'
 import { cookies, headers } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import { createServiceClient } from '../../../lib/supabaseService'
+import { clientIp, rateLimit, rateLimitResponse } from '@/lib/rateLimit'
 
 function slugify(s: string): string {
   return s
@@ -21,6 +22,9 @@ function slugify(s: string): string {
  * (the owner isn't a member yet at return time).
  */
 export async function POST(req: NextRequest) {
+  const _rl = await rateLimit(`org-create:${clientIp(req)}`, { limit: 5, windowMs: 600_000 })
+  if (!_rl.success) return rateLimitResponse(_rl)
+
   const hdrs = await headers()
   const bearer = (hdrs.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
   let user = null as any
@@ -30,103 +34,78 @@ export async function POST(req: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       { auth: { persistSession: false, autoRefreshToken: false } },
     )
-    const res = await supa.auth.getUser(bearer)
-    user = res.data.user
-  } else {
+    const { data } = await supa.auth.getUser(bearer)
+    user = data.user
+  }
+  if (!user) {
     const cookieStore = await cookies()
-    const supabase = createServerClient(
+    const ssr = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          get(name) {
-            return cookieStore.get(name)?.value
-          },
+          getAll: () => cookieStore.getAll(),
+          setAll: () => {},
         },
       },
     )
-    const res = await supabase.auth.getUser()
-    user = res.data.user
+    const { data } = await ssr.auth.getUser()
+    user = data.user
   }
-  if (!user) {
-    return NextResponse.json({ error: 'NOT_AUTHENTICATED' }, { status: 401 })
-  }
-  const userId = user.id
+  if (!user) return NextResponse.json({ error: 'NOT_AUTHENTICATED' }, { status: 401 })
 
-  const body = await req.json().catch(() => null)
-  if (!body) {
-    return NextResponse.json({ error: 'MISSING_BODY' }, { status: 400 })
-  }
-  const { name, plan, industry, teamSize } = body as {
-    name?: string
-    plan?: string
-    industry?: string
-    teamSize?: string
-  }
-  if (!name?.trim() || !plan || !teamSize) {
-    return NextResponse.json({ error: 'MISSING_PARAMS' }, { status: 400 })
+  const body = await req.json().catch(() => ({}))
+  const name = String(body.name || '').trim().slice(0, 120)
+  if (!name) return NextResponse.json({ error: 'NAME_REQUIRED' }, { status: 400 })
+
+  const admin = createServiceClient()
+  const base = slugify(name) || 'org'
+  let slug = base
+  for (let i = 0; i < 8; i++) {
+    const { data: exists } = await admin.from('organizations').select('id').eq('slug', slug).maybeSingle()
+    if (!exists) break
+    slug = `${base}-${Math.random().toString(36).slice(2, 6)}`
   }
 
-  const supabase = createServiceClient()
-
-  // Ensure the user has no active organization already.
-  const { data: memberRows } = await supabase
-    .from('organization_members')
-    .select('organization_id')
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .limit(1)
-  if (memberRows && memberRows.length > 0) {
-    return NextResponse.json({ error: 'ALREADY_MEMBER', organizationId: memberRows[0].organization_id }, { status: 409 })
+  const { data: org, error: orgErr } = await admin
+    .from('organizations')
+    .insert({ name, slug, owner_id: user.id })
+    .select('*')
+    .single()
+  if (orgErr || !org) {
+    return NextResponse.json({ error: orgErr?.message || 'CREATE_FAILED' }, { status: 500 })
   }
 
-  // Ensure no duplicate org name for this user.
-  let slug = slugify(name)
-  let orgId: string | null = null
-  for (let i = 0; i < 3; i++) {
-    const { data, error } = await supabase
-      .from('organizations')
-      .insert({
-        name: name.trim(),
-        slug: slug + (i === 0 ? '' : '-' + Math.random().toString(36).slice(2, 8)),
-        type: 'agency',
-        plan,
-        owner_id: userId,
-        industry: industry ?? 'General Agency',
-        team_size: teamSize,
-        status: 'active',
-      })
-      .select('id')
-      .single()
-    if (error) {
-      if (error.code === '23505') {
-        slug = slugify(name) + '-' + Math.random().toString(36).slice(2, 8)
-        continue
-      }
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
-    orgId = (data as { id: string }).id
-    break
-  }
-  if (!orgId) {
-    return NextResponse.json({ error: 'Could not create organization' }, { status: 500 })
-  }
-
-  const { error: memError } = await supabase.from('organization_members').insert({
-    organization_id: orgId,
-    user_id: userId,
-    role: 'OWNER',
-    status: 'active',
-    joined_at: new Date().toISOString(),
+  await admin.from('organization_members').insert({
+    organization_id: org.id,
+    user_id: user.id,
+    role: 'owner',
   })
-  if (memError) {
-    return NextResponse.json({ error: memError.message }, { status: 400 })
-  }
 
-  await supabase.from('organization_settings').upsert(
-    { organization_id: orgId },
-    { onConflict: 'organization_id' },
+  return NextResponse.json({ organization: org })
+}
+
+export async function GET(req: NextRequest) {
+  const cookieStore = await cookies()
+  const ssr = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => cookieStore.getAll(),
+        setAll: () => {},
+      },
+    },
   )
+  const {
+    data: { user },
+  } = await ssr.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'NOT_AUTHENTICATED' }, { status: 401 })
 
-  return NextResponse.json({ ok: true, organizationId: orgId })
+  const admin = createServiceClient()
+  const { data: memberships } = await admin
+    .from('organization_members')
+    .select('organization_id, role, organizations(*)')
+    .eq('user_id', user.id)
+  return NextResponse.json({ memberships: memberships || [] })
 }
