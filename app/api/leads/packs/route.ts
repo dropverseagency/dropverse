@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createHash, randomBytes } from 'crypto'
+import { createHash, randomUUID } from 'crypto'
 import { adminClient, audit } from '@/lib/adminCore'
 import { requireUser } from '@/lib/leads/auth'
 import {
@@ -69,7 +69,10 @@ export async function POST(request: NextRequest) {
     const niche = String(form.get('niche') || '').trim()
     const countriesRaw = String(form.get('countries') || '').trim()
     const priceUsd = Number(form.get('price_usd') || 0)
-    const maxBuyers = Math.max(1, parseInt(String(form.get('max_buyers') || LEAD_DEFAULT_MAX_BUYERS), 10) || LEAD_DEFAULT_MAX_BUYERS)
+    const maxBuyers = Math.max(
+      1,
+      parseInt(String(form.get('max_buyers') || LEAD_DEFAULT_MAX_BUYERS), 10) || LEAD_DEFAULT_MAX_BUYERS,
+    )
     const sourceAttestation = String(form.get('source_attestation') || '').trim()
     const resaleAck = String(form.get('resale_rights_ack') || '') === 'true'
     const file = form.get('file')
@@ -94,13 +97,18 @@ export async function POST(request: NextRequest) {
     }
     const mime = (file.type || 'application/octet-stream').toLowerCase()
     const nameLower = (file.name || '').toLowerCase()
-    const extOk = nameLower.endsWith('.csv') || nameLower.endsWith('.xlsx') || nameLower.endsWith('.xls')
+    const extOk =
+      nameLower.endsWith('.csv') || nameLower.endsWith('.xlsx') || nameLower.endsWith('.xls')
     if (!LEAD_ALLOWED_MIME.has(mime) && !extOk) {
       return NextResponse.json({ error: 'INVALID_TYPE' }, { status: 400 })
     }
 
     const countries = countriesRaw
-      ? countriesRaw.split(',').map((c) => c.trim()).filter(Boolean).slice(0, 30)
+      ? countriesRaw
+          .split(',')
+          .map((c) => c.trim())
+          .filter(Boolean)
+          .slice(0, 30)
       : []
 
     const bytes = Buffer.from(await file.arrayBuffer())
@@ -109,7 +117,7 @@ export async function POST(request: NextRequest) {
 
     await ensurePrivateBucket(admin)
 
-    const packId = crypto.randomUUID()
+    const packId = randomUUID()
     const safeName = (file.name || 'leads.csv').replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 80)
     const storagePath = `packs/${userId}/${packId}/${sha256}-${safeName}`
 
@@ -144,9 +152,7 @@ export async function POST(request: NextRequest) {
         file_bytes: file.size,
         file_content_type: mime,
       })
-      .select(
-        'id, title, status, price_usd, max_buyers, created_at',
-      )
+      .select('id, title, status, price_usd, max_buyers, created_at')
       .single()
 
     if (insertError || !pack) {

@@ -16,7 +16,7 @@ export async function POST(
     const { id: packId } = await ctx.params
     if (!packId) return NextResponse.json({ error: 'MISSING_ID' }, { status: 400 })
 
-    const body = await request.json().catch(() => ({}))
+    const body = (await request.json().catch(() => ({}))) as { idempotencyKey?: string }
     const idempotencyKey =
       String(body?.idempotencyKey || '').trim() ||
       `lp-${packId}-${userId}-${randomBytes(8).toString('hex')}`
@@ -37,7 +37,11 @@ export async function POST(
       return NextResponse.json({ error: 'CANNOT_BUY_OWN' }, { status: 403 })
     }
 
-    const remaining = remainingSeats(Number(pack.max_buyers), pack.admin_max_buyers, Number(pack.sold_count))
+    const remaining = remainingSeats(
+      Number(pack.max_buyers),
+      pack.admin_max_buyers as number | null,
+      Number(pack.sold_count),
+    )
     if (remaining <= 0) {
       return NextResponse.json({ error: 'SOLD_OUT' }, { status: 409 })
     }
@@ -57,13 +61,17 @@ export async function POST(
         ok: true,
         purchaseId: existing.id,
         amount: Number(existing.price_usd),
-        currency: pack.currency || 'USD',
+        currency: (pack.currency as string) || 'USD',
         idempotencyKey: existing.idempotency_key,
         spaceremitPublicKey: process.env.NEXT_PUBLIC_SPACEREMIT_PUBLIC_KEY || '',
       })
     }
 
-    const { data: cfg } = await admin.from('lead_marketplace_config').select('commission_rate').eq('id', 1).maybeSingle()
+    const { data: cfg } = await admin
+      .from('lead_marketplace_config')
+      .select('commission_rate')
+      .eq('id', 1)
+      .maybeSingle()
     const rate = Number(cfg?.commission_rate ?? LEAD_COMMISSION_DEFAULT)
     const price = Math.round(Number(pack.price_usd) * 100) / 100
     const { platformFee, sellerNet } = splitCommission(price, rate)
@@ -104,7 +112,7 @@ export async function POST(
       ok: true,
       purchaseId: purchase.id,
       amount: Number(purchase.price_usd),
-      currency: pack.currency || 'USD',
+      currency: (pack.currency as string) || 'USD',
       idempotencyKey: purchase.idempotency_key,
       spaceremitPublicKey: process.env.NEXT_PUBLIC_SPACEREMIT_PUBLIC_KEY || '',
     })
