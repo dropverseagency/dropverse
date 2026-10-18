@@ -5,6 +5,10 @@ import { useEffect, useRef, useState } from 'react'
 /**
  * Embedded SpaceRemit payment form (official client-side JS integration).
  * Keeps the entire flow on the same page via in-page iframes — never opens a new tab.
+ *
+ * SpaceRemit local-method accounts commonly enforce a ~$300 max per payment.
+ * Over that limit their iframe returns a near-blank white page with only
+ * "Maximum Amount is 300$" — we block that path client-side and show a clear error.
  */
 interface SpaceRemitPayFormProps {
   amount: number
@@ -37,6 +41,9 @@ declare global {
   }
 }
 
+/** Hard cap observed on SpaceRemit local methods (merchant account limit). */
+export const SPACEREMIT_MAX_USD = 300
+
 let spScriptPromise: Promise<void> | null = null
 
 function loadSpScript(): Promise<void> {
@@ -52,6 +59,23 @@ function loadSpScript(): Promise<void> {
     document.head.appendChild(script)
   })
   return spScriptPromise
+}
+
+function normalizeAmount(amount: number): number {
+  return Math.max(0, Math.round(Number(amount || 0) * 100) / 100)
+}
+
+function isAmountOverLimit(amount: number): boolean {
+  return normalizeAmount(amount) > SPACEREMIT_MAX_USD
+}
+
+function amountLimitMessage(amount: number): string {
+  const a = normalizeAmount(amount)
+  return `SpaceRemit local payments are limited to $${SPACEREMIT_MAX_USD} per transaction. This order is $${a.toFixed(2)} — lower the amount to $${SPACEREMIT_MAX_USD} or less, or split the payment.`
+}
+
+function isSpLimitMessage(msg: string): boolean {
+  return /maxim(?:um|un)\s*amount|max(?:imum)?\s*(?:amount|limit)|300\s*\$?/i.test(msg)
 }
 
 const FORM_ID = 'dv-spaceremit-form'
@@ -70,9 +94,14 @@ export default function SpaceRemitPayForm({
   hideBuyerInputs,
   submitLabel = 'Pay Now →',
 }: SpaceRemitPayFormProps) {
+  const safeAmount = normalizeAmount(amount)
+  const overLimit = isAmountOverLimit(safeAmount)
+
   const [ready, setReady] = useState(false)
   const [iframeReady, setIframeReady] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(() =>
+    overLimit ? amountLimitMessage(safeAmount) : null,
+  )
   const [info, setInfo] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [authUrl, setAuthUrl] = useState<string | null>(null)
@@ -84,6 +113,14 @@ export default function SpaceRemitPayForm({
   onMessageRef.current = onMessage
 
   useEffect(() => {
+    if (overLimit) {
+      setError(amountLimitMessage(safeAmount))
+      setReady(false)
+      setIframeReady(false)
+      setShowCheckoutFrame(false)
+      return
+    }
+
     let cancelled = false
     window.SP_PUBLIC_KEY = publicKey
     window.SP_FORM_ID = `#${FORM_ID}`
@@ -107,10 +144,18 @@ export default function SpaceRemitPayForm({
     window.SP_RECIVED_MESSAGE = (message: string) => {
       if (message && message.length > 0) {
         const msg = message.trim()
-        const isError = /error|fail|invalid|denied|refused|exception|unsuccessful/i.test(msg)
+        const isError =
+          isSpLimitMessage(msg) ||
+          /error|fail|invalid|denied|refused|exception|unsuccessful/i.test(msg)
         if (isError) {
-          setError(msg)
+          setError(
+            isSpLimitMessage(msg)
+              ? amountLimitMessage(safeAmount)
+              : msg,
+          )
           setInfo(null)
+          setShowCheckoutFrame(false)
+          setSubmitting(false)
         } else {
           setInfo(msg)
           setError(null)
@@ -118,7 +163,6 @@ export default function SpaceRemitPayForm({
         if (onMessageRef.current) onMessageRef.current(message)
       }
     }
-    // Keep auth/checkout on this page — never open a new browser tab.
     window.SP_NEED_AUTH = (targetAuthLink: string) => {
       if (!targetAuthLink) {
         setError('Authentication is required to complete this payment.')
@@ -128,7 +172,6 @@ export default function SpaceRemitPayForm({
       setInfo('Complete the steps in the secure panel below — you stay on this page.')
       setShowCheckoutFrame(true)
       setAuthUrl(targetAuthLink)
-      // Scroll the in-page panel into view for mobile.
       requestAnimationFrame(() => {
         document.getElementById('dv-sp-inline-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
       })
@@ -153,20 +196,21 @@ export default function SpaceRemitPayForm({
             setTimeout(clearOverlay, 4000)
           })
         }
-        return () => { clearTimeout(t1); clearTimeout(t2) }
+        return () => {
+          clearTimeout(t1)
+          clearTimeout(t2)
+        }
       })
       .catch(() => {
         if (!cancelled) setError('Unable to load the payment methods. Please refresh the page.')
       })
 
-    // Block accidental new-tab opens from third-party scripts inside our root when possible.
     const onClickCapture = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null
       const anchor = target?.closest?.('a[target="_blank"]') as HTMLAnchorElement | null
       if (!anchor) return
       const href = anchor.getAttribute('href') || ''
       if (!href || href === '#') return
-      // Only intercept links that look like SpaceRemit checkout/auth.
       if (!/spaceremit\.(com|net)/i.test(href) && !/pay|auth|checkout/i.test(href)) return
       event.preventDefault()
       event.stopPropagation()
@@ -181,10 +225,15 @@ export default function SpaceRemitPayForm({
       document.removeEventListener('click', onClickCapture, true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [overLimit, publicKey, safeAmount])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (overLimit) {
+      setError(amountLimitMessage(safeAmount))
+      setShowCheckoutFrame(false)
+      return
+    }
     if (submitting || disabled || !ready) return
     setSubmitting(true)
     setError(null)
@@ -195,7 +244,6 @@ export default function SpaceRemitPayForm({
       setError('Could not open the payment form. Please refresh the page.')
       return
     }
-    // Submit into an on-page iframe so the parent DropVerse page never navigates away.
     form.setAttribute('target', CHECKOUT_FRAME)
     setShowCheckoutFrame(true)
     form.requestSubmit()
@@ -206,10 +254,25 @@ export default function SpaceRemitPayForm({
 
   const showInputs = !hideBuyerInputs
 
+  if (overLimit) {
+    return (
+      <div className="w-full">
+        <div className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-4 text-center">
+          <p className="text-sm font-bold text-red-200">Amount exceeds SpaceRemit limit</p>
+          <p className="mt-2 text-xs leading-5 text-red-100/90">{amountLimitMessage(safeAmount)}</p>
+          <p className="mt-3 text-[11px] leading-5 text-[#8f9f9a]">
+            SpaceRemit local methods (wallets / bank transfer) cap each payment at ${SPACEREMIT_MAX_USD}.
+            Create the order at ${SPACEREMIT_MAX_USD} or less to continue.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="relative w-full">
       <form ref={formRef} id={FORM_ID} className="relative" target={CHECKOUT_FRAME}>
-        <input type="hidden" name="amount" value={Math.max(0, Math.round(amount * 100) / 100)} />
+        <input type="hidden" name="amount" value={safeAmount} />
         <input type="hidden" name="currency" value={currency} />
         <input type="hidden" name="fullname" value={fullName} />
         <input type="hidden" name="email" value={email} />
@@ -278,14 +341,17 @@ export default function SpaceRemitPayForm({
         </>
       )}
 
-      {/* Same-page checkout / auth panel — never navigates the parent page. */}
       <div id="dv-sp-inline-panel" className={`mt-4 ${showCheckoutFrame ? 'block' : 'hidden'}`}>
         <div className="mb-2 flex items-center justify-between gap-2">
           <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-[#d8b45a]">Secure checkout · same page</p>
           {authUrl && (
             <button
               type="button"
-              onClick={() => { setAuthUrl(null); setShowCheckoutFrame(false); setSubmitting(false) }}
+              onClick={() => {
+                setAuthUrl(null)
+                setShowCheckoutFrame(false)
+                setSubmitting(false)
+              }}
               className="text-[11px] font-semibold text-[#8fa29c] hover:text-[#e4c979]"
             >
               Close panel
@@ -314,7 +380,6 @@ export default function SpaceRemitPayForm({
         )}
       </div>
 
-      {/* Always keep a named target frame in the DOM for form submissions. */}
       {!showCheckoutFrame && (
         <iframe title="SpaceRemit checkout target" name={CHECKOUT_FRAME} id={`${CHECKOUT_FRAME}-hidden`} className="hidden" />
       )}
