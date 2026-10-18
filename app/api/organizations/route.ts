@@ -34,78 +34,101 @@ export async function POST(req: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       { auth: { persistSession: false, autoRefreshToken: false } },
     )
-    const { data } = await supa.auth.getUser(bearer)
-    user = data.user
-  }
-  if (!user) {
+    const res = await supa.auth.getUser(bearer)
+    user = res.data.user
+  } else {
     const cookieStore = await cookies()
-    const ssr = createServerClient(
+    const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: () => {},
+          get(name) {
+            return cookieStore.get(name)?.value
+          },
         },
       },
     )
-    const { data } = await ssr.auth.getUser()
-    user = data.user
+    const res = await supabase.auth.getUser()
+    user = res.data.user
   }
-  if (!user) return NextResponse.json({ error: 'NOT_AUTHENTICATED' }, { status: 401 })
-
-  const body = await req.json().catch(() => ({}))
-  const name = String(body.name || '').trim().slice(0, 120)
-  if (!name) return NextResponse.json({ error: 'NAME_REQUIRED' }, { status: 400 })
-
-  const admin = createServiceClient()
-  const base = slugify(name) || 'org'
-  let slug = base
-  for (let i = 0; i < 8; i++) {
-    const { data: exists } = await admin.from('organizations').select('id').eq('slug', slug).maybeSingle()
-    if (!exists) break
-    slug = `${base}-${Math.random().toString(36).slice(2, 6)}`
+  if (!user) {
+    return NextResponse.json({ error: 'NOT_AUTHENTICATED' }, { status: 401 })
   }
+  const userId = user.id
 
-  const { data: org, error: orgErr } = await admin
-    .from('organizations')
-    .insert({ name, slug, owner_id: user.id })
-    .select('*')
-    .single()
-  if (orgErr || !org) {
-    return NextResponse.json({ error: orgErr?.message || 'CREATE_FAILED' }, { status: 500 })
+  const body = await req.json().catch(() => null)
+  if (!body) {
+    return NextResponse.json({ error: 'MISSING_BODY' }, { status: 400 })
+  }
+  const { name, plan, industry, teamSize } = body as {
+    name?: string
+    plan?: string
+    industry?: string
+    teamSize?: string
+  }
+  if (!name?.trim() || !plan || !teamSize) {
+    return NextResponse.json({ error: 'MISSING_PARAMS' }, { status: 400 })
   }
 
-  await admin.from('organization_members').insert({
-    organization_id: org.id,
-    user_id: user.id,
-    role: 'owner',
-  })
+  const supabase = createServiceClient()
 
-  return NextResponse.json({ organization: org })
-}
-
-export async function GET() {
-  const cookieStore = await cookies()
-  const ssr = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: () => {},
-      },
-    },
-  )
-  const {
-    data: { user },
-  } = await ssr.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'NOT_AUTHENTICATED' }, { status: 401 })
-
-  const admin = createServiceClient()
-  const { data: memberships } = await admin
+  const { data: memberRows } = await supabase
     .from('organization_members')
-    .select('organization_id, role, organizations(*)')
-    .eq('user_id', user.id)
-  return NextResponse.json({ memberships: memberships || [] })
+    .select('organization_id')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .limit(1)
+  if (memberRows && memberRows.length > 0) {
+    return NextResponse.json({ error: 'ALREADY_MEMBER', organizationId: memberRows[0].organization_id }, { status: 409 })
+  }
+
+  let slug = slugify(name)
+  let orgId: string | null = null
+  for (let i = 0; i < 3; i++) {
+    const { data, error } = await supabase
+      .from('organizations')
+      .insert({
+        name: name.trim(),
+        slug: slug + (i === 0 ? '' : '-' + Math.random().toString(36).slice(2, 8)),
+        type: 'agency',
+        plan,
+        owner_id: userId,
+        industry: industry ?? 'General Agency',
+        team_size: teamSize,
+        status: 'active',
+      })
+      .select('id')
+      .single()
+    if (error) {
+      if (error.code === '23505') {
+        slug = slugify(name) + '-' + Math.random().toString(36).slice(2, 8)
+        continue
+      }
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+    orgId = (data as { id: string }).id
+    break
+  }
+  if (!orgId) {
+    return NextResponse.json({ error: 'Could not create organization' }, { status: 500 })
+  }
+
+  const { error: memError } = await supabase.from('organization_members').insert({
+    organization_id: orgId,
+    user_id: userId,
+    role: 'OWNER',
+    status: 'active',
+    joined_at: new Date().toISOString(),
+  })
+  if (memError) {
+    return NextResponse.json({ error: memError.message }, { status: 400 })
+  }
+
+  await supabase.from('organization_settings').upsert(
+    { organization_id: orgId },
+    { onConflict: 'organization_id' },
+  )
+
+  return NextResponse.json({ ok: true, organizationId: orgId })
 }
