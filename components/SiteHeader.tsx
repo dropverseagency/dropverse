@@ -30,7 +30,8 @@ export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: b
       <a href="/#how" className="hover:text-[#f0d98b]">How It Works</a>
       <a href="/#samples" className="hover:text-[#f0d98b]">Work Samples</a>
       <a href="/#about" className="hover:text-[#f0d98b]">About</a>
-      <Link href="/earn" className={highlightEarn ? 'font-semibold text-[#e4c979] hover:text-[#f0d98b]' : 'hover:text-[#f0d98b]'}>Earn</Link>
+      <Link href="/leads" className="hover:text-[#f0d98b]">Lead Marketplace</Link>
+      <Link href="/earn" className={highlightEarn ? 'font-semibold text-[#e4c979] hover:text-[#f0d98b]' : 'hover:text-[#f0d98b]'}>Become a Partner</Link>
       <Link href="/pricing" className="hover:text-[#f0d98b]">Pricing</Link>
     </>
   )
@@ -87,7 +88,8 @@ export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: b
             <a href="/#how" onClick={() => setMenu(false)}>How It Works</a>
             <a href="/#samples" onClick={() => setMenu(false)}>Work Samples</a>
             <a href="/#about" onClick={() => setMenu(false)}>About</a>
-            <Link href="/earn" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Earn With DropVerse →</Link>
+            <Link href="/leads" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Lead Marketplace →</Link>
+            <Link href="/earn" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Become a Partner →</Link>
             <Link href="/pricing" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Pricing →</Link>
             {isAdmin ? (
               <Link href="/admin" className="inline-flex items-center gap-2 font-bold text-[#f0d98b]" onClick={() => setMenu(false)}><ShieldCheck size={15} /> Admin Panel →</Link>
