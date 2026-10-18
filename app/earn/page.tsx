@@ -18,7 +18,7 @@ export default function EarnPage() {
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">Partner program</p>
           <h1 className="font-display mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">
-            Earn with DropVerse
+            Become a Partner
           </h1>
           <p className="mt-5 text-[#8fa29c]">
             Share DropVerse, refer digital teams, and earn commissions when they grow their workspace.
@@ -62,6 +62,8 @@ export default function EarnPage() {
           <Brand compact />
           <div className="flex flex-wrap gap-6 text-sm text-[#83958f]">
             <Link href="/" className="hover:text-[#d8b45a]">Home</Link>
+            <Link href="/leads" className="hover:text-[#d8b45a]">Lead Marketplace</Link>
+            <Link href="/earn" className="hover:text-[#d8b45a]">Become a Partner</Link>
             <Link href="/pricing" className="hover:text-[#d8b45a]">Pricing</Link>
             <Link href="/privacy" className="hover:text-[#d8b45a]">Privacy</Link>
             <Link href="/terms" className="hover:text-[#d8b45a]">Terms</Link>
