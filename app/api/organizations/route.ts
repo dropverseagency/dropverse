@@ -3,6 +3,7 @@ import { createClient as createBrowserClient } from '@supabase/supabase-js'
 import { cookies, headers } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import { createServiceClient } from '../../../lib/supabaseService'
+import { clientIp, rateLimit, rateLimitResponse } from '@/lib/rateLimit'
 
 function slugify(s: string): string {
   return s
@@ -21,6 +22,9 @@ function slugify(s: string): string {
  * (the owner isn't a member yet at return time).
  */
 export async function POST(req: NextRequest) {
+  const _rl = await rateLimit(`org-create:${clientIp(req)}`, { limit: 5, windowMs: 600_000 })
+  if (!_rl.success) return rateLimitResponse(_rl)
+
   const hdrs = await headers()
   const bearer = (hdrs.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
   let user = null as any
@@ -69,7 +73,6 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServiceClient()
 
-  // Ensure the user has no active organization already.
   const { data: memberRows } = await supabase
     .from('organization_members')
     .select('organization_id')
@@ -80,7 +83,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'ALREADY_MEMBER', organizationId: memberRows[0].organization_id }, { status: 409 })
   }
 
-  // Ensure no duplicate org name for this user.
   let slug = slugify(name)
   let orgId: string | null = null
   for (let i = 0; i < 3; i++) {

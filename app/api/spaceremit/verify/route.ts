@@ -3,6 +3,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+import { rateLimitResponse, clientIp, rateLimit } from '@/lib/rateLimit'
+import { runAfterPaymentConfirmed } from '@/lib/ops/sideEffects'
 import {
   STATUS_TRANSITIONS,
   type ProjectStatus,
@@ -10,8 +12,7 @@ import {
 
 /**
  * Confirms a SpaceRemit payment and promotes the project status —
- * server-side ONLY. The client sends the transaction code, we verify it
- * directly with the SpaceRemit API before touching the database.
+ * server-side ONLY. Side effects never block or change the payment result.
  */
 export async function POST(request: NextRequest) {
   const supabase = createClient(
@@ -28,6 +29,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'NOT_AUTHENTICATED' }, { status: 401 })
   }
 
+  const _rl = await rateLimit(`spaceremit-verify:${user.id}:${clientIp(request)}`, { limit: 10, windowMs: 60_000 })
+  if (!_rl.success) return rateLimitResponse(_rl)
+
   const isAdmin = user.id === process.env.ADMIN_USER_ID
   const body = (await request.json()) as {
     paymentId?: string
@@ -41,13 +45,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'MISSING_PARAMS' }, { status: 400 })
   }
 
-  // Keys must be real (configured after SpaceRemit verification).
   const privateKey = process.env.SPACEREMIT_PRIVATE_KEY || ''
   if (!privateKey || privateKey.startsWith('PLACEHOLDER')) {
     return NextResponse.json({ error: 'SP_KEYS_MISSING' }, { status: 503 })
   }
 
-  // 1. Own the project (non-admin) before anything else.
   const { data: project, error: getError } = await supabase
     .from('projects')
     .select('*')
@@ -67,7 +69,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'ALREADY_CONFIRMED' }, { status: 400 })
   }
 
-  // 2. Verify the transaction directly with SpaceRemit (never trust the client).
   const spRes = await fetch('https://spaceremit.com/api/v2/payment_info/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -84,21 +85,14 @@ export async function POST(request: NextRequest) {
   }
   const tx = spData.data
 
-  // 3. Cross-check amount & currency against the project's fulfillment cost.
   const expected = Number(project.fulfillment_cost || 0)
   const paid = Number(tx.total_amount || 0)
   if (tx.currency !== 'USD' || !(Math.abs(paid - expected) < 0.01)) {
     return NextResponse.json({ error: 'SP_AMOUNT_MISMATCH' }, { status: 422 })
   }
 
-  // 4. Advance the project through allowed status transitions:
-  //    DRAFT -> PAYMENT_PENDING -> PAYMENT_CONFIRMED
   let currentStatus: ProjectStatus = (project.status || 'DRAFT') as ProjectStatus
-  const path: ProjectStatus[] = [
-    currentStatus,
-    'PAYMENT_PENDING',
-    'PAYMENT_CONFIRMED',
-  ]
+  const path: ProjectStatus[] = [currentStatus, 'PAYMENT_PENDING', 'PAYMENT_CONFIRMED']
   for (let i = 0; i < path.length - 1; i++) {
     const from = path[i]
     const to = path[i + 1]
@@ -106,21 +100,14 @@ export async function POST(request: NextRequest) {
     if (!STATUS_TRANSITIONS[from].includes(to)) {
       return NextResponse.json({ error: 'STATUS_BLOCKED' }, { status: 409 })
     }
-    await supabase
-      .from('projects')
-      .update({ status: to, payment_status: to })
-      .eq('id', projectId)
+    await supabase.from('projects').update({ status: to, payment_status: to }).eq('id', projectId)
     currentStatus = to
   }
   await supabase
     .from('projects')
-    .update({
-      payment_status: 'PAYMENT_CONFIRMED',
-      spaceremit_payment_id: paymentId,
-    })
+    .update({ payment_status: 'PAYMENT_CONFIRMED', spaceremit_payment_id: paymentId })
     .eq('id', projectId)
 
-  // 5. Audit log (server-side only — never client-supplied).
   await supabase.from('audit_logs').insert({
     actor_id: user.id,
     actor_email: user.email ?? null,
@@ -134,6 +121,22 @@ export async function POST(request: NextRequest) {
       sp_status: tx.status,
     }),
   })
+
+  // Side effects MUST NOT block or alter payment result
+  void (async () => {
+    try {
+      await runAfterPaymentConfirmed({
+        projectId,
+        paymentId,
+        actorId: user.id,
+        actorType: 'user',
+        customerEmail: user.email,
+        source: 'spaceremit_verify',
+      })
+    } catch (e) {
+      console.warn('[verify] sideEffects', e instanceof Error ? e.message : 'error')
+    }
+  })()
 
   return NextResponse.json({ success: true })
 }

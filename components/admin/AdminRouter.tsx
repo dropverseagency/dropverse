@@ -13,9 +13,11 @@ import PackagesSection from '@/components/admin/sections/PackagesSection'
 import AgencyLandingsSection from '@/components/admin/sections/AgencyLandingsSection'
 import FreelancersSection from '@/components/admin/sections/FreelancersSection'
 import AuditSection from '@/components/admin/sections/AuditSection'
+import ExceptionsSection from '@/components/admin/sections/ExceptionsSection'
 import SettingsSection from '@/components/admin/sections/SettingsSection'
 
 const SECTION_TITLES: Record<string, string> = {
+  exceptions: 'Exceptions',
   overview: 'Admin Overview',
   users: 'Users',
   agencies: 'Agencies',
@@ -75,6 +77,7 @@ export default function AdminRouter({ page }: { page: string }) {
   switch (key) {
     case 'users': section = <UsersSection />; break
     case 'agencies': section = <AgenciesSection />; break
+    case 'exceptions': section = <ExceptionsSection />; break
     case 'projects': section = <ProjectsSection />; break
     case 'payments': section = <PaymentsSection />; break
     case 'affiliates': section = <AffiliatesSection />; break

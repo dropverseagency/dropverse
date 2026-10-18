@@ -1,22 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { limitPublicForm, rateLimitResponse } from '@/lib/rateLimit'
 import { createLandingPageOrder } from '../../../../lib/agency/createLandingOrder'
-
-/** Simple in-memory rate limit (per serverless instance). Best-effort only. */
-const hits = new Map<string, { count: number; resetAt: number }>()
-const WINDOW_MS = 60_000
-const MAX_PER_WINDOW = 12
-
-function rateLimit(key: string): boolean {
-  const now = Date.now()
-  const row = hits.get(key)
-  if (!row || now > row.resetAt) {
-    hits.set(key, { count: 1, resetAt: now + WINDOW_MS })
-    return true
-  }
-  if (row.count >= MAX_PER_WINDOW) return false
-  row.count += 1
-  return true
-}
 
 function sanitizeText(value: string, max: number): string {
   return value
@@ -27,13 +11,8 @@ function sanitizeText(value: string, max: number): string {
 }
 
 export async function POST(request: NextRequest) {
-  const ip =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    request.headers.get('x-real-ip') ||
-    'unknown'
-  if (!rateLimit(`agency-order:${ip}`)) {
-    return NextResponse.json({ error: 'RATE_LIMITED' }, { status: 429 })
-  }
+  const _rl = await limitPublicForm(request)
+  if (!_rl.success) return rateLimitResponse(_rl, 'Too many order attempts. Please wait and try again.')
 
   const body = await request.json().catch(() => ({}))
   const idempotencyKey =

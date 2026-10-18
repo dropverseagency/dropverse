@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient, sessionClient } from '@/lib/adminCore'
+import { limitPublicForm, rateLimitResponse } from '@/lib/rateLimit'
 
 /**
  * POST /api/affiliate/clicks — record an anonymous referral click.
@@ -7,6 +8,9 @@ import { adminClient, sessionClient } from '@/lib/adminCore'
  * Body: { code, landingPath? }
  */
 export async function POST(request: NextRequest) {
+  const _rl = await limitPublicForm(request)
+  if (!_rl.success) return rateLimitResponse(_rl)
+
   try {
     const body = (await request.json()) as { code?: string; landingPath?: string }
     const code = (body.code ?? '').trim().toUpperCase()
@@ -17,7 +21,6 @@ export async function POST(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
-    // Find the code row id if it exists (anonymous users can only select active codes via RLS)
     const { data: codeRow } = await supabase
       .from('referral_codes')
       .select('id')
@@ -25,7 +28,7 @@ export async function POST(request: NextRequest) {
       .eq('active', true)
       .maybeSingle()
 
-    const visitorKey = user ? user.id : null // logged-in visitors use uid; guests stay anonymous
+    const visitorKey = user ? user.id : null
 
     await supabase.from('referral_clicks').insert({
       referral_code_id: codeRow?.id ?? null,

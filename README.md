@@ -1,51 +1,20 @@
 # DropVerse
 
-Next.js 15 app for DropVerse (workspace + agency storefronts).
+B2B workspace platform for digital teams.
 
-## Setup
+## Stack
 
-```bash
-pnpm install
-cp .env.example .env.local
-pnpm dev
-```
+Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, Supabase, Vercel.
 
-## Auth security (important)
+## Security notes
 
-The login form calls `POST /api/auth/guard` (rate limit + optional Cloudflare Turnstile) **before** `supabase.auth.signInWithPassword` / `signUp`.
+- Profiles role is protected by RLS + `protect_profile_role` trigger (users cannot self-elevate to admin).
+- Auth forms should call `POST /api/auth/guard` before Supabase sign-in/sign-up (rate limit + optional Turnstile).
+- Dodo and Paddle payment routes return 410 / are disabled. Active payments use SpaceRemit.
+- Optional server-side CAPTCHA: enable Cloudflare Turnstile in Supabase Authentication > Attack Protection and pass `captchaToken` from the client.
 
-A browser client can still call Supabase Auth APIs directly, so **also enable server-side protection in Supabase**:
+## Ops
 
-1. **Authentication → Attack Protection → CAPTCHA** — Cloudflare Turnstile (same keys as `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY`).
-2. Keep Supabase built-in auth rate limits enabled.
-3. The app passes `captchaToken` into `signInWithPassword` / `signUp` when a token is present.
-
-## Database: profiles.role (urgent)
-
-Live RLS previously allowed any authenticated user to `update profiles set role = 'admin'` on their own row (UPDATE policies OR together).
-
-**Apply on production after a backup — this is database-only and should land BEFORE relying on the app merge:**
-
-1. `supabase/migrations/20261017090000_protect_profiles_role.sql`
-2. Run checks in `supabase/tests/profiles_role_protection.sql`
-3. Then optional `20261017090100_rate_limit_buckets.sql`
-
-Rollback: `supabase/rollbacks/20261017090000_protect_profiles_role_rollback.sql` (restores the old insecure policies — emergency only).
-
-`handle_new_user` inserts without `role` (column default `'user'`). Client profile upserts must never send `role`. Admin role changes use the service role after `requireAdmin()`.
-
-## Payments
-
-SpaceRemit (local). Paddle and Dodo routes return HTTP 410.
-
-## Rate limiting
-
-Order: Upstash → `rate_limit_buckets` table (service role) → in-memory fail-open.
-
-## CSP
-
-Default Report-Only. Set `CSP_ENFORCE=true` after testing. Violations → `/api/csp-report`.
-
-## Env
-
-See `.env.example`. Never expose `SUPABASE_SERVICE_ROLE_KEY` to the browser.
+- `GET /api/health` — Supabase connectivity probe (`{ status, checks, time }`). Returns 200 or 503. No secrets.
+- Rate limiting: Upstash → `rate_limit_buckets` table → in-memory fail-open. See `lib/rateLimit.ts`.
+- Profiles: `protect_profile_role` trigger blocks user role changes (migration `20261017090000_protect_profiles_role.sql`).

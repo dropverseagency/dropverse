@@ -4,15 +4,12 @@ import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { computeSellerProfit, computeFulfillmentCost, billingIntervalFor, type ProjectDraft } from './projectConfig'
+import { newTrackingToken } from './orderEngine'
+import { runAfterOrderCreated } from './ops/sideEffects'
 
 /**
  * Creates a new client project.
- *
- * Server-side rules (never trust the client):
- *  - seller_profit = client_price - fulfillment_cost
- *  - billing_interval derived from project_type
- *  - payment_status is ALWAYS PAYMENT_PENDING on insert (never auto-confirmed)
- *  - new project starts in DRAFT status
+ * payment_status is ALWAYS PAYMENT_PENDING on insert (never auto-confirmed).
  */
 export async function createProjectServer(draft: ProjectDraft) {
   const cookieStore = await cookies()
@@ -44,8 +41,6 @@ export async function createProjectServer(draft: ProjectDraft) {
   const sellerProfit = computeSellerProfit(clientPrice, fulfillmentCost)
   const billingInterval = billingIntervalFor(draft.projectType)
 
-  // payment_method must match DB CHECK + TS PaymentMethod enum.
-  // External gateways stay behind NEXT_PUBLIC_PAYMENTS_ENABLED at the UI/API layer.
   const requestedMethod = draft.paymentMethod
   const storedMethod = requestedMethod
   const paymentProvider = requestedMethod === 'SPACEREMIT' ? 'SPACEREMIT' : null
@@ -64,12 +59,13 @@ export async function createProjectServer(draft: ProjectDraft) {
     payment_status: 'PAYMENT_PENDING',
     spaceremit_payment_id: draft.spaceremitPaymentId?.trim() || null,
     status: 'DRAFT',
+    tracking_token: newTrackingToken(),
+    last_activity_at: new Date().toISOString(),
     current_billing_period: 1,
     delivery_notes: String(draft.deliveryNotes || '').trim(),
     client_contact_email: draft.clientContactEmail?.trim() || null,
   }
 
-  // Prefer writing payment_provider when the column exists.
   const rowWithProvider = paymentProvider
     ? { ...baseRow, payment_provider: paymentProvider }
     : baseRow
@@ -83,7 +79,6 @@ export async function createProjectServer(draft: ProjectDraft) {
     insertError = res.error
   }
 
-  // Retry without payment_provider if the column is missing.
   if (insertError && /payment_provider/i.test(insertError.message || '')) {
     const res = await supabase.from('projects').insert(baseRow).select('id').single()
     data = res.data
@@ -98,6 +93,12 @@ export async function createProjectServer(draft: ProjectDraft) {
       code: insertError?.code || null,
     }
   }
+
+  void runAfterOrderCreated({
+    projectId: data.id as string,
+    customerEmail: draft.clientContactEmail?.trim() || user.email,
+    title: String(draft.title || ''),
+  })
 
   revalidatePath('/dashboard')
   return {
