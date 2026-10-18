@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 import { rateLimitResponse, clientIp, rateLimit } from '@/lib/rateLimit'
+import { runAfterPaymentConfirmed } from '@/lib/ops/sideEffects'
 import {
   STATUS_TRANSITIONS,
   type ProjectStatus,
@@ -11,8 +12,7 @@ import {
 
 /**
  * Confirms a SpaceRemit payment and promotes the project status —
- * server-side ONLY. The client sends the transaction code, we verify it
- * directly with the SpaceRemit API before touching the database.
+ * server-side ONLY. Side effects never block or change the payment result.
  */
 export async function POST(request: NextRequest) {
   const supabase = createClient(
@@ -121,6 +121,22 @@ export async function POST(request: NextRequest) {
       sp_status: tx.status,
     }),
   })
+
+  // Side effects MUST NOT block or alter payment result
+  void (async () => {
+    try {
+      await runAfterPaymentConfirmed({
+        projectId,
+        paymentId,
+        actorId: user.id,
+        actorType: 'user',
+        customerEmail: user.email,
+        source: 'spaceremit_verify',
+      })
+    } catch (e) {
+      console.warn('[verify] sideEffects', e instanceof Error ? e.message : 'error')
+    }
+  })()
 
   return NextResponse.json({ success: true })
 }
