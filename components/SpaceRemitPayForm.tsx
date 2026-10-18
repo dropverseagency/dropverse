@@ -5,10 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 /**
  * Embedded SpaceRemit payment form (official client-side JS integration).
  * Keeps the entire flow on the same page via in-page iframes — never opens a new tab.
- *
- * SpaceRemit local-method accounts commonly enforce a ~$300 max per payment.
- * Over that limit their iframe returns a near-blank white page with only
- * "Maximum Amount is 300$" — we block that path client-side and show a clear error.
+ * Amount limits are enforced by SpaceRemit itself — we do not pre-block on the client.
  */
 interface SpaceRemitPayFormProps {
   amount: number
@@ -41,9 +38,6 @@ declare global {
   }
 }
 
-/** Hard cap observed on SpaceRemit local methods (merchant account limit). */
-export const SPACEREMIT_MAX_USD = 300
-
 let spScriptPromise: Promise<void> | null = null
 
 function loadSpScript(): Promise<void> {
@@ -59,23 +53,6 @@ function loadSpScript(): Promise<void> {
     document.head.appendChild(script)
   })
   return spScriptPromise
-}
-
-function normalizeAmount(amount: number): number {
-  return Math.max(0, Math.round(Number(amount || 0) * 100) / 100)
-}
-
-function isAmountOverLimit(amount: number): boolean {
-  return normalizeAmount(amount) > SPACEREMIT_MAX_USD
-}
-
-function amountLimitMessage(amount: number): string {
-  const a = normalizeAmount(amount)
-  return `SpaceRemit local payments are limited to $${SPACEREMIT_MAX_USD} per transaction. This order is $${a.toFixed(2)} — lower the amount to $${SPACEREMIT_MAX_USD} or less, or split the payment.`
-}
-
-function isSpLimitMessage(msg: string): boolean {
-  return /maxim(?:um|un)\s*amount|max(?:imum)?\s*(?:amount|limit)|300\s*\$?/i.test(msg)
 }
 
 const FORM_ID = 'dv-spaceremit-form'
@@ -94,14 +71,9 @@ export default function SpaceRemitPayForm({
   hideBuyerInputs,
   submitLabel = 'Pay Now →',
 }: SpaceRemitPayFormProps) {
-  const safeAmount = normalizeAmount(amount)
-  const overLimit = isAmountOverLimit(safeAmount)
-
   const [ready, setReady] = useState(false)
   const [iframeReady, setIframeReady] = useState(false)
-  const [error, setError] = useState<string | null>(() =>
-    overLimit ? amountLimitMessage(safeAmount) : null,
-  )
+  const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [authUrl, setAuthUrl] = useState<string | null>(null)
@@ -113,14 +85,6 @@ export default function SpaceRemitPayForm({
   onMessageRef.current = onMessage
 
   useEffect(() => {
-    if (overLimit) {
-      setError(amountLimitMessage(safeAmount))
-      setReady(false)
-      setIframeReady(false)
-      setShowCheckoutFrame(false)
-      return
-    }
-
     let cancelled = false
     window.SP_PUBLIC_KEY = publicKey
     window.SP_FORM_ID = `#${FORM_ID}`
@@ -144,17 +108,12 @@ export default function SpaceRemitPayForm({
     window.SP_RECIVED_MESSAGE = (message: string) => {
       if (message && message.length > 0) {
         const msg = message.trim()
-        const isError =
-          isSpLimitMessage(msg) ||
-          /error|fail|invalid|denied|refused|exception|unsuccessful/i.test(msg)
+        const isError = /error|fail|invalid|denied|refused|exception|unsuccessful|maxim(?:um|un)\s*amount|max(?:imum)?\s*(?:amount|limit)/i.test(
+          msg,
+        )
         if (isError) {
-          setError(
-            isSpLimitMessage(msg)
-              ? amountLimitMessage(safeAmount)
-              : msg,
-          )
+          setError(msg)
           setInfo(null)
-          setShowCheckoutFrame(false)
           setSubmitting(false)
         } else {
           setInfo(msg)
@@ -225,15 +184,10 @@ export default function SpaceRemitPayForm({
       document.removeEventListener('click', onClickCapture, true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overLimit, publicKey, safeAmount])
+  }, [])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (overLimit) {
-      setError(amountLimitMessage(safeAmount))
-      setShowCheckoutFrame(false)
-      return
-    }
     if (submitting || disabled || !ready) return
     setSubmitting(true)
     setError(null)
@@ -253,21 +207,7 @@ export default function SpaceRemitPayForm({
   }
 
   const showInputs = !hideBuyerInputs
-
-  if (overLimit) {
-    return (
-      <div className="w-full">
-        <div className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-4 text-center">
-          <p className="text-sm font-bold text-red-200">Amount exceeds SpaceRemit limit</p>
-          <p className="mt-2 text-xs leading-5 text-red-100/90">{amountLimitMessage(safeAmount)}</p>
-          <p className="mt-3 text-[11px] leading-5 text-[#8f9f9a]">
-            SpaceRemit local methods (wallets / bank transfer) cap each payment at ${SPACEREMIT_MAX_USD}.
-            Create the order at ${SPACEREMIT_MAX_USD} or less to continue.
-          </p>
-        </div>
-      </div>
-    )
-  }
+  const safeAmount = Math.max(0, Math.round(Number(amount || 0) * 100) / 100)
 
   return (
     <div className="relative w-full">
