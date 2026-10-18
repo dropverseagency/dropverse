@@ -2,10 +2,9 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import SiteHeader from '../../../components/SiteHeader'
-import { createClient } from '../../../lib/supabase'
 import { useAuth } from '../../../lib/useAuth'
 import { Badge, emptyNote, fmtDate, fmtUsd } from '../../../components/admin/shared'
-import { Copy, Link2, TrendingUp, Users2, Wallet, CheckCircle2 } from 'lucide-react'
+import { Copy, Link2, TrendingUp, Users2, Wallet, CheckCircle2, Timer, Crown } from 'lucide-react'
 
 type ReferralRow = {
   id: string
@@ -46,7 +45,6 @@ export default function AffiliatePage() {
     fetch('/api/affiliate/me').then((r) => r.json()).then((j) => {
       if (cancelled) return
       if (j.error) {
-        // not signed in — let SiteHeader/UserMenu handle it; keep empty
         setLoading(false)
         return
       }
@@ -89,6 +87,8 @@ export default function AffiliatePage() {
               </Link>
             </div>
 
+            <LifetimeOfferBanner />
+
             {!signedIn ? (
               <div className="rounded-xl border border-white/5 bg-[rgba(255,255,255,0.02)] p-8 text-center text-sm text-[#81948e]">
                 Sign in to view your affiliate stats.
@@ -97,7 +97,6 @@ export default function AffiliatePage() {
               <div className="rounded-xl border border-white/5 bg-[rgba(255,255,255,0.02)] p-8 text-center text-sm text-[#81948e]">Loading your affiliate data...</div>
             ) : (
               <>
-                {/* Invite link card */}
                 <div className="rounded-xl border border-[rgba(216,180,90,0.25)] bg-[rgba(216,180,90,0.06)] p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -120,7 +119,6 @@ export default function AffiliatePage() {
                   </p>
                 </div>
 
-                {/* Totals */}
                 <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
                   <Stat label="Active referrals" value={String(totals?.activeReferrals ?? 0)} icon={Users2} />
                   <Stat label="Total commissions" value={String(totals?.totalCommissions ?? 0)} icon={TrendingUp} />
@@ -128,7 +126,6 @@ export default function AffiliatePage() {
                   <Stat label="Paid out" value={fmtUsd(totals?.paidAmount)} icon={CheckCircle2} />
                 </div>
 
-                {/* Referrals list */}
                 <h2 className="font-display mt-8 mb-3 text-lg font-bold text-[#e8edea]">Your Referrals</h2>
                 {!data?.referrals?.length ? (
                   emptyNote('No referrals yet. Share your invite link to start earning.')
@@ -149,7 +146,6 @@ export default function AffiliatePage() {
                           <div className="hidden items-center sm:flex"><Badge status={r.status} /></div>
                           <div className="hidden items-center text-[#c8d4d0] sm:flex">{r.commissions.length}</div>
                           <div className="hidden items-center text-xs text-[#81948e] sm:flex">{fmtDate(r.attributed_at || r.created_at)}</div>
-                          {/* Mobile card footer: stacked chips */}
                           <div className="flex items-center justify-between gap-2 border-t border-white/5 pt-2.5 sm:hidden">
                             <Badge status={r.status} />
                             <span className="text-[13px] text-[#c8d4d0]">{r.commissions.length} commission{r.commissions.length === 1 ? '' : 's'}</span>
@@ -169,6 +165,53 @@ export default function AffiliatePage() {
               </>
             )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+const LIFETIME_DEADLINE = new Date('2027-01-01T00:00:00.000Z')
+
+function LifetimeOfferBanner() {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  const ms = LIFETIME_DEADLINE.getTime() - now.getTime()
+  if (ms <= 0) return null
+  const sec = Math.floor(ms / 1000)
+  const days = Math.floor(sec / 86400)
+  const hours = Math.floor((sec % 86400) / 3600)
+  const minutes = Math.floor((sec % 3600) / 60)
+  const seconds = sec % 60
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return (
+    <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-[rgba(216,180,90,0.3)] bg-[rgba(216,180,90,0.06)] p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.1)] text-[#d8b45a]">
+          <Timer size={18} />
+        </div>
+        <div>
+          <div className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-[#e4c979]">
+            <Crown size={12} /> Lifetime Partner
+          </div>
+          <p className="mt-1 text-sm font-semibold text-[#f0f4f2]">Lock lifetime status before 1 Jan 2027</p>
+          <p className="mt-0.5 text-xs text-[#81948e]">Stay active and keep partner benefits for life.</p>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        {[
+          ['D', days],
+          ['H', hours],
+          ['M', minutes],
+          ['S', seconds],
+        ].map(([l, v]) => (
+          <div key={l as string} className="min-w-[3.25rem] rounded-xl border border-white/10 bg-[#071210] px-2 py-2 text-center">
+            <div className="font-display text-lg font-bold tabular-nums text-[#f0d98b]">{l === 'D' ? v : pad(v as number)}</div>
+            <div className="text-[9px] font-bold uppercase text-[#7f918c]">{l as string}</div>
+          </div>
+        ))}
       </div>
     </div>
   )
