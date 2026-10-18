@@ -187,7 +187,7 @@ export default function AdminShell({ children, title }: { children: React.ReactN
             const Icon = s.icon
             const tone = GROUP_STYLE[s.group]
             return (
-              <Link key={s.id} href={href(s.id)} className={`flex flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-semibold ${active ? 'text-[#f0d98b]' : 'text-[#8ea09a']}`}>
+              <Link key={s.id} href={href(s.id)} className={`flex flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-semibold ${active ? 'text-[#f0d98b]' : 'text-[#8ea09a]'}`}>
                 <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${active ? tone.chipActive : tone.chip}`}>
                   <Icon size={14} />
                 </span>
