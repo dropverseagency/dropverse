@@ -14,7 +14,7 @@ export default function ExceptionsSection() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/admin/data?section=exceptions')
+    fetch('/api/admin/exceptions')
       .then(async (r) => {
         if (!r.ok) return { exceptions: [] }
         return r.json()
