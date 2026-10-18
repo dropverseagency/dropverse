@@ -1,6 +1,5 @@
 /**
  * Server-side order lifecycle. Single place for legal status transitions.
- * Maps product language to existing projects.status values.
  * Fail-open: if order_events table is missing, still updates projects and logs a warning.
  */
 
@@ -91,7 +90,7 @@ export type TransitionInput = {
   projectId: string
   to: OrderLifecycle
   actorId?: string | null
-  actorType?: 'system' | 'user' | 'admin' | 'webhook' | 'cron'
+  actorType?: 'system' | 'user' | 'admin' | 'webhook' | 'cron' | 'buyer' | 'seller'
   reason?: string
   metadata?: Record<string, unknown>
   idempotencyKey?: string
@@ -181,6 +180,7 @@ export async function transitionOrder(input: TransitionInput): Promise<Transitio
   return { ok: true, from, to }
 }
 
+/** 192-bit unguessable token (24 random bytes as hex). */
 export function newTrackingToken(): string {
   const bytes = new Uint8Array(24)
   crypto.getRandomValues(bytes)
