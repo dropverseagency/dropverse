@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 /**
  * Embedded SpaceRemit payment form (official client-side JS integration).
  * Keeps the entire flow on the same page via in-page iframes — never opens a new tab.
+ * Amount limits are enforced by SpaceRemit itself — we do not pre-block on the client.
  */
 interface SpaceRemitPayFormProps {
   amount: number
@@ -107,10 +108,13 @@ export default function SpaceRemitPayForm({
     window.SP_RECIVED_MESSAGE = (message: string) => {
       if (message && message.length > 0) {
         const msg = message.trim()
-        const isError = /error|fail|invalid|denied|refused|exception|unsuccessful/i.test(msg)
+        const isError = /error|fail|invalid|denied|refused|exception|unsuccessful|maxim(?:um|un)\s*amount|max(?:imum)?\s*(?:amount|limit)/i.test(
+          msg,
+        )
         if (isError) {
           setError(msg)
           setInfo(null)
+          setSubmitting(false)
         } else {
           setInfo(msg)
           setError(null)
@@ -118,7 +122,6 @@ export default function SpaceRemitPayForm({
         if (onMessageRef.current) onMessageRef.current(message)
       }
     }
-    // Keep auth/checkout on this page — never open a new browser tab.
     window.SP_NEED_AUTH = (targetAuthLink: string) => {
       if (!targetAuthLink) {
         setError('Authentication is required to complete this payment.')
@@ -128,7 +131,6 @@ export default function SpaceRemitPayForm({
       setInfo('Complete the steps in the secure panel below — you stay on this page.')
       setShowCheckoutFrame(true)
       setAuthUrl(targetAuthLink)
-      // Scroll the in-page panel into view for mobile.
       requestAnimationFrame(() => {
         document.getElementById('dv-sp-inline-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
       })
@@ -153,20 +155,21 @@ export default function SpaceRemitPayForm({
             setTimeout(clearOverlay, 4000)
           })
         }
-        return () => { clearTimeout(t1); clearTimeout(t2) }
+        return () => {
+          clearTimeout(t1)
+          clearTimeout(t2)
+        }
       })
       .catch(() => {
         if (!cancelled) setError('Unable to load the payment methods. Please refresh the page.')
       })
 
-    // Block accidental new-tab opens from third-party scripts inside our root when possible.
     const onClickCapture = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null
       const anchor = target?.closest?.('a[target="_blank"]') as HTMLAnchorElement | null
       if (!anchor) return
       const href = anchor.getAttribute('href') || ''
       if (!href || href === '#') return
-      // Only intercept links that look like SpaceRemit checkout/auth.
       if (!/spaceremit\.(com|net)/i.test(href) && !/pay|auth|checkout/i.test(href)) return
       event.preventDefault()
       event.stopPropagation()
@@ -195,7 +198,6 @@ export default function SpaceRemitPayForm({
       setError('Could not open the payment form. Please refresh the page.')
       return
     }
-    // Submit into an on-page iframe so the parent DropVerse page never navigates away.
     form.setAttribute('target', CHECKOUT_FRAME)
     setShowCheckoutFrame(true)
     form.requestSubmit()
@@ -205,11 +207,12 @@ export default function SpaceRemitPayForm({
   }
 
   const showInputs = !hideBuyerInputs
+  const safeAmount = Math.max(0, Math.round(Number(amount || 0) * 100) / 100)
 
   return (
     <div className="relative w-full">
       <form ref={formRef} id={FORM_ID} className="relative" target={CHECKOUT_FRAME}>
-        <input type="hidden" name="amount" value={Math.max(0, Math.round(amount * 100) / 100)} />
+        <input type="hidden" name="amount" value={safeAmount} />
         <input type="hidden" name="currency" value={currency} />
         <input type="hidden" name="fullname" value={fullName} />
         <input type="hidden" name="email" value={email} />
@@ -278,14 +281,17 @@ export default function SpaceRemitPayForm({
         </>
       )}
 
-      {/* Same-page checkout / auth panel — never navigates the parent page. */}
       <div id="dv-sp-inline-panel" className={`mt-4 ${showCheckoutFrame ? 'block' : 'hidden'}`}>
         <div className="mb-2 flex items-center justify-between gap-2">
           <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-[#d8b45a]">Secure checkout · same page</p>
           {authUrl && (
             <button
               type="button"
-              onClick={() => { setAuthUrl(null); setShowCheckoutFrame(false); setSubmitting(false) }}
+              onClick={() => {
+                setAuthUrl(null)
+                setShowCheckoutFrame(false)
+                setSubmitting(false)
+              }}
               className="text-[11px] font-semibold text-[#8fa29c] hover:text-[#e4c979]"
             >
               Close panel
@@ -314,7 +320,6 @@ export default function SpaceRemitPayForm({
         )}
       </div>
 
-      {/* Always keep a named target frame in the DOM for form submissions. */}
       {!showCheckoutFrame && (
         <iframe title="SpaceRemit checkout target" name={CHECKOUT_FRAME} id={`${CHECKOUT_FRAME}-hidden`} className="hidden" />
       )}
