@@ -1,4 +1,3 @@
--- Rollback Phase B order reliability
 drop table if exists public.ops_alert_dedupe;
 drop table if exists public.email_queue;
 drop table if exists public.order_events;
@@ -7,6 +6,8 @@ alter table public.projects drop column if exists tracking_token;
 alter table public.projects drop column if exists idempotency_key;
 alter table public.projects drop column if exists last_activity_at;
 alter table public.projects drop column if exists delivered_at;
+alter table public.projects drop column if exists revision_count;
+alter table public.projects drop column if exists revision_limit;
 
 alter table public.projects drop constraint if exists projects_status_check;
 alter table public.projects add constraint projects_status_check check (

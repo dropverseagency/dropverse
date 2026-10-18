@@ -1,6 +1,10 @@
 -- Phase B: order events, email queue, tracking token, extended statuses
--- Safe additive migration. Code fails open if not applied yet.
--- APPLY ON A BRANCH / BACKUP FIRST.
+-- APPLY ON A BACKUP / BRANCH FIRST. Code fails open if not applied.
+--
+-- Constraint note: drops projects_status_check IF EXISTS.
+-- Confirm live name with:
+--   select conname from pg_constraint
+--   where conrelid = 'public.projects'::regclass and contype = 'c';
 
 alter table public.projects drop constraint if exists projects_status_check;
 alter table public.projects add constraint projects_status_check check (
@@ -26,7 +30,13 @@ alter table public.projects
   add column if not exists tracking_token text,
   add column if not exists idempotency_key text,
   add column if not exists last_activity_at timestamptz,
-  add column if not exists delivered_at timestamptz;
+  add column if not exists delivered_at timestamptz,
+  add column if not exists revision_count int not null default 0,
+  add column if not exists revision_limit int not null default 2;
+
+update public.projects
+set tracking_token = replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '')
+where tracking_token is null;
 
 create unique index if not exists idx_projects_tracking_token
   on public.projects (tracking_token) where tracking_token is not null;
@@ -34,13 +44,16 @@ create unique index if not exists idx_projects_idempotency_key
   on public.projects (idempotency_key) where idempotency_key is not null;
 create index if not exists idx_projects_status_activity
   on public.projects (status, last_activity_at);
+create index if not exists idx_projects_pending_payment_created
+  on public.projects (created_at)
+  where payment_status = 'PAYMENT_PENDING';
 
 create table if not exists public.order_events (
   id uuid primary key default gen_random_uuid(),
   project_id uuid not null references public.projects(id) on delete cascade,
   actor_id uuid references auth.users(id) on delete set null,
   actor_type text not null default 'system'
-    check (actor_type in ('system','user','admin','webhook','cron')),
+    check (actor_type in ('system','user','admin','webhook','cron','buyer','seller')),
   from_status text,
   to_status text not null,
   reason text,
@@ -100,6 +113,3 @@ create table if not exists public.ops_alert_dedupe (
   last_sent_at timestamptz not null default now()
 );
 alter table public.ops_alert_dedupe enable row level security;
-
-comment on table public.order_events is 'Append-only order lifecycle events; written by service role only';
-comment on table public.email_queue is 'Outbound email queue (Resend); service role writes, admin reads';
