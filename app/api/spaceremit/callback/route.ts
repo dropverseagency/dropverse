@@ -1,15 +1,13 @@
 /**
- * SpaceRemit payment callback (webhook) endpoint.
- *
- * SpaceRemit POSTs a JSON payload to this URL whenever a payment status
- * changes or completes. We verify the caller with our private key via the
- * payment_info API, match the payment to a pending project / invoice /
- * org plan in our database, and confirm it automatically.
+ * SpaceRemit payment callback (webhook).
+ * NO IP rate limit — must always accept real payment notifications.
+ * Side effects never block the webhook response.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 import { type ProjectStatus } from '../../../../lib/projectConfig'
+import { runAfterPaymentConfirmed } from '@/lib/ops/sideEffects'
 
 const SPACEREMIT_INFO = 'https://spaceremit.com/api/v2/payment_info/'
 
@@ -21,7 +19,6 @@ function serviceClient() {
   )
 }
 
-/** Try to confirm a project paid with SpaceRemit. Returns true if matched. */
 async function confirmProject(supabase: ReturnType<typeof serviceClient>, paymentId: string) {
   const { data: project } = await supabase
     .from('projects')
@@ -34,15 +31,19 @@ async function confirmProject(supabase: ReturnType<typeof serviceClient>, paymen
   if (!project) return false
   const now = new Date().toISOString()
   const status = (project.status || 'DRAFT') as ProjectStatus
-  const nextStatus = status === 'DRAFT' || status === 'PAYMENT_PENDING' || status === 'PAST_DUE'
-    ? 'PAYMENT_CONFIRMED'
-    : status
-  await supabase.from('projects').update({
-    payment_status: 'PAYMENT_CONFIRMED',
-    payment_confirmed_at: now,
-    spaceremit_payment_id: paymentId,
-    status: nextStatus,
-  }).eq('id', project.id)
+  const nextStatus =
+    status === 'DRAFT' || status === 'PAYMENT_PENDING' || status === 'PAST_DUE'
+      ? 'PAYMENT_CONFIRMED'
+      : status
+  await supabase
+    .from('projects')
+    .update({
+      payment_status: 'PAYMENT_CONFIRMED',
+      payment_confirmed_at: now,
+      spaceremit_payment_id: paymentId,
+      status: nextStatus,
+    })
+    .eq('id', project.id)
   await supabase.from('audit_logs').insert({
     actor_id: project.user_id,
     actor_email: null,
@@ -51,10 +52,22 @@ async function confirmProject(supabase: ReturnType<typeof serviceClient>, paymen
     entity_id: project.id,
     new_value: JSON.stringify({ payment_id: paymentId, source: 'callback' }),
   })
+  void (async () => {
+    try {
+      await runAfterPaymentConfirmed({
+        projectId: project.id,
+        paymentId,
+        actorId: project.user_id,
+        actorType: 'webhook',
+        source: 'spaceremit_callback',
+      })
+    } catch (e) {
+      console.warn('[callback] sideEffects', e instanceof Error ? e.message : 'error')
+    }
+  })()
   return true
 }
 
-/** Try to confirm an invoice paid with SpaceRemit. Returns true if matched. */
 async function confirmInvoice(supabase: ReturnType<typeof serviceClient>, paymentId: string) {
   const { data: invoice } = await supabase
     .from('invoices')
@@ -84,20 +97,29 @@ async function confirmInvoice(supabase: ReturnType<typeof serviceClient>, paymen
     entity_id: invoice.id,
     new_value: JSON.stringify({ payment_id: paymentId, source: 'callback' }),
   })
+  if (invoice.project_id) {
+    void (async () => {
+      try {
+        await runAfterPaymentConfirmed({
+          projectId: invoice.project_id,
+          paymentId,
+          actorId: invoice.user_id,
+          actorType: 'webhook',
+          source: 'spaceremit_callback',
+        })
+      } catch (e) {
+        console.warn('[callback] invoice sideEffects', e instanceof Error ? e.message : 'error')
+      }
+    })()
+  }
   return true
 }
 
-/** Try to confirm an org plan paid with SpaceRemit. Returns true if matched. */
-async function confirmOrgPlan(supabase: ReturnType<typeof serviceClient>, paymentId: string) {
-  // Plan payments are stored directly on the organization row when paid
-  // via the dashboard banner (spaceremit_plan_confirmed audit already logs it).
-  // There is no separate plan_payments table yet — match via audit trail is
-  // not needed since the in-app verify route already updated the org plan.
+async function confirmOrgPlan(_supabase: ReturnType<typeof serviceClient>, _paymentId: string) {
   return false
 }
 
 export async function POST(request: NextRequest) {
-  // 1. Keys must be real before accepting any webhook.
   const privateKey = process.env.SPACEREMIT_PRIVATE_KEY || ''
   if (!privateKey || privateKey.startsWith('PLACEHOLDER')) {
     return NextResponse.json({ status: 'keys_missing' }, { status: 503 })
@@ -110,8 +132,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: 'invalid_json' }, { status: 400 })
   }
 
-  // SpaceRemit callbacks carry payment details; the authoritative check is
-  // done server-side via payment_info with our private key.
   const paymentId = String(
     body?.payment_id || body?.transaction_id || body?.data?.payment_id || body?.data?.transaction_id || '',
   ).trim()
