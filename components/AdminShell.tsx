@@ -11,6 +11,7 @@ import {
 
 export const ADMIN_SECTIONS = [
   { id: 'overview', label: 'Overview', group: 'Work', icon: LayoutDashboard },
+  { id: 'exceptions', label: 'Exceptions', group: 'Work', icon: ShieldCheck },
   { id: 'projects', label: 'Projects', group: 'Work', icon: FolderKanban },
   { id: 'payments', label: 'Payments', group: 'Work', icon: CreditCard },
   { id: 'services', label: 'Services', group: 'Work', icon: Package },
@@ -181,12 +182,12 @@ export default function AdminShell({ children, title }: { children: React.ReactN
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#1e3d36] bg-[#071915] px-2 py-2 lg:hidden">
         <div className="grid grid-cols-5 gap-1">
-          {ADMIN_SECTIONS.filter((s) => ['overview', 'projects', 'users', 'commissions', 'services'].includes(s.id)).map((s) => {
+          {ADMIN_SECTIONS.filter((s) => ['overview', 'exceptions', 'projects', 'users', 'services'].includes(s.id)).map((s) => {
             const active = current === s.id
             const Icon = s.icon
             const tone = GROUP_STYLE[s.group]
             return (
-              <Link key={s.id} href={href(s.id)} className={`flex flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-semibold ${active ? 'text-[#f0d98b]' : 'text-[#8ea09a]'}`}>
+              <Link key={s.id} href={href(s.id)} className={`flex flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-semibold ${active ? 'text-[#f0d98b]' : 'text-[#8ea09a']}`}>
                 <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${active ? tone.chipActive : tone.chip}`}>
                   <Icon size={14} />
                 </span>
