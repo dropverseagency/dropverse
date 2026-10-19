@@ -12,6 +12,8 @@ import {
 import Brand from '../../components/Brand'
 import SiteHeader from '../../components/SiteHeader'
 import LeadsEmptyCtas from '../../components/leads/LeadsEmptyCtas'
+import { MarketCite } from '../../components/MarketCite'
+import { MARKET_FACTS } from '../../lib/marketFacts'
 
 export const dynamic = 'force-dynamic'
 
@@ -80,11 +82,12 @@ export default async function LeadsCatalogPage() {
                 <Sparkles size={12} /> Lead Marketplace
               </p>
               <h1 className="font-display mt-5 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-                Browse verified lead packs
+                Browse lead packs
               </h1>
               <p className="mt-4 max-w-xl text-base leading-7 text-[#8fa29c]">
-                Buy ready-to-work lead lists by niche and country. Preview is limited — the full file unlocks after payment.
-                Login required to buy or sell.
+                A lead pack is a seller-submitted file (CSV or spreadsheet) with the niche, countries, price, and buyer limit they chose.
+                Admin approval means the listing can go public — it is not a certificate that every contact is verified or sales-qualified.
+                Sign in to buy or sell. Browsing stays open.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
@@ -119,6 +122,23 @@ export default async function LeadsCatalogPage() {
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="container py-10">
+        {(() => {
+          const lead = MARKET_FACTS.find((f) => f.id === 'leads')!
+          return (
+            <div className="rounded-3xl border border-white/10 bg-[#0a2926] p-6 sm:p-8">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#e4c979]">Market context</p>
+              <p className="font-display mt-3 text-3xl font-extrabold text-white">{lead.figure}</p>
+              <p className="mt-1 text-sm text-[#9aa8a3]">{lead.figureLabel}</p>
+              <p className="mt-4 max-w-3xl text-sm leading-6 text-[#c5d0cb]">
+                Use this only as category context. It does not describe the value of files listed on DropVerse, and it is not a forecast of what a pack will sell for.
+              </p>
+              <MarketCite sourceName={lead.sourceName} sourceUrl={lead.sourceUrl} sourceDate={lead.sourceDate} scope={lead.scope} />
+            </div>
+          )
+        })()}
       </section>
 
       {/* How it works */}

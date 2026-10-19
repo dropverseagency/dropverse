@@ -31,6 +31,7 @@ export default function PricingPage() {
           </h1>
           <p className="mt-5 text-[#8fa29c]">
             Start free, then scale with the workspace license that matches your team size and delivery volume.
+            Prices below are the plans configured in DropVerse — not a share of any external market.
           </p>
         </div>
 
