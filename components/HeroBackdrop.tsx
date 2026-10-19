@@ -1,96 +1,40 @@
 'use client'
 
 /**
- * DropVerse hero backdrop — through-line object: the dual-chevron logo mark.
- * Every frame is computed from time (loop ~12s). Gold accent only on the mark.
- * Respects prefers-reduced-motion.
+ * DropVerse hero backdrop — fast kinetic type loop (no logo).
+ * Dark emerald + gold accent on key words only.
  */
 import { useEffect, useRef } from 'react'
 import { useReducedMotion } from 'framer-motion'
 
-const BG = '#061916'
 const GOLD = '#e2b656'
-const GOLD_DIM = 'rgba(226,182,86,0.14)'
-const LINE = 'rgba(226,182,86,0.22)'
-const MUTED = 'rgba(226,232,240,0.06)'
+const WHITE = 'rgba(231,237,234,0.92)'
+const MUTED = 'rgba(226,232,240,0.05)'
 
-function expOut(t: number, k = 4) {
-  return 1 - Math.exp(-k * Math.min(1, Math.max(0, t)))
+function clamp01(x: number) {
+  return Math.min(1, Math.max(0, x))
+}
+function expOut(t: number, k = 5) {
+  return 1 - Math.exp(-k * clamp01(t))
 }
 function spring(t: number) {
-  const x = Math.min(1, Math.max(0, t))
-  return 1 - Math.exp(-5.2 * x) * Math.cos(x * Math.PI * 0.55)
+  const x = clamp01(t)
+  return 1 - Math.exp(-5.5 * x) * Math.cos(x * Math.PI * 0.4)
+}
+/** Segment local time 0..1 inside [a,b] of full loop t */
+function seg(t: number, a: number, b: number) {
+  if (t < a) return 0
+  if (t >= b) return 1
+  return (t - a) / (b - a)
 }
 
-function drawChevron(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  size: number,
-  alpha: number,
-  filled: boolean,
-) {
-  ctx.save()
-  ctx.translate(x, y)
-  ctx.globalAlpha = alpha
-  ctx.beginPath()
-  ctx.moveTo(-size * 0.55, -size * 0.55)
-  ctx.lineTo(0, 0)
-  ctx.lineTo(-size * 0.55, size * 0.55)
-  ctx.lineTo(-size * 0.55, size * 0.28)
-  ctx.lineTo(-size * 0.18, 0)
-  ctx.lineTo(-size * 0.55, -size * 0.28)
-  ctx.closePath()
-  ctx.moveTo(-size * 0.05, -size * 0.35)
-  ctx.lineTo(size * 0.4, 0)
-  ctx.lineTo(-size * 0.05, size * 0.35)
-  ctx.lineTo(-size * 0.05, size * 0.18)
-  ctx.lineTo(size * 0.18, 0)
-  ctx.lineTo(-size * 0.05, -size * 0.18)
-  ctx.closePath()
-  if (filled) {
-    ctx.fillStyle = GOLD
-    ctx.fill()
-  } else {
-    ctx.strokeStyle = GOLD
-    ctx.lineWidth = Math.max(1.5, size * 0.06)
-    ctx.stroke()
-  }
-  ctx.restore()
-}
-
-function drawMarkFrame(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  size: number,
-  alpha: number,
-) {
-  const r = size * 0.22
-  ctx.save()
-  ctx.translate(x, y)
-  ctx.globalAlpha = alpha
-  ctx.beginPath()
-  const s = size
-  const half = s / 2
-  ctx.moveTo(-half + r, -half)
-  ctx.lineTo(half - r, -half)
-  ctx.quadraticCurveTo(half, -half, half, -half + r)
-  ctx.lineTo(half, half - r)
-  ctx.quadraticCurveTo(half, half, half - r, half)
-  ctx.lineTo(-half + r, half)
-  ctx.quadraticCurveTo(-half, half, -half, half - r)
-  ctx.lineTo(-half, -half + r)
-  ctx.quadraticCurveTo(-half, -half, -half + r, -half)
-  ctx.closePath()
-  ctx.fillStyle = '#0d3530'
-  ctx.fill()
-  ctx.strokeStyle = GOLD
-  ctx.lineWidth = Math.max(2, size * 0.045)
-  ctx.stroke()
-  ctx.restore()
-  drawChevron(ctx, x, y, size * 0.42, alpha, true)
-}
+const BEATS: { text: string; accent?: string; sub?: string }[] = [
+  { text: 'PITCH', accent: 'SAMPLES' },
+  { text: 'CLOSE', accent: 'CLIENTS' },
+  { text: 'KEEP THE', accent: 'MARGIN' },
+  { text: 'TALENT', accent: '→ SALES' },
+  { text: 'ZERO', accent: 'UPFRONT HIRE' },
+]
 
 export default function HeroBackdrop() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -104,7 +48,7 @@ export default function HeroBackdrop() {
 
     let raf = 0
     let start = performance.now()
-    const LOOP = 12000
+    const LOOP = 10000 // 10s full cycle — fast paced
 
     function resize() {
       const parent = canvas!.parentElement
@@ -123,103 +67,151 @@ export default function HeroBackdrop() {
     function paint(now: number) {
       const w = canvas!.clientWidth
       const h = canvas!.clientHeight
-      const t = reduce ? 0 : ((now - start) % LOOP) / LOOP
+      const t = reduce ? 0.35 : ((now - start) % LOOP) / LOOP
 
       ctx!.clearRect(0, 0, w, h)
-      const pulse = 0.55 + 0.45 * Math.sin(t * Math.PI * 2)
-      const grd = ctx!.createRadialGradient(w * 0.72, h * 0.38, 0, w * 0.72, h * 0.38, Math.max(w, h) * 0.55)
-      grd.addColorStop(0, `rgba(226,182,86,${0.07 * pulse})`)
-      grd.addColorStop(0.45, 'rgba(13,53,48,0.35)')
+
+      // soft gold wash right side
+      const pulse = 0.5 + 0.5 * Math.sin(t * Math.PI * 2)
+      const grd = ctx!.createRadialGradient(w * 0.78, h * 0.4, 0, w * 0.78, h * 0.4, Math.max(w, h) * 0.55)
+      grd.addColorStop(0, `rgba(226,182,86,${0.08 * pulse})`)
+      grd.addColorStop(0.5, 'rgba(13,53,48,0.25)')
       grd.addColorStop(1, 'rgba(6,25,22,0)')
-      ctx!.globalAlpha = 1
       ctx!.fillStyle = grd
       ctx!.fillRect(0, 0, w, h)
 
+      // drifting grid
       ctx!.strokeStyle = MUTED
       ctx!.lineWidth = 1
-      const step = 48
-      const drift = (t * step) % step
+      const step = 56
+      const drift = (t * step * 1.4) % step
       for (let x = -step + drift; x < w + step; x += step) {
         ctx!.beginPath()
         ctx!.moveTo(x, 0)
         ctx!.lineTo(x, h)
         ctx!.stroke()
       }
-      for (let y = -step + drift * 0.4; y < h + step; y += step) {
+      for (let y = -step + drift * 0.35; y < h + step; y += step) {
         ctx!.beginPath()
         ctx!.moveTo(0, y)
         ctx!.lineTo(w, y)
         ctx!.stroke()
       }
 
-      const cx = w * 0.78
-      const cy = h * 0.42
+      // Horizontal sweep line (camera feel)
+      const sweepY = h * (0.28 + 0.44 * ((Math.sin(t * Math.PI * 2) + 1) / 2))
+      ctx!.strokeStyle = 'rgba(226,182,86,0.12)'
+      ctx!.lineWidth = 1
+      ctx!.beginPath()
+      ctx!.moveTo(0, sweepY)
+      ctx!.lineTo(w, sweepY)
+      ctx!.stroke()
 
-      const p1 = expOut(t / 0.22)
-      const p2 = t < 0.22 ? 0 : spring((t - 0.22) / 0.23)
-      const p3 = t < 0.45 ? 0 : spring((t - 0.45) / 0.23)
-      const p4 = t < 0.68 ? 0 : spring((t - 0.68) / 0.2)
-      const fadeOut = t < 0.88 ? 1 : 1 - expOut((t - 0.88) / 0.12)
+      // Beat index (5 beats across loop)
+      const n = BEATS.length
+      const beatF = t * n
+      const bi = Math.min(n - 1, Math.floor(beatF))
+      const local = beatF - bi
+      const beat = BEATS[bi]
 
-      for (let i = 0; i < 3; i++) {
-        const ang = t * Math.PI * 2 + (i * Math.PI * 2) / 3
-        const ox = cx + Math.cos(ang) * (90 + i * 28)
-        const oy = cy + Math.sin(ang) * (54 + i * 16)
-        drawChevron(ctx!, ox, oy, 14 + i * 3, 0.12 + 0.08 * Math.sin(t * Math.PI * 2 + i), false)
+      // enter / hold / exit
+      let alpha = 1
+      let scale = 1
+      let yOff = 0
+      if (local < 0.18) {
+        const u = spring(local / 0.18)
+        alpha = u
+        scale = 0.86 + 0.14 * u
+        yOff = (1 - u) * 28
+      } else if (local > 0.78) {
+        const u = expOut((local - 0.78) / 0.22)
+        alpha = 1 - u
+        scale = 1 + 0.08 * u
+        yOff = -12 * u
       }
 
-      if (p3 > 0) {
-        const x0 = w * 0.55
-        const x1 = w * 0.88
-        const y0 = cy
-        ctx!.save()
-        ctx!.globalAlpha = 0.35 * p3 * fadeOut
-        ctx!.strokeStyle = LINE
-        ctx!.lineWidth = 1.5
-        ctx!.beginPath()
-        ctx!.moveTo(x0, y0)
-        const mid = x0 + (x1 - x0) * p3
-        ctx!.lineTo(mid, y0)
-        ctx!.stroke()
-        if (p3 > 0.6) {
-          ctx!.globalAlpha = 0.5 * fadeOut
-          ctx!.fillStyle = GOLD
-          ctx!.font = '600 11px ui-sans-serif, system-ui, sans-serif'
-          ctx!.fillText('TALENT', x0 - 4, y0 - 10)
-          if (p3 > 0.85) ctx!.fillText('SALES', mid - 28, y0 - 10)
+      // slight continuous camera push
+      const cam = 1 + 0.03 * Math.sin(t * Math.PI * 2)
+
+      const cx = w * 0.72
+      const cy = h * 0.42 + yOff
+
+      ctx!.save()
+      ctx!.translate(cx, cy)
+      ctx!.scale(scale * cam, scale * cam)
+      ctx!.globalAlpha = alpha * 0.95
+
+      // main word
+      const fs = Math.max(28, Math.min(64, w * 0.055))
+      ctx!.font = `800 ${fs}px ui-sans-serif, system-ui, -apple-system, sans-serif`
+      ctx!.textAlign = 'center'
+      ctx!.textBaseline = 'middle'
+      ctx!.fillStyle = WHITE
+      ctx!.fillText(beat.text, 0, -fs * 0.55)
+
+      // accent word in gold
+      if (beat.accent) {
+        const fs2 = fs * 0.92
+        ctx!.font = `800 ${fs2}px ui-sans-serif, system-ui, -apple-system, sans-serif`
+        ctx!.fillStyle = GOLD
+        // letter stagger reveal inside beat
+        const reveal = clamp01((local - 0.08) / 0.25)
+        const letters = beat.accent.split('')
+        const full = beat.accent
+        ctx!.font = `800 ${fs2}px ui-sans-serif, system-ui, -apple-system, sans-serif`
+        const totalW = ctx!.measureText(full).width
+        let x = -totalW / 2
+        for (let i = 0; i < letters.length; i++) {
+          const li = clamp01((reveal * letters.length - i) / 1.2)
+          const ch = letters[i]
+          const cw = ctx!.measureText(ch).width
+          ctx!.globalAlpha = alpha * li
+          ctx!.fillText(ch, x + cw / 2, fs * 0.55)
+          x += cw
         }
-        ctx!.restore()
       }
 
-      if (p2 > 0 && p4 < 0.85) {
-        const cardW = 160 * p2
-        const cardH = 100 * p2
-        const cardX = cx - 40
-        const cardY = cy - 20
+      ctx!.restore()
+
+      // floating mini cards (sample silhouettes) — right zone, low opacity
+      const cardAlpha = 0.35 * (0.6 + 0.4 * Math.sin(t * Math.PI * 4))
+      for (let i = 0; i < 3; i++) {
+        const phase = (t + i * 0.22) % 1
+        const cAlpha = cardAlpha * Math.sin(phase * Math.PI)
+        if (cAlpha < 0.02) continue
+        const ox = w * (0.58 + i * 0.12)
+        const oy = h * (0.55 + Math.sin((t + i) * Math.PI * 2) * 0.04)
+        const cw = 88 + i * 12
+        const ch = 56
         ctx!.save()
-        ctx!.globalAlpha = 0.55 * Math.min(1, p2 * 1.4) * (1 - p4 * 0.9) * fadeOut
+        ctx!.globalAlpha = cAlpha
         ctx!.fillStyle = '#101c19'
-        ctx!.strokeStyle = GOLD_DIM
+        ctx!.strokeStyle = 'rgba(226,182,86,0.2)'
         ctx!.lineWidth = 1
-        roundRect(ctx!, cardX, cardY, cardW, cardH, 14)
+        roundRect(ctx!, ox, oy, cw, ch, 12)
         ctx!.fill()
         ctx!.stroke()
         ctx!.fillStyle = 'rgba(226,232,240,0.12)'
-        for (let r = 0; r < 3; r++) {
-          ctx!.fillRect(cardX + 14, cardY + 18 + r * 22, cardW * 0.55, 8)
-        }
+        ctx!.fillRect(ox + 12, oy + 14, cw * 0.55, 6)
+        ctx!.fillRect(ox + 12, oy + 28, cw * 0.4, 6)
         ctx!.restore()
       }
 
-      const size = 36 + 28 * p4
-      const x = cx - 30 * (1 - p1) + 10 * Math.sin(t * Math.PI * 2) * (1 - p4)
-      const y = cy + (1 - p1) * 40
-      const alpha = Math.min(1, p1) * fadeOut
-
-      if (p4 > 0.15) {
-        drawMarkFrame(ctx!, x, y, size * 1.65, alpha * Math.min(1, p4 * 1.2))
-      } else {
-        drawChevron(ctx!, x, y, size, alpha, true)
+      // thin connector talent→sales on specific beat
+      if (bi === 3) {
+        const u = spring(seg(local, 0.15, 0.7))
+        ctx!.save()
+        ctx!.globalAlpha = 0.45 * alpha * u
+        ctx!.strokeStyle = 'rgba(226,182,86,0.35)'
+        ctx!.lineWidth = 1.5
+        const x0 = w * 0.52
+        const x1 = w * 0.52 + (w * 0.28) * u
+        const y0 = h * 0.62
+        ctx!.beginPath()
+        ctx!.moveTo(x0, y0)
+        ctx!.lineTo(x1, y0)
+        ctx!.stroke()
+        ctx!.restore()
       }
 
       if (!reduce) raf = requestAnimationFrame(paint)
