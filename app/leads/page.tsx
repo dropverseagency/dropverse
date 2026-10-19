@@ -7,11 +7,11 @@ import {
   MapPin,
   Users,
   Sparkles,
-  ArrowRight,
   Package,
 } from 'lucide-react'
 import Brand from '../../components/Brand'
 import SiteHeader from '../../components/SiteHeader'
+import LeadsEmptyCtas from '../../components/leads/LeadsEmptyCtas'
 
 export const dynamic = 'force-dynamic'
 
@@ -180,20 +180,7 @@ export default async function LeadsCatalogPage() {
                   DropVerse takes 20% on successful sales
                 </li>
               </ul>
-              <div className="mt-8 flex flex-wrap justify-center gap-3">
-                <Link
-                  href="/dashboard/leads"
-                  className="inline-flex items-center gap-2 rounded-full bg-[#d8b45a] px-6 py-3 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]"
-                >
-                  List your first pack <ArrowRight size={16} />
-                </Link>
-                <Link
-                  href="/login?redirect=/dashboard/leads"
-                  className="inline-flex items-center gap-2 rounded-full border border-white/15 px-6 py-3 text-sm font-semibold text-[#c5d0cb] hover:border-white/25"
-                >
-                  Sign in to sell
-                </Link>
-              </div>
+              <LeadsEmptyCtas />
             </div>
           </div>
         ) : (
