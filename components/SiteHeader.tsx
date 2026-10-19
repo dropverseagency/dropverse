@@ -26,11 +26,12 @@ export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: b
 
   const nav = (
     <>
+      <a href="/#paths" className="hover:text-[#f0d98b]">Paths</a>
       <a href="/#services" className="hover:text-[#f0d98b]">Services</a>
-      <Link href="/samples" className="hover:text-[#f0d98b]">Work Samples</Link>
-      <Link href="/leads" className="hover:text-[#f0d98b]">Lead Marketplace</Link>
-      <Link href="/earn" className={highlightEarn ? 'font-semibold text-[#e4c979] hover:text-[#f0d98b]' : 'hover:text-[#f0d98b]'}>Become a Partner</Link>
+      <Link href="/samples" className="hover:text-[#f0d98b]">Samples</Link>
+      <Link href="/leads" className="hover:text-[#f0d98b]">Leads</Link>
       <Link href="/pricing" className="hover:text-[#f0d98b]">Pricing</Link>
+      <Link href="/earn" className={highlightEarn ? 'font-semibold text-[#e4c979] hover:text-[#f0d98b]' : 'hover:text-[#f0d98b]'}>Partner</Link>
     </>
   )
 
@@ -79,11 +80,12 @@ export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: b
       {menu && (
         <div className="border-t border-white/5 bg-[#071f1d] p-5 lg:hidden">
           <div className="container flex flex-col gap-5 text-[#d9e0dc]">
+            <a href="/#paths" onClick={() => setMenu(false)}>Paths</a>
             <a href="/#services" onClick={() => setMenu(false)}>Services</a>
-            <Link href="/samples" onClick={() => setMenu(false)}>Work Samples</Link>
-            <Link href="/leads" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Lead Marketplace</Link>
-            <Link href="/earn" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Become a Partner</Link>
+            <Link href="/samples" onClick={() => setMenu(false)}>Samples</Link>
+            <Link href="/leads" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Leads</Link>
             <Link href="/pricing" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Pricing</Link>
+            <Link href="/earn" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Partner</Link>
             {isAdmin ? (
               <Link href="/admin" className="inline-flex items-center gap-2 font-bold text-[#f0d98b]" onClick={() => setMenu(false)}><ShieldCheck size={15} /> Admin Panel →</Link>
             ) : null}
