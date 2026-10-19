@@ -53,8 +53,6 @@ function LoginPageInner() {
     const supabase = createClient()
 
     try {
-      // Server rate-limit + optional Turnstile. Client guard can be bypassed —
-      // also enable Supabase Auth CAPTCHA (Turnstile) in the dashboard.
       const turnstileToken =
         (typeof form.get('cf-turnstile-response') === 'string' && form.get('cf-turnstile-response'))
           ? String(form.get('cf-turnstile-response'))
@@ -80,6 +78,11 @@ function LoginPageInner() {
         if (!username || username.length < 3) {
           throw new Error('Username is required (at least 3 characters).')
         }
+        const userType = String(form.get('user_type') || '').trim()
+        const allowedTypes = ['lead_generator', 'drop_servicer', 'freelancer']
+        if (!allowedTypes.includes(userType)) {
+          throw new Error('Please select whether you are a Lead Generator, Drop Servicer, or Freelancer.')
+        }
         const telegramUsername = String(form.get('telegram_username') || '').trim()
         const referralCode = String(form.get('referral_code') || '').trim().toUpperCase()
         if (referralCode) {
@@ -93,7 +96,7 @@ function LoginPageInner() {
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/login`,
-            data: { full_name: fullName, phone, username, telegram_username: telegramUsername },
+            data: { full_name: fullName, phone, username, telegram_username: telegramUsername, user_type: userType },
             ...(turnstileToken ? { captchaToken: turnstileToken } : {}),
           },
         })
@@ -106,8 +109,12 @@ function LoginPageInner() {
           throw signUpError
         }
         applyPendingReferral().catch(() => undefined)
-        if (data.session) window.location.assign(redirectTo)
-        else setMessage('Account created. Please open the confirmation email we sent to your inbox, then sign in.')
+        if (data.session?.user?.id) {
+          await supabase.from('profiles').update({ user_type: userType }).eq('id', data.session.user.id)
+          window.location.assign(redirectTo)
+        } else {
+          setMessage('Account created. Please open the confirmation email we sent to your inbox, then sign in.')
+        }
       } else {
         const { error: signInError, data: signInData } = await supabase.auth.signInWithPassword({
           email,
@@ -145,6 +152,8 @@ function LoginPageInner() {
     userId: string,
   ): Promise<string> {
     if (!userId) return redirectTo
+    const { data: profile } = await supabase.from('profiles').select('user_type').eq('id', userId).maybeSingle()
+    if (!profile?.user_type) return `/onboarding?redirect=${encodeURIComponent(redirectTo)}`
     const { data } = await supabase.from('organizations').select('id').limit(1)
     if (data && data.length > 0) return redirectTo
     return '/pricing'
@@ -191,6 +200,25 @@ function LoginPageInner() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'signup' && <>
               <label className="block text-sm font-medium text-[#d9e0dc]">Full name<input name="full_name" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="text" placeholder="Your full name" required autoComplete="name" /></label>
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium text-[#d9e0dc]">I am a… <span className="text-xs font-normal text-[#9aaca6]">(required)</span></legend>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {[
+                    { value: 'lead_generator', label: 'Lead Generator', desc: 'I generate & sell leads' },
+                    { value: 'drop_servicer', label: 'Drop Servicer', desc: 'I sell services via freelancers' },
+                    { value: 'freelancer', label: 'Freelancer', desc: 'I deliver the work myself' },
+                  ].map((opt) => (
+                    <label
+                      key={opt.value}
+                      className="cursor-pointer rounded-xl border border-white/10 bg-white/5 p-3 transition has-[:checked]:border-[rgba(216,180,90,0.55)] has-[:checked]:bg-[rgba(216,180,90,0.12)]"
+                    >
+                      <input type="radio" name="user_type" value={opt.value} required className="sr-only" />
+                      <span className="block text-sm font-semibold text-[#f0f4f2]">{opt.label}</span>
+                      <span className="mt-0.5 block text-[11px] leading-4 text-[#849792]">{opt.desc}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               <label className="block text-sm font-medium text-[#d9e0dc]">Mobile number <span className="text-xs font-normal text-[#9aaca6]">(must work on WhatsApp or Telegram)</span><CountryPhoneField /></label>
               <label className="block text-sm font-medium text-[#d9e0dc]">Username<input name="username" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="text" placeholder="Pick a username" required minLength={3} autoComplete="username" /></label>
               <label className="block text-sm font-medium text-[#d9e0dc]">Telegram username <span className="text-xs font-normal text-[#9aaca6]">(optional)</span><input name="telegram_username" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="text" placeholder="@username" autoComplete="nickname" /></label>
