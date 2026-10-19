@@ -21,7 +21,6 @@ import {
 import { createClient } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
 import Brand from '../components/Brand'
-import HeroBackdrop from '../components/HeroBackdrop'
 
 const fallbackServices = [
   ['Video Editing', 'Reels, TikTok, Shorts, ads & long-form content.'],
@@ -190,9 +189,8 @@ export default function Home() {
         )}
       </header>
 
-      <section className="grid-bg relative flex min-h-[88vh] items-center overflow-hidden pt-20">
-        <HeroBackdrop />
-        <div className="pointer-events-none absolute left-1/2 top-1/3 h-[380px] w-[380px] -translate-x-1/2 rounded-full bg-[rgba(226,182,86,0.04)] blur-[100px]" />
+      <section className="grid-bg relative flex min-h-[88vh] items-center pt-20">
+        <div className="absolute left-1/2 top-1/3 h-[380px] w-[380px] -translate-x-1/2 rounded-full bg-[rgba(226,182,86,0.06)] blur-[100px]" />
         <div className="container relative grid items-center gap-12 py-20 lg:grid-cols-[1.1fr_0.9fr]">
           <motion.div variants={reveal} initial={reduceMotion ? false : 'hidden'} animate="show">
             <motion.div variants={reveal} className="mb-6 inline-flex items-center gap-2 rounded-full border border-[rgba(226,182,86,0.25)] bg-[rgba(226,182,86,0.08)] px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-[#e2b656]">
