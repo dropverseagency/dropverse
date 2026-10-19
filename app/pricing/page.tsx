@@ -27,11 +27,11 @@ export default function PricingPage() {
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">Pricing</p>
           <h1 className="font-display mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">
-            Plans built for digital teams
+            Plans to build your online agency
           </h1>
           <p className="mt-5 text-[#8fa29c]">
-            Start free, then scale with the workspace license that matches your team size and delivery volume.
-            Prices below are the plans configured in DropVerse — not a share of any external market.
+            Start free, then scale the workspace as your team and delivery volume grow.
+            Prices below are DropVerse plan fees — not a share of any external market.
           </p>
         </div>
 
