@@ -55,9 +55,6 @@ export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: b
               {auth.loading ? '' : 'Sign in'}
             </Link>
           )}
-          <Link href="/pricing" className="brand-button-secondary hidden rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] px-4 py-2 text-sm font-bold text-[#e4c979] transition hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.14)] xl:inline-flex">
-            Pricing
-          </Link>
           {signedIn ? (
             <Link href="/dashboard" className="brand-button-primary rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
               Dashboard
@@ -91,9 +88,12 @@ export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: b
               <Link href="/admin" className="inline-flex items-center gap-2 font-bold text-[#f0d98b]" onClick={() => setMenu(false)}><ShieldCheck size={15} /> Admin Panel →</Link>
             ) : null}
             {signedIn ? (
-              <Link href="/dashboard" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Dashboard →</Link>
+              <Link href="/dashboard" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Dashboard</Link>
             ) : (
-              <Link href="/login" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Get Started →</Link>
+              <>
+                <Link href="/login" onClick={() => setMenu(false)}>Sign in</Link>
+                <Link href="/login" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Get Started</Link>
+              </>
             )}
           </div>
         </div>
