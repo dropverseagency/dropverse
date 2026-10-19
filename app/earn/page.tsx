@@ -147,12 +147,12 @@ export default function EarnPage() {
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-bold uppercase tracking-[.2em] text-[#d8b45a]">Partner program</p>
           <h1 className="font-display mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">
-            Become a Partner
+            Partner while others build their agencies
           </h1>
           <p className="mt-5 text-[#8fa29c]">
-            Three ways to participate, using features that exist today: deliver services inside a workspace,
-            sell an approved lead pack, or share a referral link. Commissions are paid only on qualifying activity.
-            DropVerse does not promise income, clients, or sales.
+            Help operators discover DropVerse and earn on qualifying activity: deliver in a workspace,
+            sell an approved lead pack, or share a referral link. Commissions only on real, eligible events —
+            not a promise of income, clients, or sales.
           </p>
           <div className="mt-10 flex flex-wrap justify-center gap-3">
             <Link
