@@ -132,9 +132,6 @@ export default function Home() {
         <div className="container flex h-[4.5rem] items-center justify-between">
           <div className="flex items-center gap-3">
             <Brand />
-            <span className="hidden text-[10px] font-bold uppercase tracking-[0.16em] text-[#e2b656] sm:inline">
-              Linking talent to sales
-            </span>
           </div>
           <nav className="hidden items-center gap-7 text-sm text-[#e2e8f0] md:flex">
             <a href="#services" className="hover:text-[#e2b656]">Services</a>
@@ -202,7 +199,7 @@ export default function Home() {
               Keep the Profit Margin.
             </motion.h1>
             <motion.p variants={reveal} className="mt-6 max-w-xl text-base leading-7 text-[#e2e8f0] sm:text-lg">
-              DropVerse empowers agencies and drop-servicers to scale faster. Access a curated vault of verified freelancer portfolios, white-label client proposals, and automated client acquisition assets — zero upfront hiring needed.
+              DropVerse empowers agencies and drop-servicers to scale faster. Access a curated vault of verified freelancer portfolios, white-label client proposals, and automated client acquisition assets.
             </motion.p>
             <motion.div variants={reveal} className="mt-8 flex flex-wrap gap-3">
               <Link href="/samples" className="brand-button-primary group inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold">
