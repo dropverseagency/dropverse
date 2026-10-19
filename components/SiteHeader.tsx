@@ -27,9 +27,7 @@ export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: b
   const nav = (
     <>
       <a href="/#services" className="hover:text-[#f0d98b]">Services</a>
-      <a href="/#how" className="hover:text-[#f0d98b]">How It Works</a>
-      <a href="/#samples" className="hover:text-[#f0d98b]">Work Samples</a>
-      <a href="/#about" className="hover:text-[#f0d98b]">About</a>
+      <Link href="/samples" className="hover:text-[#f0d98b]">Work Samples</Link>
       <Link href="/leads" className="hover:text-[#f0d98b]">Lead Marketplace</Link>
       <Link href="/earn" className={highlightEarn ? 'font-semibold text-[#e4c979] hover:text-[#f0d98b]' : 'hover:text-[#f0d98b]'}>Become a Partner</Link>
       <Link href="/pricing" className="hover:text-[#f0d98b]">Pricing</Link>
@@ -54,10 +52,10 @@ export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: b
             </>
           ) : (
             <Link href="/login" className="px-4 py-2 text-sm text-[#d9e0dc]">
-              {auth.loading ? '' : 'Login'}
+              {auth.loading ? '' : 'Sign in'}
             </Link>
           )}
-          <Link href="/pricing" className="brand-button-secondary rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] px-4 py-2 text-sm font-bold text-[#e4c979] transition hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.14)]">
+          <Link href="/pricing" className="brand-button-secondary hidden rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] px-4 py-2 text-sm font-bold text-[#e4c979] transition hover:border-[rgba(216,180,90,0.60)] hover:bg-[rgba(216,180,90,0.14)] xl:inline-flex">
             Pricing
           </Link>
           {signedIn ? (
@@ -85,12 +83,10 @@ export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: b
         <div className="border-t border-white/5 bg-[#071f1d] p-5 lg:hidden">
           <div className="container flex flex-col gap-5 text-[#d9e0dc]">
             <a href="/#services" onClick={() => setMenu(false)}>Services</a>
-            <a href="/#how" onClick={() => setMenu(false)}>How It Works</a>
-            <a href="/#samples" onClick={() => setMenu(false)}>Work Samples</a>
-            <a href="/#about" onClick={() => setMenu(false)}>About</a>
-            <Link href="/leads" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Lead Marketplace →</Link>
-            <Link href="/earn" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Become a Partner →</Link>
-            <Link href="/pricing" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Pricing →</Link>
+            <Link href="/samples" onClick={() => setMenu(false)}>Work Samples</Link>
+            <Link href="/leads" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Lead Marketplace</Link>
+            <Link href="/earn" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Become a Partner</Link>
+            <Link href="/pricing" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Pricing</Link>
             {isAdmin ? (
               <Link href="/admin" className="inline-flex items-center gap-2 font-bold text-[#f0d98b]" onClick={() => setMenu(false)}><ShieldCheck size={15} /> Admin Panel →</Link>
             ) : null}

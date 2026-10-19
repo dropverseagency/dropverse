@@ -150,8 +150,9 @@ export default function EarnPage() {
             Become a Partner
           </h1>
           <p className="mt-5 text-[#8fa29c]">
-            Share DropVerse, refer digital teams, and earn commissions when they grow their workspace.
-            Rates scale with your active referrals — up to 25%.
+            Three ways to participate, using features that exist today: deliver services inside a workspace,
+            sell an approved lead pack, or share a referral link. Commissions are paid only on qualifying activity.
+            DropVerse does not promise income, clients, or sales.
           </p>
           <div className="mt-10 flex flex-wrap justify-center gap-3">
             <Link

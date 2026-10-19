@@ -20,7 +20,8 @@ import {
 } from 'lucide-react'
 import { createClient } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
-import Brand from '../components/Brand'
+import { MARKET_FACTS } from '../lib/marketFacts'
+import { MarketCite } from '../components/MarketCite'
 
 const fallbackServices = [
   ['Video Editing', 'Reels, TikTok, Shorts, ads & long-form content.'],
@@ -135,7 +136,7 @@ export default function Home() {
           </div>
           <nav className="hidden items-center gap-7 text-sm text-[#e2e8f0] md:flex">
             <a href="#services" className="hover:text-[#e2b656]">Services</a>
-            <a href="#how" className="hover:text-[#e2b656]">How it works</a>
+            <Link href="/samples" className="hover:text-[#e2b656]">Work Samples</Link>
             <Link href="/leads" className="hover:text-[#e2b656]">Lead Marketplace</Link>
             <Link href="/earn" className="font-semibold text-[#e2b656] hover:text-[#f6de9d]">Become a Partner</Link>
             <Link href="/pricing" className="hover:text-[#e2b656]">Pricing</Link>
@@ -171,9 +172,9 @@ export default function Home() {
           <div className="border-t border-white/5 bg-[#071f1d] p-5 md:hidden">
             <div className="container flex flex-col gap-5 text-[#e2e8f0]">
               <a href="#services" onClick={() => setMenu(false)}>Services</a>
-              <a href="#how" onClick={() => setMenu(false)}>How it works</a>
-              <Link href="/leads" className="text-[#e2b656]" onClick={() => setMenu(false)}>Lead Marketplace →</Link>
-              <Link href="/earn" className="text-[#e2b656]" onClick={() => setMenu(false)}>Become a Partner →</Link>
+              <Link href="/samples" onClick={() => setMenu(false)}>Work Samples</Link>
+              <Link href="/leads" className="text-[#e2b656]" onClick={() => setMenu(false)}>Lead Marketplace</Link>
+              <Link href="/earn" className="text-[#e2b656]" onClick={() => setMenu(false)}>Become a Partner</Link>
               <Link href="/pricing" onClick={() => setMenu(false)}>Pricing</Link>
               {isAdmin ? <Link href="/admin" className="font-bold text-[#e2b656]" onClick={() => setMenu(false)}>Admin Panel →</Link> : null}
               {signedIn ? (
@@ -191,23 +192,22 @@ export default function Home() {
         <div className="container relative grid items-center gap-12 py-20 lg:grid-cols-[1.1fr_0.9fr]">
           <motion.div variants={reveal} initial={reduceMotion ? false : 'hidden'} animate="show">
             <motion.div variants={reveal} className="mb-6 inline-flex items-center gap-2 rounded-full border border-[rgba(226,182,86,0.25)] bg-[rgba(226,182,86,0.08)] px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-[#e2b656]">
-              <Sparkles size={13} /> Linking talent to sales
+              <Sparkles size={13} /> Digital business platform
             </motion.div>
-            <motion.h1 variants={reveal} className="font-display text-[2.35rem] font-extrabold leading-[1.08] tracking-[-0.04em] sm:text-[2.75rem] lg:text-[3.25rem]">
-              Pitch Proven Samples.{' '}
-              <span className="gold-gradient">Close High-Paying Clients.</span>{' '}
-              Keep the Profit Margin.
+            <motion.h1 variants={reveal} className="font-display text-[2.35rem] font-extrabold leading-[1.08] tracking-[-0.04em] sm:text-[2.75rem] lg:text-[3.15rem]">
+              Build your digital business.{' '}
+              <span className="gold-gradient">Find your next opportunity.</span>
             </motion.h1>
             <motion.p variants={reveal} className="mt-6 max-w-xl text-base leading-7 text-[#e2e8f0] sm:text-lg">
-              DropVerse empowers agencies and drop-servicers to scale faster. Access a curated vault of verified freelancer portfolios, white-label client proposals, and automated client acquisition assets.
+              Explore digital services, lead packs, and work samples in one platform built to help you turn opportunities into action. Nothing here is a guarantee of income or clients.
             </motion.p>
             <motion.div variants={reveal} className="mt-8 flex flex-wrap gap-3">
-              <Link href="/samples" className="brand-button-primary group inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold">
-                Explore Samples Vault
+              <a href="#markets" className="brand-button-primary group inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold">
+                Explore opportunities
                 <ArrowRight size={17} className="transition group-hover:translate-x-0.5" />
-              </Link>
-              <a href="#how" className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.03] px-6 py-3.5 text-sm font-semibold text-white transition hover:border-[rgba(226,182,86,0.4)]">
-                How It Works <ChevronRight size={17} />
+              </a>
+              <a href="#services" className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.03] px-6 py-3.5 text-sm font-semibold text-white transition hover:border-[rgba(226,182,86,0.4)]">
+                Explore services <ChevronRight size={17} />
               </a>
             </motion.div>
             <motion.div variants={reveal} className="mt-10 flex flex-wrap gap-x-7 gap-y-2 text-sm text-[#e2e8f0]/90">
@@ -221,7 +221,7 @@ export default function Home() {
             <div className="glow float-slow rounded-3xl border border-[rgba(226,182,86,0.18)] bg-[#101c19] p-5">
               <div className="mb-4 flex items-center justify-between">
                 <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#e2b656]">Project board</p>
-                <span className="rounded-full bg-[rgba(226,182,86,0.12)] px-2.5 py-1 text-[10px] font-semibold text-[#e2b656]">Live</span>
+                <span className="rounded-full bg-[rgba(226,182,86,0.12)] px-2.5 py-1 text-[10px] font-semibold text-[#e2b656]">Example</span>
               </div>
               <div className="space-y-3">
                 {[['Video edit — product launch', 'In progress', '48h'], ['Brand kit refresh', 'In review', '3d'], ['Landing page — SaaS', 'Ready', '5d']].map(([title, status, eta]) => (
@@ -246,6 +246,32 @@ export default function Home() {
               </div>
             </div>
           </motion.div>
+        </div>
+      </section>
+
+      <section id="markets" className="section-pad border-t border-white/5 bg-[#071f1d]">
+        <div className="container">
+          <p className="eyebrow">Markets and opportunities</p>
+          <h2 className="font-display mt-3 max-w-2xl text-3xl font-extrabold tracking-tight sm:text-4xl">Where people use DropVerse</h2>
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-[#e2e8f0]/75">
+            These are published market estimates for context. They are not DropVerse revenue, market share, or a forecast of what you will earn.
+          </p>
+          <div className="mt-10 grid gap-4 md:grid-cols-2">
+            {MARKET_FACTS.map((fact) => (
+              <article key={fact.id} className="flex flex-col rounded-3xl border border-white/10 bg-[#0c1916] p-6">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#e2b656]">{fact.title}</p>
+                {fact.figure ? (
+                  <p className="font-display mt-4 text-3xl font-extrabold text-white">{fact.figure}</p>
+                ) : null}
+                {fact.figureLabel ? <p className="mt-1 text-xs text-[#9aa8a3]">{fact.figureLabel}</p> : null}
+                <p className="mt-4 flex-1 text-sm leading-6 text-[#e2e8f0]/80">{fact.body}</p>
+                <MarketCite sourceName={fact.sourceName} sourceUrl={fact.sourceUrl} sourceDate={fact.sourceDate} scope={fact.scope} />
+                <Link href={fact.href} className="mt-5 inline-flex items-center gap-1 text-sm font-bold text-[#e2b656]">
+                  {fact.cta} <ArrowRight size={15} />
+                </Link>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -284,6 +310,9 @@ export default function Home() {
             <div>
               <p className="eyebrow">Services</p>
               <h2 className="font-display mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">Built to sell</h2>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-[#e2e8f0]/70">
+                Content and creative delivery, web and brand work, and writing — only the services published in the catalog. The freelance-platform market above is not the market size for any one of these.
+              </p>
             </div>
             <Link href="/pricing" className="inline-flex items-center gap-2 text-sm font-bold text-[#e2b656]">View plans <ArrowRight size={16} /></Link>
           </div>
