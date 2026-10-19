@@ -24,6 +24,7 @@ import { useAuth } from '../lib/useAuth'
 import { ctaFor } from '../lib/authCta'
 import Brand from '../components/Brand'
 import DodoSampleCheckout from '../components/DodoSampleCheckout'
+import HeroBackdrop from '../components/HeroBackdrop'
 
 const fallbackServices = [
   ['Video Editing', 'Reels, TikTok, Shorts, ads & long-form content.'],
@@ -221,8 +222,9 @@ export default function Home() {
         )}
       </header>
 
-      <section className="grid-bg relative flex min-h-[88vh] items-center pt-20">
-        <div className="absolute left-1/2 top-1/3 h-[380px] w-[380px] -translate-x-1/2 rounded-full bg-[rgba(226,182,86,0.06)] blur-[100px]" />
+      <section className="grid-bg relative flex min-h-[88vh] items-center overflow-hidden pt-20">
+        <HeroBackdrop />
+        <div className="pointer-events-none absolute left-1/2 top-1/3 h-[380px] w-[380px] -translate-x-1/2 rounded-full bg-[rgba(226,182,86,0.04)] blur-[100px]" />
         <div className="container relative grid items-center gap-12 py-20 lg:grid-cols-[1.1fr_0.9fr]">
           <motion.div variants={reveal} initial={reduceMotion ? false : 'hidden'} animate="show">
             <motion.div variants={reveal} className="mb-6 inline-flex items-center gap-2 rounded-full border border-[rgba(226,182,86,0.25)] bg-[rgba(226,182,86,0.08)] px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-[#e2b656]">
@@ -283,149 +285,3 @@ export default function Home() {
           </motion.div>
         </div>
       </section>
-
-      <section id="about" className="section-pad border-t border-white/5 bg-[#071f1d]">
-        <div className="container">
-          <p className="eyebrow">Platform tools</p>
-          <h2 className="font-display mt-3 max-w-xl text-3xl font-extrabold tracking-tight sm:text-4xl">Everything digital teams need in one workspace</h2>
-          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Feature icon={<Users size={18} />} title="Team collaboration" text="Shared workspaces, roles, and client-ready project views." />
-            <Feature icon={<Layers size={18} />} title="Workflow templates" text="Reusable delivery systems for recurring digital services." />
-            <Feature icon={<Zap size={18} />} title="Scale your workspace" text="Grow from solo operator to agency without switching tools." />
-            <Feature icon={<Globe size={18} />} title="One platform" text="Catalog, orders, samples, and agency pages — connected." />
-          </div>
-        </div>
-      </section>
-
-      <section id="how" className="section-pad">
-        <div className="container">
-          <p className="eyebrow">How it works</p>
-          <h2 className="font-display mt-3 max-w-xl text-3xl font-extrabold tracking-tight sm:text-4xl">From sample to sale in four steps</h2>
-          <div className="mt-12 grid gap-px overflow-hidden rounded-3xl border border-white/8 bg-white/5 md:grid-cols-4">
-            {[['01', 'Pick a sample', 'Browse proven service formats and formats you can sell.'], ['02', 'Pitch the client', 'Share the sample, price, and turnaround with confidence.'], ['03', 'Fulfill the work', 'Run the project in DropVerse with clear status and assets.'], ['04', 'Keep the margin', 'You sell. DropVerse helps you deliver and scale.']].map(([n, t, d]) => (
-              <div key={n} className="bg-[#101c19] p-7">
-                <div className="text-sm font-bold text-[#e2b656]">{n}</div>
-                <h3 className="font-display mt-10 text-xl font-bold">{t}</h3>
-                <p className="mt-3 text-sm leading-6 text-[#e2e8f0]/75">{d}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="services" className="section-pad border-t border-white/5 bg-[#071f1d]">
-        <div className="container">
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-            <div>
-              <p className="eyebrow">Services</p>
-              <h2 className="font-display mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">Built to sell</h2>
-            </div>
-            <Link href="/pricing" className="inline-flex items-center gap-2 text-sm font-bold text-[#e2b656]">View plans <ArrowRight size={16} /></Link>
-          </div>
-          <motion.div variants={stagger} initial={reduceMotion ? false : 'hidden'} whileInView="show" viewport={{ once: true, amount: 0.12 }} className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {services.map(([title, text], i) => (
-              <motion.div key={title + String(i)} variants={staggerItem} className="bento-card group p-6">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#e2e8f0]/50">0{i + 1}</span>
-                  <ArrowRight size={16} className="text-[#e2e8f0]/40 transition group-hover:translate-x-1 group-hover:text-[#e2b656]" />
-                </div>
-                <h3 className="font-display mt-8 text-lg font-bold">{title}</h3>
-                <p className="mt-2 text-sm leading-6 text-[#e2e8f0]/75">{text}</p>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      <motion.section id="samples" variants={reveal} initial={reduceMotion ? false : 'hidden'} whileInView="show" viewport={{ once: true, amount: 0.12 }} className="section-pad">
-        <div className="container">
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-            <div>
-              <p className="eyebrow">Work library</p>
-              <h2 className="font-display mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">See what you can sell</h2>
-              <p className="mt-4 max-w-xl text-sm leading-6 text-[#e2e8f0]/75">Clean sample cards with category filters and checkout. Live samples appear when published.</p>
-            </div>
-          </div>
-          <div className="mt-8 flex flex-wrap gap-2">
-            {sampleCategories.map((cat) => (
-              <button key={cat} type="button" onClick={() => setSampleFilter(cat)} className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${sampleFilter === cat ? 'bg-[#e2b656] text-[#071f1d]' : 'border border-white/10 bg-white/[0.03] text-[#e2e8f0] hover:border-[rgba(226,182,86,0.35)]'}`}>{cat}</button>
-            ))}
-          </div>
-          <div className="mt-10 grid gap-5 md:grid-cols-3">
-            {filteredSamples.map((sample, i) => {
-              const title = Array.isArray(sample) ? sample[0] : sample.title
-              const cat = Array.isArray(sample) ? sample[1] : sample.category || 'Sample'
-              const media = Array.isArray(sample) ? '' : sample.media_url
-              const sampleId = !Array.isArray(sample) && 'id' in sample ? sample.id : undefined
-              return (
-                <div key={title + String(i)} className="bento-card group overflow-hidden">
-                  <div className="relative aspect-[16/10] overflow-hidden bg-[#071f1d]">
-                    {media ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={media} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" />
-                    ) : (
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(226,182,86,.18),transparent_40%),linear-gradient(135deg,#101c19,#071f1d)]" />
-                    )}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[rgba(226,182,86,0.35)] bg-[rgba(7,31,29,0.75)] text-[#e2b656] backdrop-blur">
-                        <Play size={18} fill="currentColor" />
-                      </div>
-                    </div>
-                    <span className="absolute left-3 top-3 rounded-full bg-[rgba(7,31,29,0.85)] px-2.5 py-1 text-[11px] font-semibold text-[#e2b656] backdrop-blur">{cat}</span>
-                  </div>
-                  <div className="p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <h3 className="font-display text-base font-bold">{title}</h3>
-                      <span className="shrink-0 text-[11px] text-[#e2e8f0]/50">{media ? 'Live' : 'Format'}</span>
-                    </div>
-                    <div className="mt-4"><DodoSampleCheckout sampleId={sampleId} /></div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </motion.section>
-
-      <section id="start" className="section-pad border-t border-white/5 bg-[#071f1d]">
-        <div className="container text-center">
-          <p className="eyebrow">Get started</p>
-          <h2 className="font-display mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">Ready to build?</h2>
-          <p className="mx-auto mt-4 max-w-lg text-sm leading-6 text-[#e2e8f0]/75">Create your workspace and start managing digital projects, samples, and agency storefronts in one place.</p>
-          <div className="mt-9 flex flex-wrap justify-center gap-3">
-            <Link href={ctaFor(signedIn, '/login')} className="brand-button-primary rounded-full px-8 py-3.5 text-sm font-bold">{signedIn ? 'Go to dashboard' : 'Create account'}</Link>
-            <Link href="/pricing" className="rounded-full border border-white/15 px-8 py-3.5 text-sm font-semibold text-white transition hover:border-[rgba(226,182,86,0.4)]">View pricing</Link>
-          </div>
-        </div>
-      </section>
-
-      <footer className="border-t border-white/5 py-12">
-        <div className="container flex flex-col items-center justify-between gap-6 sm:flex-row">
-          <div className="flex flex-col items-center gap-1 sm:items-start">
-            <Brand compact />
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#e2b656]/80">Linking talent to sales</p>
-          </div>
-          <div className="flex flex-wrap justify-center gap-6 text-sm text-[#e2e8f0]/70">
-            <Link href="/leads" className="hover:text-[#e2b656]">Lead Marketplace</Link>
-            <Link href="/earn" className="hover:text-[#e2b656]">Become a Partner</Link>
-            <Link href="/privacy" className="hover:text-[#e2b656]">Privacy</Link>
-            <Link href="/terms" className="hover:text-[#e2b656]">Terms</Link>
-            <Link href="/refund" className="hover:text-[#e2b656]">Refund</Link>
-            <Link href="/pricing" className="hover:text-[#e2b656]">Pricing</Link>
-          </div>
-          <p className="text-sm text-[#e2e8f0]/50">© {new Date().getFullYear()} DropVerse</p>
-        </div>
-      </footer>
-    </main>
-  )
-}
-
-function Feature({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
-  return (
-    <div className="bento-card p-6">
-      <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-[rgba(226,182,86,0.2)] bg-[rgba(226,182,86,0.08)] text-[#e2b656]">{icon}</div>
-      <h3 className="font-display text-lg font-bold">{title}</h3>
-      <p className="mt-2 text-sm leading-6 text-[#e2e8f0]/75">{text}</p>
-    </div>
-  )
-}
