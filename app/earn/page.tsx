@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, Users, Wallet, Share2, TrendingUp, Timer, Crown, Percent } from 'lucide-react'
+import { ArrowRight, Users, Wallet, Share2, TrendingUp, Timer, Crown, Percent, Copy, CheckCircle2, Link2 } from 'lucide-react'
 import Brand from '../../components/Brand'
 import SiteHeader from '../../components/SiteHeader'
 import { useAuth } from '../../lib/useAuth'
@@ -99,6 +99,45 @@ function LifetimeCountdown() {
 export default function EarnPage() {
   const auth = useAuth()
   const signedIn = !auth.loading && Boolean(auth.user)
+  const [referralLink, setReferralLink] = useState<string | null>(null)
+  const [referralCode, setReferralCode] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    if (!signedIn) {
+      setReferralLink(null)
+      setReferralCode(null)
+      return
+    }
+    let cancelled = false
+    fetch('/api/affiliate/me')
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled || j.error) return
+        setReferralLink(j.referralLink ?? null)
+        setReferralCode(j.code ?? null)
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [signedIn])
+
+  async function copyLink() {
+    if (!referralLink) return
+    try {
+      await navigator.clipboard.writeText(referralLink)
+    } catch {
+      const ta = document.createElement('textarea')
+      ta.value = referralLink
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   return (
     <main className="min-h-screen bg-[#071f1d]">
@@ -128,6 +167,52 @@ export default function EarnPage() {
               View plans
             </Link>
           </div>
+        </div>
+
+        <div className="mx-auto mt-10 max-w-2xl">
+          {signedIn && referralLink ? (
+            <div className="rounded-2xl border border-[rgba(216,180,90,0.3)] bg-[rgba(216,180,90,0.06)] p-5 text-left">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#9aa8a3]">Your referral link</p>
+                  {referralCode ? (
+                    <p className="mt-1 font-mono text-lg font-bold tracking-[0.18em] text-[#f0d98b]">{referralCode}</p>
+                  ) : null}
+                  <div className="mt-2 flex items-center gap-2 rounded-lg border border-white/10 bg-[#071f1d] px-3 py-2 text-xs text-[#9aacb6]">
+                    <Link2 size={13} className="shrink-0 text-[#d8b45a]" />
+                    <span className="truncate">{referralLink}</span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-[#849792]">
+                    Share this link. When teams sign up through it and pay, you earn tiered commissions.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={copyLink}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-full bg-[#d8b45a] px-4 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]"
+                >
+                  {copied ? (
+                    <>
+                      <CheckCircle2 size={15} /> Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={15} /> Copy link
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          ) : !signedIn && !auth.loading ? (
+            <div className="rounded-2xl border border-white/10 bg-[#0a2926] p-5 text-center">
+              <p className="text-sm text-[#8fa29c]">
+                <Link href="/login" className="font-semibold text-[#e4c979] hover:text-[#f0d98b]">
+                  Sign in
+                </Link>{' '}
+                to get your personal referral link and start sharing.
+              </p>
+            </div>
+          ) : null}
         </div>
 
         <div className="mx-auto mt-12 max-w-4xl">
