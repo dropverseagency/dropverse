@@ -17,7 +17,6 @@ import {
   PlayCircle,
   Rocket,
   Target,
-  Users,
   Video,
   Wrench,
 } from 'lucide-react'
@@ -110,7 +109,6 @@ export default function AcademyPage() {
     <main className="min-h-screen bg-[#071f1d] text-[#d9e0dc]">
       <SiteHeader />
 
-      {/* Hero */}
       <section className="relative overflow-hidden border-b border-white/5">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(216,180,90,0.12),_transparent_55%)]" />
         <div className="container relative pb-16 pt-28 sm:pb-20 sm:pt-32">
@@ -150,7 +148,6 @@ export default function AcademyPage() {
         </div>
       </section>
 
-      {/* Paths */}
       <section id="paths" className="container scroll-mt-24 py-16 sm:py-20">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#d8b45a]">Choose your path</p>
@@ -162,7 +159,6 @@ export default function AcademyPage() {
         </div>
 
         <div className="mx-auto mt-12 grid max-w-5xl gap-6 lg:grid-cols-5">
-          {/* Beginner — dominant */}
           <div className="relative overflow-hidden rounded-3xl border border-[rgba(216,180,90,0.4)] bg-gradient-to-br from-[#1a2f1c] via-[#0b2a26] to-[#071f1d] p-7 sm:p-8 lg:col-span-3">
             <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[rgba(216,180,90,0.12)] blur-3xl" />
             <div className="relative">
@@ -196,7 +192,6 @@ export default function AcademyPage() {
             </div>
           </div>
 
-          {/* Advanced — secondary */}
           <div className="rounded-3xl border border-white/10 bg-[#0a2926] p-7 sm:p-8 lg:col-span-2">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[#9aa8a3]">
@@ -224,7 +219,6 @@ export default function AcademyPage() {
         </div>
       </section>
 
-      {/* Beginner curriculum */}
       <section id="beginner" className="scroll-mt-24 border-y border-white/5 bg-[#061916]/50 py-16 sm:py-20">
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
@@ -267,7 +261,6 @@ export default function AcademyPage() {
         </div>
       </section>
 
-      {/* How learning works */}
       <section className="container py-16 sm:py-20">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#d8b45a]">How learning works</p>
@@ -292,7 +285,6 @@ export default function AcademyPage() {
         </div>
       </section>
 
-      {/* Templates preview */}
       <section className="border-y border-white/5 bg-[#061916]/40 py-16 sm:py-20">
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
@@ -322,7 +314,6 @@ export default function AcademyPage() {
         </div>
       </section>
 
-      {/* Advanced preview */}
       <section id="advanced" className="container scroll-mt-24 py-16 sm:py-20">
         <div className="mx-auto max-w-4xl overflow-hidden rounded-3xl border border-white/10 bg-[#0a2926]">
           <div className="border-b border-white/5 bg-[#071f1d]/80 px-6 py-5 sm:px-8">
@@ -359,7 +350,6 @@ export default function AcademyPage() {
         </div>
       </section>
 
-      {/* Final CTA */}
       <section className="border-t border-white/5 bg-gradient-to-b from-[#0b2a26] to-[#071f1d] py-16 sm:py-20">
         <div className="container text-center">
           <PlayCircle className="mx-auto text-[#d8b45a]" size={36} />
