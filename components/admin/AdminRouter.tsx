@@ -13,6 +13,7 @@ import PackagesSection from '@/components/admin/sections/PackagesSection'
 import AgencyLandingsSection from '@/components/admin/sections/AgencyLandingsSection'
 import FreelancersSection from '@/components/admin/sections/FreelancersSection'
 import LeadsSection from '@/components/admin/sections/LeadsSection'
+import AcademyWaitlistSection from '@/components/admin/sections/AcademyWaitlistSection'
 import AuditSection from '@/components/admin/sections/AuditSection'
 import SettingsSection from '@/components/admin/sections/SettingsSection'
 
@@ -29,6 +30,7 @@ const SECTION_TITLES: Record<string, string> = {
   'agency-landings': 'Agency Landings',
   freelancers: 'Freelancers',
   leads: 'Lead Marketplace',
+  'academy-waitlist': 'Academy Waitlist',
   audit: 'Audit Logs',
   settings: 'Platform Settings',
 }
@@ -86,6 +88,7 @@ export default function AdminRouter({ page }: { page: string }) {
     case 'agency-landings': section = <AgencyLandingsSection />; break
     case 'freelancers': section = <FreelancersSection />; break
     case 'leads': section = <LeadsSection />; break
+    case 'academy-waitlist': section = <AcademyWaitlistSection />; break
     case 'audit': section = <AuditSection />; break
     case 'settings': section = <SettingsSection />; break
   }
