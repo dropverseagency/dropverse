@@ -1,10 +1,12 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ArrowLeft, Check, Crown, Receipt, Sparkles } from 'lucide-react'
 import { createClient } from '../../../lib/supabase'
 import { type OrgRow } from '../../../lib/orgs'
 import { PLAN_CONFIG, membersLabelFor, planById } from '../../../lib/planConfig'
+import PayPalCheckoutModal from '../../../components/PayPalCheckoutModal'
 
 type BillingOrder = {
   id: string
@@ -26,6 +28,9 @@ export default function BillingPage() {
   const [portalLoading, setPortalLoading] = useState(false)
   const [portalError, setPortalError] = useState<string | null>(null)
   const [focusPlan, setFocusPlan] = useState<string | null>(null)
+  const [checkoutPlan, setCheckoutPlan] = useState<{ id: string; displayName: string; price: number } | null>(null)
+  const [payError, setPayError] = useState<string | null>(null)
+  const router = useRouter()
 
   async function openPortal() {
     setPortalError('Billing portal is temporarily unavailable.')
@@ -80,6 +85,7 @@ export default function BillingPage() {
   )
 
   return (
+    <>
     <main className="min-h-screen grid-bg px-5 py-10 sm:py-14">
       <div className="mx-auto w-full max-w-4xl">
         <div className="flex items-center justify-between gap-3">
@@ -149,7 +155,7 @@ export default function BillingPage() {
                 </div>
               </div>
               <div className="mt-5 flex flex-wrap items-center gap-3 rounded-lg border border-[rgba(216,180,90,0.25)] bg-[rgba(216,180,90,0.06)] px-4 py-3 text-xs text-[#b9a76f]">
-                <span>Subscription management will return when card checkout is re-enabled.</span>
+                <span>Pay for upgrades with PayPal, or contact sales for Enterprise.</span>
                 <button type="button" onClick={openPortal} disabled={portalLoading} className="rounded-full border border-[rgba(216,180,90,0.40)] px-3 py-1.5 font-bold text-[#e4c979] hover:bg-[rgba(216,180,90,0.12)] disabled:opacity-50">{portalLoading ? 'Opening…' : 'Manage billing'}</button>
               </div>
               {portalError && <p className="mt-2 text-xs text-[#e89a8d]">{portalError}</p>}
@@ -168,7 +174,8 @@ export default function BillingPage() {
 
             <div className="mt-6 mb-6 grid gap-4">
               <h2 className="font-display text-lg font-bold">Upgrade options</h2>
-              <p className="text-xs text-[#849792]">Card checkout is temporarily offline. Contact us to upgrade your plan.</p>
+              <p className="text-xs text-[#849792]">Upgrade with PayPal, or contact us for Enterprise and invoice billing.</p>
+              {payError && <p className="text-xs text-[#e89a8d]">{payError}</p>}
               {otherPlans.map((p) => (
                 <div
                   key={p.id}
@@ -193,7 +200,16 @@ export default function BillingPage() {
                       Contact Sales
                     </a>
                   ) : (
-                    <a href="mailto:dropverseagency@gmail.com?subject=Plan%20Upgrade" className="flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] py-3 text-sm font-bold text-[#e4c979] transition hover:border-[rgba(216,180,90,0.60)]">Contact us to upgrade</a>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPayError(null)
+                        setCheckoutPlan({ id: p.id, displayName: p.displayName, price: p.price })
+                      }}
+                      className="mt-5 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-[#d8b45a] py-3.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]"
+                    >
+                      {`Pay with PayPal — $${p.price}/mo`}
+                    </button>
                   )}
                 </div>
               ))}
@@ -210,5 +226,20 @@ export default function BillingPage() {
         )}
       </div>
     </main>
+      <PayPalCheckoutModal
+        open={Boolean(checkoutPlan)}
+        onClose={() => setCheckoutPlan(null)}
+        title={checkoutPlan ? `Upgrade — ${checkoutPlan.displayName}` : 'Upgrade'}
+        planName={checkoutPlan?.displayName || 'Plan'}
+        amount={checkoutPlan?.price || 0}
+        description={checkoutPlan ? `DropVerse ${checkoutPlan.displayName} plan (monthly)` : undefined}
+        onSuccess={(details) => {
+          const planId = checkoutPlan?.id || ''
+          setCheckoutPlan(null)
+          router.push(`/payment/success?transaction_id=${encodeURIComponent(details.orderId)}&provider=paypal&plan=${encodeURIComponent(planId)}`)
+        }}
+        onError={(message) => setPayError(message)}
+      />
+    </>
   )
 }

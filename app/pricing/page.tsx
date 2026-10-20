@@ -1,9 +1,12 @@
 'use client'
+import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ArrowRight, Check, Zap, Users, Target } from 'lucide-react'
 import { PLAN_CONFIG, membersLabelFor } from '../../lib/planConfig'
 import SiteHeader from '../../components/SiteHeader'
 import Brand from '../../components/Brand'
+import PayPalCheckoutModal from '../../components/PayPalCheckoutModal'
 import { useAuth } from '../../lib/useAuth'
 
 function planHref(signedIn: boolean, planId: string): string {
@@ -15,9 +18,31 @@ function priceFor(plan: (typeof PLAN_CONFIG)[number]): string {
   return plan.price === 0 ? '$0' : `$${plan.price}`
 }
 
+type CheckoutPlan = { id: string; displayName: string; price: number }
+
 export default function PricingPage() {
   const auth = useAuth()
+  const router = useRouter()
   const signedIn = !auth.loading && Boolean(auth.user)
+  const [checkout, setCheckout] = useState<CheckoutPlan | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+
+  function openPlanCheckout(plan: (typeof PLAN_CONFIG)[number]) {
+    if (plan.enterprise) {
+      window.location.href = 'mailto:dropverseagency@gmail.com?subject=Enterprise%20plan'
+      return
+    }
+    if (plan.price <= 0) {
+      router.push(planHref(signedIn, plan.id))
+      return
+    }
+    if (!signedIn) {
+      router.push(`/login?redirect=${encodeURIComponent('/pricing')}`)
+      return
+    }
+    setToast(null)
+    setCheckout({ id: plan.id, displayName: plan.displayName, price: plan.price })
+  }
 
   return (
     <main className="min-h-screen bg-[#071f1d]">
@@ -34,6 +59,12 @@ export default function PricingPage() {
             Prices below are DropVerse plan fees — not a share of any external market.
           </p>
         </div>
+
+        {toast && (
+          <div className="mx-auto mt-6 max-w-lg rounded-2xl border border-[rgba(232,154,141,0.35)] bg-[rgba(232,154,141,0.08)] px-4 py-3 text-center text-sm text-[#e89a8d]">
+            {toast}
+          </div>
+        )}
 
         <div className="mt-14 grid gap-6 lg:grid-cols-4">
           {PLAN_CONFIG.map((plan) => {
@@ -70,17 +101,18 @@ export default function PricingPage() {
                     </li>
                   ))}
                 </ul>
-                <Link
-                  href={plan.enterprise ? 'mailto:dropverseagency@gmail.com' : planHref(signedIn, plan.id)}
+                <button
+                  type="button"
+                  onClick={() => openPlanCheckout(plan)}
                   className={`mt-8 inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-bold transition ${
                     featured
                       ? 'bg-[#d8b45a] text-[#10221f] hover:bg-[#f0d98b]'
                       : 'border border-[rgba(216,180,90,0.35)] text-[#e4c979] hover:bg-[rgba(216,180,90,0.12)]'
                   }`}
                 >
-                  {plan.enterprise ? 'Contact sales' : signedIn ? 'Choose plan' : 'Get started'}
+                  {plan.enterprise ? 'Contact sales' : plan.price === 0 ? (signedIn ? 'Open workspace' : 'Get started') : plan.cta}
                   <ArrowRight size={14} />
-                </Link>
+                </button>
               </div>
             )
           })}
@@ -117,9 +149,16 @@ export default function PricingPage() {
               </div>
             </div>
           </div>
-          <Link href={planHref(signedIn, 'AGENCY')} className="mt-12 inline-flex items-center gap-3 rounded-full bg-[#d8b45a] px-7 py-4 font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
-            {signedIn ? 'Create your agency workspace' : 'Get started free'} <ArrowRight size={18} />
-          </Link>
+          <button
+            type="button"
+            onClick={() => {
+              const agency = PLAN_CONFIG.find((p) => p.id === 'AGENCY')
+              if (agency) openPlanCheckout(agency)
+            }}
+            className="mt-12 inline-flex items-center gap-3 rounded-full bg-[#d8b45a] px-7 py-4 font-bold text-[#10221f] transition hover:bg-[#f0d98b]"
+          >
+            {signedIn ? 'Start Agency with PayPal' : 'Get started free'} <ArrowRight size={18} />
+          </button>
         </div>
       </section>
 
@@ -142,6 +181,27 @@ export default function PricingPage() {
           <p className="text-xs text-[#5f726c]">© 2026 DropVerse. All rights reserved.</p>
         </div>
       </footer>
+
+      <PayPalCheckoutModal
+        open={Boolean(checkout)}
+        onClose={() => setCheckout(null)}
+        title={checkout ? `Subscribe — ${checkout.displayName}` : 'Subscribe'}
+        planName={checkout?.displayName || 'Plan'}
+        amount={checkout?.price || 0}
+        description={checkout ? `DropVerse ${checkout.displayName} plan (monthly)` : undefined}
+        onSuccess={(details) => {
+          const planId = checkout?.id || ''
+          setCheckout(null)
+          router.push(`/payment/success?transaction_id=${encodeURIComponent(details.orderId)}&provider=paypal&plan=${encodeURIComponent(planId)}`)
+        }}
+        onError={(message) => {
+          if (message === 'Payment cancelled.') {
+            setToast('Checkout cancelled.')
+          } else {
+            setToast(message)
+          }
+        }}
+      />
     </main>
   )
 }
