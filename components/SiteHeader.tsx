@@ -30,6 +30,7 @@ export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: b
       <a href="/#services" className="hover:text-[#f0d98b]">Services</a>
       <Link href="/samples" className="hover:text-[#f0d98b]">Samples</Link>
       <Link href="/leads" className="hover:text-[#f0d98b]">Leads</Link>
+      <Link href="/academy" className="hover:text-[#f0d98b]">Academy</Link>
       <Link href="/pricing" className="hover:text-[#f0d98b]">Pricing</Link>
       <Link href="/earn" className={highlightEarn ? 'font-semibold text-[#e4c979] hover:text-[#f0d98b]' : 'hover:text-[#f0d98b]'}>Partner</Link>
     </>
@@ -84,6 +85,7 @@ export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: b
             <a href="/#services" onClick={() => setMenu(false)}>Services</a>
             <Link href="/samples" onClick={() => setMenu(false)}>Samples</Link>
             <Link href="/leads" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Leads</Link>
+            <Link href="/academy" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Academy</Link>
             <Link href="/pricing" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Pricing</Link>
             <Link href="/earn" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Partner</Link>
             {isAdmin ? (
