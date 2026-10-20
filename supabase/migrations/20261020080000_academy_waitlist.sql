@@ -5,11 +5,9 @@ create table if not exists public.academy_waitlist (
   user_id uuid references auth.users (id) on delete set null,
   source text not null default 'academy_advanced',
   created_at timestamptz not null default now(),
-  constraint academy_waitlist_email_check check (char_length(email) between 3 and 320)
+  constraint academy_waitlist_email_check check (char_length(email) between 3 and 320),
+  constraint academy_waitlist_email_source_unique unique (email, source)
 );
-
-create unique index if not exists academy_waitlist_email_source_uidx
-  on public.academy_waitlist (lower(email), source);
 
 create index if not exists academy_waitlist_created_at_idx
   on public.academy_waitlist (created_at desc);
