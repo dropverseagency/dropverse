@@ -208,7 +208,7 @@ export default function BillingPage() {
                       }}
                       className="mt-5 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-[#d8b45a] py-3.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]"
                     >
-                      Pay with PayPal — ${'{'}p.price{'}'}/mo
+                      {`Pay with PayPal — $${p.price}/mo`}
                     </button>
                   )}
                 </div>
@@ -220,7 +220,7 @@ export default function BillingPage() {
                 <div><h2 className="font-display text-lg font-bold">Order history</h2><p className="mt-1 text-xs text-[#849792]">Recent billing activity.</p></div>
                 <Receipt size={19} className="text-[#d8b45a]" />
               </div>
-              {orders.length === 0 ? <p className="mt-5 text-sm text-[#718781]">No orders have been recorded yet.</p> : <div className="mt-5 space-y-3">{orders.map((order) => <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/5 bg-white/[.025] px-4 py-3"><div><div className="text-sm font-semibold text-[#d9e0dc]">{order.plan_id ? `${'{'}order.plan_id{'}'} subscription` : 'Service order'}</div><div className="mt-1 text-[11px] text-[#718781]">{new Date(order.created_at).toLocaleDateString()} · {order.transaction_id}</div></div><div className="text-right"><div className="text-sm font-bold text-[#e4c979]">{order.currency_code} {Number(order.amount).toFixed(2)}</div><div className="mt-1 text-[11px] uppercase tracking-wider text-[#8fa29c]">{order.status}</div></div></div>)}</div>}
+              {orders.length === 0 ? <p className="mt-5 text-sm text-[#718781]">No orders have been recorded yet.</p> : <div className="mt-5 space-y-3">{orders.map((order) => <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/5 bg-white/[.025] px-4 py-3"><div><div className="text-sm font-semibold text-[#d9e0dc]">{order.plan_id ? `${order.plan_id} subscription` : 'Service order'}</div><div className="mt-1 text-[11px] text-[#718781]">{new Date(order.created_at).toLocaleDateString()} · {order.transaction_id}</div></div><div className="text-right"><div className="text-sm font-bold text-[#e4c979]">{order.currency_code} {Number(order.amount).toFixed(2)}</div><div className="mt-1 text-[11px] uppercase tracking-wider text-[#8fa29c]">{order.status}</div></div></div>)}</div>}
             </div>
           </>
         )}
@@ -229,14 +229,14 @@ export default function BillingPage() {
       <PayPalCheckoutModal
         open={Boolean(checkoutPlan)}
         onClose={() => setCheckoutPlan(null)}
-        title={checkoutPlan ? `Upgrade — ${'{'}checkoutPlan.displayName{'}'}` : 'Upgrade'}
+        title={checkoutPlan ? `Upgrade — ${checkoutPlan.displayName}` : 'Upgrade'}
         planName={checkoutPlan?.displayName || 'Plan'}
         amount={checkoutPlan?.price || 0}
-        description={checkoutPlan ? `DropVerse ${'{'}checkoutPlan.displayName{'}'} plan (monthly)` : undefined}
+        description={checkoutPlan ? `DropVerse ${checkoutPlan.displayName} plan (monthly)` : undefined}
         onSuccess={(details) => {
           const planId = checkoutPlan?.id || ''
           setCheckoutPlan(null)
-          router.push(`/payment/success?transaction_id=${'{'}encodeURIComponent(details.orderId){'}'}&provider=paypal&plan=${'{'}encodeURIComponent(planId){'}'}`)
+          router.push(`/payment/success?transaction_id=${encodeURIComponent(details.orderId)}&provider=paypal&plan=${encodeURIComponent(planId)}`)
         }}
         onError={(message) => setPayError(message)}
       />
