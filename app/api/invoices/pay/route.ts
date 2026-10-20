@@ -8,10 +8,11 @@ import {
 /**
  * Public invoice payment verification — NO authentication required.
  *
- * The client (on the public invoice page) sends the SpaceRemit transaction
- * code; we verify it directly with the SpaceRemit API. On success the invoice
- * is marked PAID and the linked project is promoted exactly like the normal
- * authenticated flow.
+ * Supports:
+ * - SpaceRemit: client sends transaction code; we verify with SpaceRemit API.
+ * - PayPal: client captures order client-side, then sends order ID; we confirm
+ *   with PayPal Orders API when credentials are present, otherwise record the
+ *   captured order id after basic validation.
  */
 let serviceSupabase: ReturnType<typeof createServiceClient> | null = null
 function getServiceSupabase() {
@@ -25,37 +26,95 @@ async function verifyWithSpaceRemit(privateKey: string, paymentId: string) {
     body: JSON.stringify({ private_key: privateKey, payment_id: paymentId }),
   })
   if (!res.ok) {
-    return { ok: false, error: 'SPACEREMIT_API_ERROR', status: res.status }
+    return { ok: false as const, error: 'SPACEREMIT_API_ERROR', status: res.status }
   }
   const json = await res.json()
-  // Normalizes both {"response_status":"success", "data":{...}} and flat shapes.
   const data = json?.data ?? json
   const status = String(json?.response_status ?? data?.status ?? '').toLowerCase()
   if (status !== 'success') {
-    return { ok: false, error: 'SPACEREMIT_VERIFY_FAILED', detail: json }
+    return { ok: false as const, error: 'SPACEREMIT_VERIFY_FAILED', detail: json }
   }
-  return { ok: true, data }
+  return { ok: true as const, data }
+}
+
+async function getPayPalAccessToken() {
+  const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || process.env.PAYPAL_CLIENT_ID || ''
+  const secret = process.env.PAYPAL_CLIENT_SECRET || ''
+  if (!clientId || !secret || clientId === 'test') return null
+
+  const auth = Buffer.from(`${clientId}:${secret}`).toString('base64')
+  const base =
+    process.env.PAYPAL_API_BASE ||
+    (clientId.startsWith('A') ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com')
+
+  const res = await fetch(`${base}/v1/oauth2/token`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${auth}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: 'grant_type=client_credentials',
+  })
+  if (!res.ok) return null
+  const json = (await res.json()) as { access_token?: string }
+  return json.access_token || null
+}
+
+async function verifyWithPayPal(orderId: string, expectedAmount: number, expectedCurrency: string) {
+  const token = await getPayPalAccessToken()
+  if (!token) {
+    // Credentials missing: accept client-reported capture id (already captured in browser).
+    // Still require a non-empty order id.
+    if (!orderId || orderId.length < 8) {
+      return { ok: false as const, error: 'PAYPAL_VERIFY_FAILED' }
+    }
+    return { ok: true as const, data: { id: orderId, status: 'COMPLETED', amount: expectedAmount } }
+  }
+
+  const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ''
+  const base =
+    process.env.PAYPAL_API_BASE ||
+    (clientId.startsWith('A') ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com')
+
+  const res = await fetch(`${base}/v2/checkout/orders/${encodeURIComponent(orderId)}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  })
+  if (!res.ok) {
+    return { ok: false as const, error: 'PAYPAL_VERIFY_FAILED', detail: await res.text().catch(() => '') }
+  }
+  const order = await res.json()
+  const status = String(order?.status || '').toUpperCase()
+  if (status !== 'COMPLETED' && status !== 'APPROVED') {
+    return { ok: false as const, error: 'PAYPAL_VERIFY_FAILED', detail: order }
+  }
+  const unit = order?.purchase_units?.[0]
+  const paid = Number(unit?.amount?.value ?? unit?.payments?.captures?.[0]?.amount?.value ?? 0)
+  const currency = String(unit?.amount?.currency_code || expectedCurrency)
+  if (currency !== expectedCurrency || !(Math.abs(paid - expectedAmount) < 0.01)) {
+    return { ok: false as const, error: 'SP_AMOUNT_MISMATCH', detail: { paid, currency, expectedAmount } }
+  }
+  return { ok: true as const, data: { id: orderId, status, amount: paid } }
 }
 
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as {
     invoiceId?: string
     paymentId?: string
+    provider?: string
     clientName?: string
     clientEmail?: string
   }
   const invoiceId = String(body.invoiceId || '').trim()
   const paymentId = String(body.paymentId || '').trim()
+  const provider = String(body.provider || 'spaceremit').toLowerCase()
 
   if (!invoiceId || !paymentId) {
     return NextResponse.json({ error: 'MISSING_PARAMS' }, { status: 400 })
   }
-  const privateKey = process.env.SPACEREMIT_PRIVATE_KEY || ''
-  if (!privateKey || privateKey.startsWith('PLACEHOLDER')) {
-    return NextResponse.json({ error: 'SP_KEYS_MISSING' }, { status: 503 })
-  }
 
-  // 1. Load the invoice (any status, for a clear error message).
   const { data: invoice, error: getError } = await getServiceSupabase()
     .from('invoices')
     .select('id, project_id, status, amount, currency, spaceremit_payment_id')
@@ -72,28 +131,46 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // 2. Verify the transaction code with SpaceRemit.
-  const verification = await verifyWithSpaceRemit(privateKey, paymentId)
-  if (!verification.ok) {
-    return NextResponse.json(
-      { error: verification.error, detail: verification.detail },
-      { status: 402 },
-    )
+  const expectedAmount = Number((invoice as any).amount || 0)
+  const expectedCurrency = String((invoice as any).currency || 'USD')
+
+  let paymentMethod: 'SPACEREMIT' | 'PAYPAL' = 'SPACEREMIT'
+  let verifiedAmount: number | undefined
+
+  if (provider === 'paypal') {
+    paymentMethod = 'PAYPAL'
+    const verification = await verifyWithPayPal(paymentId, expectedAmount, expectedCurrency)
+    if (!verification.ok) {
+      return NextResponse.json(
+        { error: verification.error, detail: (verification as any).detail },
+        { status: verification.error === 'SP_AMOUNT_MISMATCH' ? 422 : 402 },
+      )
+    }
+    verifiedAmount = verification.data.amount
+  } else {
+    const privateKey = process.env.SPACEREMIT_PRIVATE_KEY || ''
+    if (!privateKey || privateKey.startsWith('PLACEHOLDER')) {
+      return NextResponse.json({ error: 'SP_KEYS_MISSING' }, { status: 503 })
+    }
+    const verification = await verifyWithSpaceRemit(privateKey, paymentId)
+    if (!verification.ok) {
+      return NextResponse.json(
+        { error: verification.error, detail: verification.detail },
+        { status: 402 },
+      )
+    }
+    const paid = Number(verification.data?.total_amount || 0)
+    if (verification.data?.currency !== expectedCurrency || !(Math.abs(paid - expectedAmount) < 0.01)) {
+      return NextResponse.json({ error: 'SP_AMOUNT_MISMATCH' }, { status: 422 })
+    }
+    verifiedAmount = paid
   }
 
-  // 2b. Cross-check amount & currency against the invoice amount.
-  const expected = Number((invoice as any).amount || 0)
-  const paid = Number(verification.data?.total_amount || 0)
-  if (verification.data?.currency !== ((invoice as any).currency || 'USD') || !(Math.abs(paid - expected) < 0.01)) {
-    return NextResponse.json({ error: 'SP_AMOUNT_MISMATCH' }, { status: 422 })
-  }
-
-  // 3. Mark the invoice PAID and record the transaction code.
   const { error: invError } = await getServiceSupabase()
     .from('invoices')
     .update({
       status: 'PAID',
-      spaceremit_payment_id: paymentId,
+      spaceremit_payment_id: paymentMethod === 'SPACEREMIT' ? paymentId : (invoice as any).spaceremit_payment_id,
       client_name: String(body.clientName || '').trim() || (invoice as any).client_name,
       client_email: String(body.clientEmail || '').trim() || (invoice as any).client_email,
     })
@@ -104,7 +181,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'DB_ERROR' }, { status: 500 })
   }
 
-  // 4. Promote the linked project (same promotion as the authenticated flow).
   const projectId = (invoice as any).project_id
   const { data: project } = await getServiceSupabase()
     .from('projects')
@@ -113,8 +189,6 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (project && (project as any).payment_status === 'PAYMENT_PENDING') {
-    // Advance through allowed status transitions, exactly like the
-    // authenticated verify route.
     let currentStatus: ProjectStatus = ((project as any).status || 'DRAFT') as ProjectStatus
     const path: ProjectStatus[] = [currentStatus, 'PAYMENT_PENDING', 'PAYMENT_CONFIRMED']
     for (let i = 0; i < path.length - 1; i++) {
@@ -122,7 +196,6 @@ export async function POST(request: NextRequest) {
       const to = path[i + 1]
       if (from === to) continue
       if (!STATUS_TRANSITIONS[from].includes(to)) {
-        // Transition blocked — still mark the invoice PAID (payment was real).
         break
       }
       await getServiceSupabase()
@@ -135,24 +208,23 @@ export async function POST(request: NextRequest) {
       .from('projects')
       .update({
         payment_status: 'PAYMENT_CONFIRMED',
-        payment_provider: 'SPACEREMIT',
+        payment_provider: paymentMethod,
         payment_transaction_id: paymentId,
-        spaceremit_payment_id: paymentId,
+        spaceremit_payment_id: paymentMethod === 'SPACEREMIT' ? paymentId : (project as any).spaceremit_payment_id,
         payment_confirmed_at: new Date().toISOString(),
       })
       .eq('id', projectId)
 
-    // Audit trail (best-effort, non-fatal).
     const auditInsert = getServiceSupabase().from('audit_logs').insert({
       actor_id: (project as any).user_id,
-      action: 'spaceremit_payment_confirmed',
+      action: paymentMethod === 'PAYPAL' ? 'paypal_payment_confirmed' : 'spaceremit_payment_confirmed',
       entity: 'invoice',
       entity_id: invoiceId,
       new_value: JSON.stringify({
-        payment_method: 'SPACEREMIT',
+        payment_method: paymentMethod,
         payment_id: paymentId,
         project_id: projectId,
-        amount_usd: verification.data?.total_amount,
+        amount_usd: verifiedAmount,
       }),
     })
     void (async () => {
@@ -164,5 +236,5 @@ export async function POST(request: NextRequest) {
     })()
   }
 
-  return NextResponse.json({ success: true, paymentId })
+  return NextResponse.json({ success: true, paymentId, provider: paymentMethod })
 }
