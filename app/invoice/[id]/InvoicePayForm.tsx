@@ -1,26 +1,31 @@
 'use client'
 import { useState } from 'react'
 import SpaceRemitPayForm from '../../../components/SpaceRemitPayForm'
+import PayPalCheckout from '../../../components/PayPalCheckout'
+import PaymentMethodPicker, { type PaymentRail } from '../../../components/PaymentMethodPicker'
 
 interface Props {
   invoiceId: string
   due: string
   amount: number
-  preferredMethod?: 'international' | 'local' | null
+  preferredMethod?: 'international' | 'local' | 'paypal' | null
 }
 
-export default function InvoicePayForm({ invoiceId, due, amount }: Props) {
+export default function InvoicePayForm({ invoiceId, due, amount, preferredMethod = null }: Props) {
+  const initialRail: PaymentRail =
+    preferredMethod === 'local' ? 'local' : preferredMethod === 'paypal' || preferredMethod === 'international' ? 'paypal' : 'paypal'
+  const [rail, setRail] = useState<PaymentRail>(initialRail)
   const [payError, setPayError] = useState<string | null>(null)
   const [paySuccess, setPaySuccess] = useState(false)
   const [paying, setPaying] = useState(false)
 
-  async function confirmSpaceRemit(code: string) {
+  async function confirmPayment(paymentId: string, provider: 'spaceremit' | 'paypal') {
     setPaying(true)
     setPayError(null)
     const res = await fetch('/api/invoices/pay', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ invoiceId, paymentId: code }),
+      body: JSON.stringify({ invoiceId, paymentId, provider }),
     })
     const json = await res.json().catch(() => ({}))
     setPaying(false)
@@ -33,6 +38,8 @@ export default function InvoicePayForm({ invoiceId, due, amount }: Props) {
         setPayError('The transaction amount does not match this invoice. Please contact the seller.')
       } else if (json.error === 'INVOICE_NOT_PAYABLE') {
         setPayError(`This invoice is already ${String(json.status || 'closed').toLowerCase()}.`)
+      } else if (json.error === 'PAYPAL_VERIFY_FAILED') {
+        setPayError('PayPal payment could not be verified. Please try again or contact the seller.')
       } else {
         setPayError(String(json.error || json.detail || 'Payment verification failed — please try again.'))
       }
@@ -63,8 +70,12 @@ export default function InvoicePayForm({ invoiceId, due, amount }: Props) {
         </div>
         <div>
           <h2 className="font-display text-lg font-bold text-[#d9e0dc]">Pay this invoice</h2>
-          <p className="text-xs text-[#687d76]">Local payment · wallets, bank transfer & more</p>
+          <p className="text-xs text-[#687d76]">Secure payment · no account required</p>
         </div>
+      </div>
+
+      <div className="mt-5">
+        <PaymentMethodPicker value={rail} onChange={setRail} disabled={paying} />
       </div>
 
       {payError && (
@@ -73,23 +84,48 @@ export default function InvoicePayForm({ invoiceId, due, amount }: Props) {
         </div>
       )}
 
-      <div className="mt-5">
-        <p className="mb-3 text-[11px] leading-5 text-[#687d76]">
-          Choose a local method below, then press Pay Now.
-        </p>
-        <SpaceRemitPayForm
-          amount={amount}
-          fullName="Invoice client"
-          email="client@invoice.local"
-          phone="+0000000000"
-          hideBuyerInputs
-          submitLabel={`Pay ${due} →`}
-          publicKey={process.env.NEXT_PUBLIC_SPACEREMIT_PUBLIC_KEY ?? ''}
-          onPaid={confirmSpaceRemit}
-          onMessage={(msg: string) => setPayError(msg)}
-        />
-        {paying && <div className="mt-4 text-center text-xs text-[#8f9f9a]">Verifying your payment…</div>}
-      </div>
+      {rail === 'paypal' ? (
+        <div className="mt-5">
+          <p className="mb-3 text-[11px] leading-5 text-[#687d76]">
+            Pay with PayPal or cards via PayPal. Checkout stays on this page.
+          </p>
+          <PayPalCheckout
+            planName={`Invoice ${invoiceId.slice(0, 8)}`}
+            amount={amount}
+            description={`DropVerse invoice ${invoiceId} — ${due}`}
+            disabled={paying}
+            onSuccess={(details) => {
+              void confirmPayment(details.orderId, 'paypal')
+            }}
+            onError={(message) => {
+              if (message === 'Payment cancelled.') {
+                setPayError(null)
+                return
+              }
+              setPayError(message)
+            }}
+          />
+          {paying && <div className="mt-4 text-center text-xs text-[#8f9f9a]">Verifying your payment…</div>}
+        </div>
+      ) : (
+        <div className="mt-5">
+          <p className="mb-3 text-[11px] leading-5 text-[#687d76]">
+            Choose a local method below, then press Pay Now.
+          </p>
+          <SpaceRemitPayForm
+            amount={amount}
+            fullName="Invoice client"
+            email="client@invoice.local"
+            phone="+0000000000"
+            hideBuyerInputs
+            submitLabel={`Pay ${due} →`}
+            publicKey={process.env.NEXT_PUBLIC_SPACEREMIT_PUBLIC_KEY ?? ''}
+            onPaid={(code) => void confirmPayment(code, 'spaceremit')}
+            onMessage={(msg: string) => setPayError(msg)}
+          />
+          {paying && <div className="mt-4 text-center text-xs text-[#8f9f9a]">Verifying your payment…</div>}
+        </div>
+      )}
     </div>
   )
 }
