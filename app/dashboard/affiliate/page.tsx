@@ -82,9 +82,14 @@ export default function AffiliatePage() {
                 <p className="text-xs uppercase tracking-[.18em] text-[#7f918c]">Partner Program</p>
                 <h1 className="font-display mt-1 text-3xl font-extrabold text-[#f0f4f2]">Affiliate Dashboard</h1>
               </div>
-              <Link href="/earn" className="rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] px-4 py-2 text-sm font-semibold text-[#e4c979] transition hover:bg-[rgba(216,180,90,0.14)]">
-                How the program works →
-              </Link>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/dashboard/payouts" className="rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] px-4 py-2 text-sm font-semibold text-[#e4c979] transition hover:bg-[rgba(216,180,90,0.14)]">
+                  Payouts →
+                </Link>
+                <Link href="/earn" className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-[#c8d4d0] transition hover:border-[rgba(216,180,90,0.35)] hover:text-[#e4c979]">
+                  How the program works →
+                </Link>
+              </div>
             </div>
 
             <LifetimeOfferBanner />
