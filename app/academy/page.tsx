@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import Brand from '../../components/Brand'
 import SiteHeader from '../../components/SiteHeader'
+import AcademyNotifyForm from '../../components/AcademyNotifyForm'
 
 const STAGES = [
   {
@@ -206,15 +207,7 @@ export default function AcademyPage() {
               For operators who already understand the basics and want systems for pricing, acquisition, teams, and
               scale. Content is being prepared — nothing is for sale here yet.
             </p>
-            <button
-              type="button"
-              disabled
-              className="mt-7 inline-flex cursor-not-allowed items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-5 py-2.5 text-sm font-semibold text-[#6f837d]"
-              aria-disabled="true"
-            >
-              <Lock size={14} /> Notify me later
-            </button>
-            <p className="mt-2 text-[11px] leading-4 text-[#5f726c]">Informational only — no checkout or payment.</p>
+            <AcademyNotifyForm compact />
           </div>
         </div>
       </section>
@@ -325,8 +318,8 @@ export default function AcademyPage() {
               </span>
             </div>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[#849792]">
-              A future paid track for people who already run drop-servicing work and want stronger systems. We are not
-              collecting payment or opening enrollment on this page.
+              A future paid track for people who already run drop-servicing work and want stronger systems. Leave your
+              email and we will notify you when it opens — no checkout on this page.
             </p>
           </div>
           <div className="grid gap-3 p-6 sm:grid-cols-2 sm:p-8">
@@ -338,14 +331,7 @@ export default function AcademyPage() {
             ))}
           </div>
           <div className="border-t border-white/5 px-6 py-5 sm:px-8">
-            <button
-              type="button"
-              disabled
-              className="inline-flex cursor-not-allowed items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-5 py-2.5 text-sm font-semibold text-[#6f837d]"
-              aria-disabled="true"
-            >
-              <Lock size={14} /> Enrollment not open
-            </button>
+            <AcademyNotifyForm />
           </div>
         </div>
       </section>
