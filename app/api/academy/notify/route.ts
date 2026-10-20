@@ -51,74 +51,57 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = adminClient()
-  const { data, error } = await admin
+
+  const { data: existing } = await admin
     .from('academy_waitlist')
-    .upsert(
-      {
-        email,
-        user_id: user?.id ?? null,
-        source: 'academy_advanced',
-      },
-      { onConflict: 'lower(email),source', ignoreDuplicates: true },
-    )
     .select('id, email, created_at')
+    .eq('email', email)
+    .eq('source', 'academy_advanced')
     .maybeSingle()
 
-  // Unique index is on (lower(email), source) — PostgREST onConflict may not match expression indexes.
-  // Fallback: try insert; on unique violation treat as success (already listed).
-  if (error) {
-    const { data: existing } = await admin
-      .from('academy_waitlist')
-      .select('id, email, created_at')
-      .ilike('email', email)
-      .eq('source', 'academy_advanced')
-      .maybeSingle()
+  if (existing) {
+    if (user?.id) {
+      await admin
+        .from('academy_waitlist')
+        .update({ user_id: user.id })
+        .eq('id', existing.id)
+        .is('user_id', null)
+    }
+    return NextResponse.json({
+      ok: true,
+      already: true,
+      email: existing.email,
+      message: 'You are already on the list.',
+    })
+  }
 
-    if (existing) {
+  const ins = await admin
+    .from('academy_waitlist')
+    .insert({
+      email,
+      user_id: user?.id ?? null,
+      source: 'academy_advanced',
+    })
+    .select('id, email, created_at')
+    .single()
+
+  if (ins.error) {
+    if (String(ins.error.code) === '23505' || /duplicate|unique/i.test(ins.error.message || '')) {
       return NextResponse.json({
         ok: true,
         already: true,
-        email: existing.email,
+        email,
         message: 'You are already on the list.',
       })
     }
-
-    const ins = await admin
-      .from('academy_waitlist')
-      .insert({
-        email,
-        user_id: user?.id ?? null,
-        source: 'academy_advanced',
-      })
-      .select('id, email, created_at')
-      .single()
-
-    if (ins.error) {
-      // Race: already inserted
-      if (String(ins.error.code) === '23505' || /duplicate|unique/i.test(ins.error.message || '')) {
-        return NextResponse.json({
-          ok: true,
-          already: true,
-          email,
-          message: 'You are already on the list.',
-        })
-      }
-      console.error('[academy/notify]', ins.error)
-      return NextResponse.json({ error: 'SAVE_FAILED' }, { status: 500 })
-    }
-
-    return NextResponse.json({
-      ok: true,
-      already: false,
-      email: ins.data.email,
-      message: 'We will email you when Advanced Academy opens.',
-    })
+    console.error('[academy/notify]', ins.error)
+    return NextResponse.json({ error: 'SAVE_FAILED' }, { status: 500 })
   }
 
   return NextResponse.json({
     ok: true,
     already: false,
-    email: data?.email ?? email,
+    email: ins.data.email,
     message: 'We will email you when Advanced Academy opens.',
   })
 }
