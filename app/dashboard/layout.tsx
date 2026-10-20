@@ -1,14 +1,14 @@
 import DashboardAgencyLandingBanner from '../../components/DashboardAgencyLandingBanner'
+import DashboardShell from '../../components/DashboardShell'
 
 /**
- * Dashboard segment layout — injects agency landing entry for eligible plans
- * without editing the large main dashboard page.
+ * Dashboard segment layout — admin-style shell for all workspace pages.
  */
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <>
+    <DashboardShell>
       <DashboardAgencyLandingBanner />
       {children}
-    </>
+    </DashboardShell>
   )
 }
