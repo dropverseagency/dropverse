@@ -25,7 +25,7 @@ export type PayoutMethodConfig = {
 
 /**
  * Supported withdrawal methods. Crypto/USDT intentionally omitted.
- * Local Payments remains listed but not enabled until a verified corridor exists.
+ * Local Payments is available for registration and withdrawal requests.
  */
 export const PAYOUT_METHODS: PayoutMethodConfig[] = [
   {
@@ -39,9 +39,9 @@ export const PAYOUT_METHODS: PayoutMethodConfig[] = [
     id: 'local',
     label: 'Local Payments',
     minUsd: 25,
-    enabled: false,
+    enabled: true,
     description:
-      'Local bank or mobile-money corridors (equivalent of $25). Available once a verified provider is configured for your country.',
+      'Local bank transfer or mobile money (Egypt / regional). Minimum $25 equivalent. Ops confirms corridor details before sending.',
   },
 ]
 
