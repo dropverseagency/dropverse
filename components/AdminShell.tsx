@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase'
 import Image from 'next/image'
 import {
   LayoutDashboard, Users, Briefcase, FolderKanban, CreditCard, Users2,
-  Coins, Package, Wrench, ScrollText, Settings, LogOut, ShieldCheck, Menu, X, ListChecks,
+  Coins, Package, Wrench, ScrollText, Settings, LogOut, ShieldCheck, Menu, X, ListChecks, GraduationCap,
 } from 'lucide-react'
 
 export const ADMIN_SECTIONS = [
@@ -14,6 +14,7 @@ export const ADMIN_SECTIONS = [
   { id: 'projects', label: 'Projects', group: 'Work', icon: FolderKanban },
   { id: 'payments', label: 'Payments', group: 'Work', icon: CreditCard },
   { id: 'leads', label: 'Lead packs', group: 'Work', icon: ListChecks },
+  { id: 'academy-waitlist', label: 'Academy list', group: 'Work', icon: GraduationCap },
   { id: 'services', label: 'Services', group: 'Work', icon: Package },
   { id: 'packages', label: 'Packages', group: 'Work', icon: Package },
   { id: 'agency-landings', label: 'Agency pages', group: 'Work', icon: Briefcase },
