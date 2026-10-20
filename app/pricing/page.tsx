@@ -157,7 +157,7 @@ export default function PricingPage() {
             }}
             className="mt-12 inline-flex items-center gap-3 rounded-full bg-[#d8b45a] px-7 py-4 font-bold text-[#10221f] transition hover:bg-[#f0d98b]"
           >
-            {signedIn ? 'Start Agency with PayPal' : 'Get started free'} <ArrowRight size={18} />
+            {signedIn ? 'Start Agency' : 'Get started free'} <ArrowRight size={18} />
           </button>
         </div>
       </section>
