@@ -32,8 +32,8 @@ export const PAYOUT_METHODS: PayoutMethodConfig[] = [
     id: 'paypal',
     label: 'PayPal',
     minUsd: 50,
-    enabled: true,
-    description: 'Withdraw to a PayPal account in USD. Minimum $50.',
+    enabled: false,
+    description: 'Unavailable until PayPal eligibility and operational processing are verified for your country. Minimum $50 once enabled.',
   },
   {
     id: 'local',
