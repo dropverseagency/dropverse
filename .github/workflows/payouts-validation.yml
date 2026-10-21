@@ -1,0 +1,160 @@
+name: Payouts safety validation
+
+on:
+  pull_request:
+    branches: [feature/dashboard-payouts]
+    paths:
+      - 'app/api/payouts/**'
+      - 'app/dashboard/payouts/**'
+      - 'lib/payoutConfig.ts'
+      - 'supabase/migrations/**'
+      - '.github/workflows/payouts-validation.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+  push:
+    branches: [fix/payouts-critical-safety]
+    paths:
+      - 'app/api/payouts/**'
+      - 'app/dashboard/payouts/**'
+      - 'lib/payoutConfig.ts'
+      - 'supabase/migrations/**'
+      - '.github/workflows/payouts-validation.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+
+jobs:
+  app-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Next.js production build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+          NEXTAUTH_SECRET: test-secret-for-ci-only
+
+  migration-check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: payout_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d payout_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Bootstrap minimal Supabase-compatible test schema
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d payout_test -v ON_ERROR_STOP=1 <<'SQL'
+          create role anon nologin;
+          create role authenticated nologin;
+          create role service_role nologin bypassrls;
+          create schema auth;
+          create table auth.users (id uuid primary key);
+          create or replace function auth.uid() returns uuid
+          language sql stable as $fn$
+            select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+          $fn$;
+          create table public.referrals (
+            id uuid primary key,
+            referrer_id uuid not null,
+            constraint referrals_status_check check (true)
+          );
+          create table public.referral_commissions (
+            id uuid primary key,
+            referral_id uuid not null references public.referrals(id),
+            commission_amount numeric not null default 0 check (commission_amount >= 0),
+            status text not null default 'pending'
+              constraint referral_commissions_status_check
+              check (status in ('pending','approved','paid','cancelled')),
+            created_at timestamptz not null default now(),
+            reviewed_at timestamptz,
+            paid_at timestamptz
+          );
+          create table public.payout_requests (
+            id uuid primary key default gen_random_uuid(),
+            user_id uuid not null,
+            amount numeric not null default 0 check (amount > 0),
+            status text not null default 'pending'
+              check (status in ('pending','approved','paid','cancelled')),
+            requested_at timestamptz not null default now(),
+            reviewed_at timestamptz,
+            paid_at timestamptz
+          );
+          SQL
+      - name: Apply payout migration in ephemeral database
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d payout_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261021090000_payouts_atomic_reservations.sql
+      - name: Verify schema, idempotency, and balance reservation
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d payout_test -v ON_ERROR_STOP=1 <<'SQL'
+          do $test$
+          declare
+            v_user uuid := '11111111-1111-4111-8111-111111111111';
+            v_referral uuid := '22222222-2222-4222-8222-222222222222';
+            v_commission uuid := '33333333-3333-4333-8333-333333333333';
+            v_first jsonb;
+            v_retry jsonb;
+            v_overdraw jsonb;
+          begin
+            insert into auth.users(id) values (v_user);
+            insert into public.referrals(id, referrer_id) values (v_referral, v_user);
+            insert into public.referral_commissions(id, referral_id, commission_amount, status)
+              values (v_commission, v_referral, 100, 'available');
+
+            v_first := public.create_payout_request_atomic(
+              v_user, 60, 'paypal', 'test@example.com', 2, 58,
+              'test-key-00000001'
+            );
+            if coalesce((v_first->>'ok')::boolean, false) is not true then
+              raise exception 'first reservation failed: %', v_first;
+            end if;
+
+            v_retry := public.create_payout_request_atomic(
+              v_user, 60, 'paypal', 'test@example.com', 2, 58,
+              'test-key-00000001'
+            );
+            if coalesce((v_retry->>'duplicate')::boolean, false) is not true then
+              raise exception 'idempotent retry was not recognized: %', v_retry;
+            end if;
+
+            v_overdraw := public.create_payout_request_atomic(
+              v_user, 60, 'paypal', 'test@example.com', 2, 58,
+              'test-key-00000002'
+            );
+            if coalesce((v_overdraw->>'error') = 'INSUFFICIENT_BALANCE', false) is not true then
+              raise exception 'overdraw was not rejected: %', v_overdraw;
+            end if;
+
+            if (select count(*) from public.payout_requests where user_id = v_user) <> 1 then
+              raise exception 'expected exactly one reserved payout request';
+            end if;
+          end
+          $test$;
+          SQL
