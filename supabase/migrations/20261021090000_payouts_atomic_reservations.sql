@@ -98,6 +98,25 @@ begin
    limit 1;
 
   if found then
+    -- The same key must represent the same payout terms, including destination.
+    -- Normalize destination exactly as it is normalized before insertion.
+    if round(v_existing.amount, 2) is distinct from round(p_amount, 2)
+       or coalesce(v_existing.method, '') is distinct from coalesce(p_method, '')
+       or round(coalesce(v_existing.dropverse_fee, -1), 2) is distinct from round(p_dropverse_fee, 2)
+       or round(coalesce(v_existing.estimated_net, -1), 2) is distinct from round(p_estimated_net, 2)
+       or coalesce(v_existing.destination, '') is distinct from
+          coalesce(nullif(left(trim(coalesce(p_destination, '')), 200), ''), '') then
+      return jsonb_build_object(
+        'ok', false,
+        'error', 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PARAMS',
+        'request', jsonb_build_object(
+          'id', v_existing.id,
+          'amount', v_existing.amount,
+          'status', v_existing.status,
+          'method', v_existing.method
+        )
+      );
+    end if;
     return jsonb_build_object(
       'ok', true,
       'duplicate', true,
