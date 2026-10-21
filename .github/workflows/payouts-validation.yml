@@ -13,7 +13,7 @@ on:
       - 'package-lock.json'
       - 'tsconfig.json'
   push:
-    branches: [fix/payouts-critical-safety, ci/payouts-db-safety-validation]
+    branches: [fix/payouts-critical-safety, ci/payouts-db-safety-validation, fix/payouts-idempotency-destination]
     paths:
       - 'app/api/payouts/**'
       - 'app/dashboard/payouts/**'
@@ -102,6 +102,7 @@ jobs:
           sha256sum supabase/migrations/20261021090000_payouts_atomic_reservations.sql
           test -f supabase/migrations/20261021090000_payouts_atomic_reservations.sql
           grep -q "'reversed'" supabase/migrations/20261021090000_payouts_atomic_reservations.sql
+          grep -q "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PARAMS" supabase/migrations/20261021090000_payouts_atomic_reservations.sql
 
       - name: Bootstrap production-like baseline schema
         env:
@@ -190,6 +191,8 @@ jobs:
             v_comm_rev uuid := '44444444-4444-4444-8444-444444444444';
             v_first jsonb;
             v_retry jsonb;
+            v_conflict_amount jsonb;
+            v_conflict_destination jsonb;
             v_overdraw jsonb;
             v_second jsonb;
             v_summary jsonb;
@@ -249,6 +252,22 @@ jobs:
             );
             if coalesce((v_retry->>'duplicate')::boolean, false) is not true then
               raise exception 'idempotent retry not recognized: %', v_retry;
+            end if;
+
+            -- Same key with a different amount must be rejected.
+            v_conflict_amount := public.create_payout_request_atomic(
+              v_user, 70, 'paypal', 'test@example.com', 2, 68, 'test-key-00000001'
+            );
+            if coalesce(v_conflict_amount->>'error', '') <> 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PARAMS' then
+              raise exception 'same key with different amount was not rejected: %', v_conflict_amount;
+            end if;
+
+            -- Same key and amount but a different payout destination must also be rejected.
+            v_conflict_destination := public.create_payout_request_atomic(
+              v_user, 60, 'paypal', 'other@example.com', 2, 58, 'test-key-00000001'
+            );
+            if coalesce(v_conflict_destination->>'error', '') <> 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PARAMS' then
+              raise exception 'same key with different destination was not rejected: %', v_conflict_destination;
             end if;
 
             select count(*) into v_cnt from public.payout_requests where user_id = v_user;
