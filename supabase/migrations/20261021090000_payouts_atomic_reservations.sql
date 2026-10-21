@@ -251,11 +251,11 @@ grant execute on function public.get_payout_balance_summary(uuid) to service_rol
 -- access to other users' financial records or enabling direct client writes.
 drop policy if exists "users only read own referrals" on public.referrals;
 create policy "users only read own referrals" on public.referrals
-  as restrictive for select to authenticated using (referrer_id = auth.uid());
+  as restrictive for select to anon, authenticated using (referrer_id = auth.uid());
 
 drop policy if exists "users only read own referral commissions" on public.referral_commissions;
 create policy "users only read own referral commissions" on public.referral_commissions
-  as restrictive for select to authenticated using (
+  as restrictive for select to anon, authenticated using (
     exists (
       select 1 from public.referrals r
       where r.id = referral_commissions.referral_id
@@ -265,7 +265,7 @@ create policy "users only read own referral commissions" on public.referral_comm
 
 drop policy if exists "users only read own payout requests" on public.payout_requests;
 create policy "users only read own payout requests" on public.payout_requests
-  as restrictive for select to authenticated using (user_id = auth.uid());
+  as restrictive for select to anon, authenticated using (user_id = auth.uid());
 
 drop policy if exists "clients cannot insert payout requests directly" on public.payout_requests;
 create policy "clients cannot insert payout requests directly" on public.payout_requests
