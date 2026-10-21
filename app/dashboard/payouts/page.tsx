@@ -170,6 +170,8 @@ export default function PayoutsPage() {
       if (!idempotencyAttemptRef.current || idempotencyAttemptRef.current.fingerprint !== fingerprint) {
         idempotencyAttemptRef.current = { fingerprint, key: crypto.randomUUID() }
       }
+      const attempt = idempotencyAttemptRef.current
+      if (!attempt) throw new Error('Unable to prepare payout request. Please try again.')
       const res = await fetch('/api/payouts/request', {
         method: 'POST',
         credentials: 'include',
@@ -178,7 +180,7 @@ export default function PayoutsPage() {
           amount: amountNum,
           method,
           destination: destination.trim() || undefined,
-          idempotencyKey: idempotencyAttemptRef.current.key,
+          idempotencyKey: attempt.key,
         }),
       })
       const json = await res.json()
