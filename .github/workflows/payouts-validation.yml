@@ -100,9 +100,7 @@ jobs:
           git rev-parse HEAD
           git log -1 --oneline
           sha256sum supabase/migrations/20261021090000_payouts_atomic_reservations.sql
-          # Fail closed if migration file is missing
           test -f supabase/migrations/20261021090000_payouts_atomic_reservations.sql
-          # Confirm reversed is present in the real migration SQL under test
           grep -q "'reversed'" supabase/migrations/20261021090000_payouts_atomic_reservations.sql
 
       - name: Bootstrap production-like baseline schema
@@ -121,7 +119,6 @@ jobs:
             select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
           $fn$;
 
-          -- Baseline closer to live production before the payouts hardening migration.
           create table public.referrals (
             id uuid primary key,
             referrer_id uuid not null
@@ -137,7 +134,6 @@ jobs:
             reviewed_at timestamptz,
             paid_at timestamptz
           );
-          -- Live already has currency + available_at; keep them so ADD IF NOT EXISTS is a no-op path.
           alter table public.referral_commissions
             add column currency text not null default 'USD',
             add column available_at timestamptz;
@@ -153,12 +149,17 @@ jobs:
             paid_at timestamptz
           );
 
-          -- Enable RLS like production so migration policies are meaningful.
+          -- Match production table grants (Supabase grants API roles table privileges;
+          -- RLS then restricts rows). Without these, SET ROLE authenticated fails at
+          -- table privilege check before any policy runs.
+          grant select, insert, update, delete on public.referrals to anon, authenticated, service_role;
+          grant select, insert, update, delete on public.referral_commissions to anon, authenticated, service_role;
+          grant select, insert, update, delete on public.payout_requests to anon, authenticated, service_role;
+
           alter table public.referrals enable row level security;
           alter table public.referral_commissions enable row level security;
           alter table public.payout_requests enable row level security;
 
-          -- Pre-existing permissive policies (mirrors production shape before restrictive hardening).
           create policy "users create own payouts" on public.payout_requests
             for insert to authenticated with check (user_id = auth.uid());
           create policy "users read own payouts" on public.payout_requests
@@ -197,8 +198,10 @@ jobs:
             v_summary jsonb;
             v_cnt int;
             v_def text;
+            v_rls_blocked boolean := false;
+            v_sqlstate text;
+            v_sqlerrm text;
           begin
-            -- reversed must remain valid after migration
             select pg_get_constraintdef(oid) into v_def
               from pg_constraint where conname = 'referral_commissions_status_check';
             if v_def is null or position('reversed' in v_def) = 0 then
@@ -212,7 +215,6 @@ jobs:
                 (v_comm_avail, v_referral, 100, 'available'),
                 (v_comm_rev, v_referral, 25, 'reversed');
 
-            -- Function execute grants: only service_role
             if has_function_privilege('anon', 'public.create_payout_request_atomic(uuid,numeric,text,text,numeric,numeric,text)', 'execute') then
               raise exception 'anon must not execute create_payout_request_atomic';
             end if;
@@ -237,7 +239,6 @@ jobs:
               raise exception 'available balance expected 100 got %', v_summary;
             end if;
 
-            -- Sufficient balance
             v_first := public.create_payout_request_atomic(
               v_user, 60, 'paypal', 'test@example.com', 2, 58, 'test-key-00000001'
             );
@@ -245,7 +246,6 @@ jobs:
               raise exception 'sufficient reservation failed: %', v_first;
             end if;
 
-            -- Duplicate idempotency key
             v_retry := public.create_payout_request_atomic(
               v_user, 60, 'paypal', 'test@example.com', 2, 58, 'test-key-00000001'
             );
@@ -258,7 +258,6 @@ jobs:
               raise exception 'expected 1 row after idempotent retry, got %', v_cnt;
             end if;
 
-            -- Insufficient balance (60 reserved, only 40 left)
             v_overdraw := public.create_payout_request_atomic(
               v_user, 60, 'paypal', 'test@example.com', 2, 58, 'test-key-00000002'
             );
@@ -266,7 +265,6 @@ jobs:
               raise exception 'overdraw not rejected: %', v_overdraw;
             end if;
 
-            -- Remaining capacity
             v_second := public.create_payout_request_atomic(
               v_user, 40, 'local', null, 2, 38, 'test-key-00000003'
             );
@@ -282,17 +280,24 @@ jobs:
               raise exception 'processing should be 100: %', v_summary;
             end if;
 
-            -- Unique index enforcement
             begin
               insert into public.payout_requests (user_id, amount, status, idempotency_key)
                 values (v_user, 10, 'pending', 'test-key-00000001');
               raise exception 'unique index did not reject duplicate idempotency_key';
             exception
               when unique_violation then
-                null; -- expected
+                null;
             end;
 
-            -- RLS: authenticated client cannot insert (restrictive policy)
+            -- Table grants must exist so this is an RLS denial, not privilege denied.
+            if not has_table_privilege('authenticated', 'public.payout_requests', 'insert') then
+              raise exception 'baseline missing INSERT grant for authenticated on payout_requests';
+            end if;
+            if not has_table_privilege('authenticated', 'public.payout_requests', 'select') then
+              raise exception 'baseline missing SELECT grant for authenticated on payout_requests';
+            end if;
+
+            -- RLS: authenticated client cannot insert (restrictive WITH CHECK false)
             perform set_config('request.jwt.claim.sub', v_user::text, true);
             execute 'set local role authenticated';
             begin
@@ -300,26 +305,48 @@ jobs:
                 values (v_user, 1, 'pending');
               raise exception 'authenticated insert should be blocked by restrictive RLS';
             exception
-              when insufficient_privilege or check_violation then
-                null;
               when others then
-                -- RLS often surfaces as insufficient_privilege or policy violation
-                if sqlstate not in ('42501', 'P0001') and position('policy' in lower(sqlerrm)) = 0 then
-                  -- still treat generic failure as pass if no row was inserted
-                  null;
+                v_sqlstate := sqlstate;
+                v_sqlerrm := sqlerrm;
+                -- 42501 = table privilege; that means grants are still wrong.
+                if v_sqlstate = '42501' then
+                  raise exception 'got table permission denied instead of RLS policy denial: %', v_sqlerrm;
                 end if;
+                -- RLS policy violations typically 42501 is NOT used; often 44000 or custom.
+                -- Accept policy-related messages; reject unexpected success paths only.
+                if position('policy' in lower(v_sqlerrm)) = 0
+                   and position('row-level security' in lower(v_sqlerrm)) = 0
+                   and v_sqlstate not in ('42501') then
+                  -- PostgreSQL uses: new row violates row-level security policy
+                  if position('row-level security' in lower(v_sqlerrm)) = 0 then
+                    -- still require that insert failed; log state for diagnosis
+                    if position('violates' in lower(v_sqlerrm)) = 0 and v_sqlstate not in ('P0001') then
+                      raise exception 'unexpected insert failure (not RLS): state=% msg=%', v_sqlstate, v_sqlerrm;
+                    end if;
+                  end if;
+                end if;
+                v_rls_blocked := true;
             end;
             reset role;
 
-            select count(*) into v_cnt from public.payout_requests where user_id = v_user and amount = 1;
-            if v_cnt <> 0 then
-              raise exception 'client insert bypassed RLS';
+            if not v_rls_blocked then
+              raise exception 'authenticated insert was not blocked';
             end if;
 
-            -- Cross-user read blocked for authenticated other user
+            select count(*) into v_cnt from public.payout_requests where user_id = v_user and amount = 1;
+            if v_cnt <> 0 then
+              raise exception 'client insert bypassed RLS — unauthorized row present';
+            end if;
+
+            -- Cross-user read: other authenticated user sees zero foreign rows (RLS filter)
             perform set_config('request.jwt.claim.sub', v_other::text, true);
             execute 'set local role authenticated';
-            select count(*) into v_cnt from public.payout_requests where user_id = v_user;
+            begin
+              select count(*) into v_cnt from public.payout_requests where user_id = v_user;
+            exception
+              when insufficient_privilege then
+                raise exception 'cross-user read hit table permission denied; grants missing';
+            end;
             if v_cnt <> 0 then
               raise exception 'other user could read foreign payout_requests under RLS';
             end if;
@@ -336,6 +363,7 @@ jobs:
         run: |
           python3 <<'PY'
           import concurrent.futures
+          import json
           import os
           import subprocess
           import sys
@@ -363,7 +391,6 @@ jobs:
                   return f"ERR:{r.stderr.strip()}"
               return r.stdout.strip()
 
-          # Fresh user with 50 available — two concurrent 40 requests must yield exactly one success.
           setup = """
           insert into auth.users(id) values ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb') on conflict do nothing;
           insert into public.referrals(id, referrer_id)
@@ -389,26 +416,17 @@ jobs:
               results = [f.result() for f in futs]
 
           print("CONCURRENCY_RESULTS:", results)
-          oks = [r for r in results if '"ok": true' in r.replace(" ", "") or '"ok":true' in r.replace(" ", "")]
-          # jsonb text may vary spacing
-          ok_count = sum(1 for r in results if '"ok": true' in r or '"ok":true' in r)
-          insuff = sum(1 for r in results if "INSUFFICIENT_BALANCE" in r)
-          if ok_count != 1 or insuff != 1:
-              # also accept ok as t from postgres boolean formatting in json
-              ok_count = sum(1 for r in results if 'true' in r and 'duplicate' in r and 'false' in r or ('"ok": true' in r or 'ok":true' in r))
-              # simpler parse
-              import json
-              parsed = []
-              for r in results:
-                  if r.startswith("ERR:"):
-                      print(r)
-                      sys.exit(1)
-                  parsed.append(json.loads(r))
-              ok_count = sum(1 for p in parsed if p.get("ok") is True and not p.get("duplicate"))
-              insuff = sum(1 for p in parsed if p.get("error") == "INSUFFICIENT_BALANCE")
-              if ok_count != 1 or insuff != 1:
-                  print("FAIL parsed", parsed)
+          parsed = []
+          for r in results:
+              if r.startswith("ERR:"):
+                  print(r)
                   sys.exit(1)
+              parsed.append(json.loads(r))
+          ok_count = sum(1 for p in parsed if p.get("ok") is True and not p.get("duplicate"))
+          insuff = sum(1 for p in parsed if p.get("error") == "INSUFFICIENT_BALANCE")
+          if ok_count != 1 or insuff != 1:
+              print("FAIL parsed", parsed)
+              sys.exit(1)
 
           cnt = subprocess.check_output(
               ["psql", "-h", "localhost", "-U", "postgres", "-d", "payout_test",
