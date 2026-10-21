@@ -240,7 +240,7 @@ begin
     'totalPaidPayouts', v_paid_payouts
   );
 end;
-$;
+$$;
 
 revoke all on function public.get_payout_balance_summary(uuid) from public;
 revoke all on function public.get_payout_balance_summary(uuid) from anon;
