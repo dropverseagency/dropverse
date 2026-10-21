@@ -6,7 +6,6 @@ import {
   PAYOUT_CURRENCY,
   PAYOUT_METHODS,
   PAYOUT_SCHEDULE_DAYS,
-  estimateNetUsd,
   nextScheduledProcessingDate,
 } from '@/lib/payoutConfig'
 
@@ -24,96 +23,66 @@ async function resolveUser(request: NextRequest) {
   return res.data?.user ?? null
 }
 
+function jsonError(error: string, status = 500) {
+  return new Response(JSON.stringify({ error }), {
+    status,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+  })
+}
+
 /**
  * GET /api/payouts/me
  * Returns only the authenticated user's balances, breakdown, and payout history.
- * Balances are computed server-side from referral_commissions + payout_requests.
+ * Any failed ledger read fails closed instead of being treated as an empty ledger.
  */
 export async function GET(request: NextRequest) {
   const user = await resolveUser(request)
-  if (!user) {
-    return new Response(JSON.stringify({ error: 'NOT_AUTHENTICATED' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!user) return jsonError('NOT_AUTHENTICATED', 401)
 
   const admin = adminClient()
 
-  const { data: referralRows } = await admin
-    .from('referrals')
-    .select('id')
-    .eq('referrer_id', user.id)
-
-  const referralIds = (referralRows ?? []).map((r: { id: string }) => r.id)
-
-  let commissions: {
-    id: string
-    commission_amount: number | null
-    status: string
-    currency: string | null
-    created_at: string
-    available_at: string | null
-    paid_at: string | null
-  }[] = []
-
-  if (referralIds.length > 0) {
-    const { data } = await admin
-      .from('referral_commissions')
-      .select('id, commission_amount, status, currency, created_at, available_at, paid_at')
-      .in('referral_id', referralIds)
-    commissions = data ?? []
+  const { data: summary, error: summaryError } = await admin.rpc('get_payout_balance_summary', {
+    p_user_id: user.id,
+  })
+  if (summaryError || !summary || typeof summary !== 'object') {
+    console.error('[payouts/me] balance summary failed', summaryError)
+    return jsonError('PAYOUT_DATA_UNAVAILABLE')
   }
 
-  const sum = (status: string | string[]) => {
-    const set = new Set(Array.isArray(status) ? status : [status])
-    return commissions
-      .filter((c) => set.has(c.status))
-      .reduce((s, c) => s + Number(c.commission_amount || 0), 0)
-  }
-
-  const pendingBalance = Math.round(sum(['pending', 'approved']) * 100) / 100
-  const availableCommissions = Math.round(sum('available') * 100) / 100
-  const paidFromCommissions = Math.round(sum('paid') * 100) / 100
-
-  const { data: payouts } = await admin
+  const { data: payouts, error: payoutsError } = await admin
     .from('payout_requests')
-    .select('id, amount, status, requested_at, reviewed_at, paid_at')
+    .select('id, amount, status, method, dropverse_fee, estimated_net, requested_at, reviewed_at, paid_at')
     .eq('user_id', user.id)
     .order('requested_at', { ascending: false })
     .limit(100)
 
-  const openPayouts = (payouts ?? []).filter((p) => p.status === 'pending' || p.status === 'approved')
-  const processingBalance = Math.round(
-    openPayouts.reduce((s, p) => s + Number(p.amount || 0), 0) * 100,
-  ) / 100
-  const totalPaidPayouts = Math.round(
-    (payouts ?? [])
-      .filter((p) => p.status === 'paid')
-      .reduce((s, p) => s + Number(p.amount || 0), 0) * 100,
-  ) / 100
+  if (payoutsError || !payouts) {
+    console.error('[payouts/me] payout history lookup failed', payoutsError)
+    return jsonError('PAYOUT_DATA_UNAVAILABLE')
+  }
 
-  // Available to request = available commissions minus open (unpaid) payout requests.
-  const availableBalance = Math.max(0, Math.round((availableCommissions - processingBalance) * 100) / 100)
+  const pendingBalance = Number(summary.pending ?? 0)
+  const availableCommissions = Number(summary.availableCommissions ?? 0)
+  const paidFromCommissions = Number(summary.paidCommissions ?? 0)
+  const processingBalance = Number(summary.processing ?? 0)
+  const availableBalance = Number(summary.available ?? 0)
+  const totalPaidPayouts = Number(summary.totalPaidPayouts ?? 0)
 
-  const history = (payouts ?? []).map((p) => {
-    const gross = Number(p.amount || 0)
-    const est = estimateNetUsd(gross)
-    return {
-      id: p.id,
-      requestedAt: p.requested_at,
-      amount: gross,
-      currency: PAYOUT_CURRENCY,
-      dropverseFee: DROPVERSE_PAYOUT_FEE_USD,
-      providerFee: null as number | null,
-      estimatedNet: est.estimatedNet,
-      method: null as string | null,
-      status: p.status,
-      reviewedAt: p.reviewed_at,
-      paidAt: p.paid_at,
-      failureReason: null as string | null,
-    }
-  })
+  const history = payouts.map((p) => ({
+    id: p.id,
+    requestedAt: p.requested_at,
+    amount: Number(p.amount || 0),
+    currency: PAYOUT_CURRENCY,
+    // Existing requests predate these persisted terms; don't invent historical fees.
+    dropverseFee: p.dropverse_fee == null ? null : Number(p.dropverse_fee),
+    providerFee: null as number | null,
+    estimatedNet: p.estimated_net == null ? null : Number(p.estimated_net),
+    method: p.method ?? null,
+    status: p.status,
+    reviewedAt: p.reviewed_at,
+    paidAt: p.paid_at,
+    failureReason: null as string | null,
+  }))
 
   const nextProcessing = nextScheduledProcessingDate()
 
@@ -133,8 +102,6 @@ export async function GET(request: NextRequest) {
           available: availableCommissions,
           paid: paidFromCommissions,
         },
-        // Lead marketplace seller settlements and freelancer payouts are not
-        // yet tracked in a withdrawable ledger — omit fabricated zeros as sources.
         sourcesNote:
           'Only approved affiliate commissions that have reached available status can be withdrawn. Lead Marketplace and project fulfillment earnings are not yet connected to this ledger.',
       },

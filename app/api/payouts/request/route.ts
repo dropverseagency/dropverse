@@ -22,34 +22,11 @@ async function resolveUser(request: NextRequest) {
   return res.data?.user ?? null
 }
 
-async function availableBalanceFor(userId: string): Promise<number> {
-  const admin = adminClient()
-  const { data: referralRows } = await admin.from('referrals').select('id').eq('referrer_id', userId)
-  const referralIds = (referralRows ?? []).map((r: { id: string }) => r.id)
-  let availableCommissions = 0
-  if (referralIds.length > 0) {
-    const { data: commissions } = await admin
-      .from('referral_commissions')
-      .select('commission_amount, status')
-      .in('referral_id', referralIds)
-      .eq('status', 'available')
-    availableCommissions = (commissions ?? []).reduce((s, c) => s + Number(c.commission_amount || 0), 0)
-  }
-  const { data: open } = await admin
-    .from('payout_requests')
-    .select('amount, status')
-    .eq('user_id', userId)
-    .in('status', ['pending', 'approved'])
-  const reserved = (open ?? []).reduce((s, p) => s + Number(p.amount || 0), 0)
-  return Math.max(0, Math.round((availableCommissions - reserved) * 100) / 100)
-}
-
 /**
  * POST /api/payouts/request
- * Body: { amount: number, method: 'paypal' | 'local', destination?: string }
- *
- * Creates a pending payout_requests row only. Does NOT call any payment provider.
- * Server recalculates available balance; never trusts client balances.
+ * Creates a pending request through a database transaction that locks the
+ * user's payout ledger, verifies available funds, and reserves the amount.
+ * No payment provider is called by this endpoint.
  */
 export async function POST(request: NextRequest) {
   const user = await resolveUser(request)
@@ -99,16 +76,20 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const available = await availableBalanceFor(user.id)
-  if (amount > available) {
-    return new Response(
-      JSON.stringify({
-        error: 'INSUFFICIENT_BALANCE',
-        message: 'Requested amount exceeds your available balance.',
-        available,
-      }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } },
-    )
+  const destination = typeof body.destination === 'string' ? body.destination.trim().slice(0, 200) : ''
+  if (method.id === 'paypal' && destination && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destination)) {
+    return new Response(JSON.stringify({ error: 'INVALID_DESTINATION', message: 'Enter a valid PayPal email address.' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  const idempotencyKey = typeof body.idempotencyKey === 'string' ? body.idempotencyKey.trim() : ''
+  if (idempotencyKey.length < 16 || idempotencyKey.length > 128) {
+    return new Response(JSON.stringify({ error: 'INVALID_IDEMPOTENCY_KEY' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 
   const est = estimateNetUsd(amount)
@@ -122,92 +103,94 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Lightweight idempotency: reject if identical pending amount was created in the last 2 minutes.
+  // One database transaction checks balance and reserves it. Read errors fail
+  // the RPC instead of being mistaken for a zero/empty balance.
   const admin = adminClient()
-  const since = new Date(Date.now() - 2 * 60 * 1000).toISOString()
-  const { data: recent } = await admin
-    .from('payout_requests')
-    .select('id, amount, status, requested_at')
-    .eq('user_id', user.id)
-    .eq('status', 'pending')
-    .eq('amount', amount)
-    .gte('requested_at', since)
-    .limit(1)
-    .maybeSingle()
+  const { data: result, error } = await admin.rpc('create_payout_request_atomic', {
+    p_user_id: user.id,
+    p_amount: amount,
+    p_method: method.id,
+    p_destination: destination || null,
+    p_dropverse_fee: est.dropverseFee,
+    p_estimated_net: est.estimatedNet,
+    p_idempotency_key: idempotencyKey,
+  })
 
-  if (recent) {
-    return new Response(
-      JSON.stringify({
-        ok: true,
-        duplicate: true,
-        request: {
-          id: recent.id,
-          amount: Number(recent.amount),
-          status: recent.status,
-          requestedAt: recent.requested_at,
-        },
-        fee: est,
-        nextScheduledProcessingDate: nextScheduledProcessingDate().toISOString().slice(0, 10),
-        message: 'A matching pending request already exists.',
-      }),
-      { headers: { 'Content-Type': 'application/json' } },
-    )
+  if (error || !result || typeof result !== 'object') {
+    console.error('[payouts/request] atomic reservation failed', error)
+    return new Response(JSON.stringify({ error: 'SAVE_FAILED', message: 'Unable to reserve this payout. Please try again.' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 
-  const destination =
-    typeof body.destination === 'string' ? body.destination.trim().slice(0, 200) : ''
-
-  const { data: inserted, error } = await admin
-    .from('payout_requests')
-    .insert({
-      user_id: user.id,
-      amount,
-      status: 'pending',
-    })
-    .select('id, amount, status, requested_at')
-    .single()
-
-  if (error || !inserted) {
-    console.error('[payouts/request]', error)
+  if (result.ok !== true) {
+    if (result.error === 'INSUFFICIENT_BALANCE') {
+      return new Response(JSON.stringify({
+        error: 'INSUFFICIENT_BALANCE',
+        message: 'Requested amount exceeds your available balance.',
+        available: Number(result.available ?? 0),
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    console.error('[payouts/request] atomic reservation rejected', result.error)
     return new Response(JSON.stringify({ error: 'SAVE_FAILED' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     })
   }
 
-  await audit({
-    actorId: user.id,
-    actorEmail: user.email ?? null,
-    action: 'payout_requested',
-    entity: 'payout_requests',
-    entityId: inserted.id,
-    newValue: {
-      amount,
-      method: method.id,
-      destination: destination || null,
-      dropverseFee: DROPVERSE_PAYOUT_FEE_USD,
-      estimatedNet: est.estimatedNet,
-      // Provider transfer not activated
-      transferActivated: false,
-    },
-  })
+  const saved = result.request
+  if (!saved || typeof saved.id !== 'string') {
+    console.error('[payouts/request] atomic reservation returned an invalid result')
+    return new Response(JSON.stringify({ error: 'SAVE_FAILED' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  if (!result.duplicate) {
+    await audit({
+      actorId: user.id,
+      actorEmail: user.email ?? null,
+      action: 'payout_requested',
+      entity: 'payout_requests',
+      entityId: saved.id,
+      newValue: {
+        amount: Number(saved.amount),
+        method: saved.method,
+        // Do not duplicate payout destination PII in audit logs.
+        dropverseFee: Number(saved.dropverse_fee),
+        estimatedNet: Number(saved.estimated_net),
+        idempotencyKey,
+        transferActivated: false,
+      },
+    })
+  }
 
   return new Response(
     JSON.stringify({
       ok: true,
-      duplicate: false,
+      duplicate: Boolean(result.duplicate),
       request: {
-        id: inserted.id,
-        amount: Number(inserted.amount),
-        status: inserted.status,
-        requestedAt: inserted.requested_at,
-        method: method.id,
+        id: saved.id,
+        amount: Number(saved.amount),
+        status: saved.status,
+        requestedAt: saved.requested_at,
+        method: saved.method,
       },
-      fee: est,
+      fee: {
+        gross: Number(saved.amount),
+        dropverseFee: Number(saved.dropverse_fee),
+        estimatedNet: Number(saved.estimated_net),
+      },
       nextScheduledProcessingDate: nextScheduledProcessingDate().toISOString().slice(0, 10),
-      message:
-        'Payout request recorded. It will be reviewed and processed on a scheduled payout date. No automatic transfer has been sent yet.',
+      message: result.duplicate
+        ? 'This payout request was already recorded.'
+        : 'Payout request recorded and balance reserved. No automatic transfer has been sent yet.',
     }),
-    { headers: { 'Content-Type': 'application/json' } },
+    { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } },
   )
 }

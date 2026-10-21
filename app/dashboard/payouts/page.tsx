@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft,
@@ -51,9 +51,9 @@ type PayoutPayload = {
     requestedAt: string
     amount: number
     currency: string
-    dropverseFee: number
+    dropverseFee: number | null
     providerFee: number | null
-    estimatedNet: number
+    estimatedNet: number | null
     method: string | null
     status: string
     paidAt: string | null
@@ -64,7 +64,7 @@ type PayoutPayload = {
 function statusLabel(s: string) {
   const map: Record<string, string> = {
     pending: 'Pending',
-    approved: 'Processing',
+    approved: 'Approved — awaiting transfer',
     paid: 'Paid',
     cancelled: 'Cancelled',
     failed: 'Failed',
@@ -93,6 +93,7 @@ export default function PayoutsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [formMsg, setFormMsg] = useState<string | null>(null)
   const [formErr, setFormErr] = useState<string | null>(null)
+  const idempotencyAttemptRef = useRef<{ fingerprint: string; key: string } | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -165,6 +166,12 @@ export default function PayoutsPage() {
     setFormErr(null)
     setFormMsg(null)
     try {
+      const fingerprint = JSON.stringify({ amount: amountNum, method, destination: destination.trim() })
+      if (!idempotencyAttemptRef.current || idempotencyAttemptRef.current.fingerprint !== fingerprint) {
+        idempotencyAttemptRef.current = { fingerprint, key: crypto.randomUUID() }
+      }
+      const attempt = idempotencyAttemptRef.current
+      if (!attempt) throw new Error('Unable to prepare payout request. Please try again.')
       const res = await fetch('/api/payouts/request', {
         method: 'POST',
         credentials: 'include',
@@ -173,6 +180,7 @@ export default function PayoutsPage() {
           amount: amountNum,
           method,
           destination: destination.trim() || undefined,
+          idempotencyKey: attempt.key,
         }),
       })
       const json = await res.json()
@@ -181,6 +189,7 @@ export default function PayoutsPage() {
         setConfirmOpen(false)
         return
       }
+      idempotencyAttemptRef.current = null
       setFormMsg(json.message || 'Payout request recorded.')
       setAmount('')
       setConfirmOpen(false)
@@ -396,12 +405,15 @@ export default function PayoutsPage() {
                             {new Date(h.requestedAt).toLocaleDateString()}
                           </div>
                           <div className="text-xs text-[#81948e] sm:hidden">
-                            {formatUsd(h.amount)} · fee {formatUsd(h.dropverseFee)}
+                            {formatUsd(h.amount)} · fee {h.dropverseFee == null ? 'not recorded' : formatUsd(h.dropverseFee)}
+                          </div>
+                          <div className="text-xs text-[#81948e]">
+                            {h.method ? h.method.toUpperCase() : 'Method not recorded'}
                           </div>
                         </div>
                         <div className="hidden text-[#c8d4d0] sm:block">{formatUsd(h.amount)}</div>
-                        <div className="hidden text-[#81948e] sm:block">{formatUsd(h.dropverseFee)}</div>
-                        <div className="hidden text-[#c8d4d0] sm:block">{formatUsd(h.estimatedNet)}</div>
+                        <div className="hidden text-[#81948e] sm:block">{h.dropverseFee == null ? '—' : formatUsd(h.dropverseFee)}</div>
+                        <div className="hidden text-[#c8d4d0] sm:block">{h.estimatedNet == null ? '—' : formatUsd(h.estimatedNet)}</div>
                         <div className="mt-2 sm:mt-0">
                           <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-bold ${statusClass(h.status)}`}>
                             {statusLabel(h.status)}
