@@ -6,12 +6,11 @@ import {
   PAYOUT_CURRENCY,
   PAYOUT_METHODS,
   PAYOUT_SCHEDULE_DAYS,
-  estimateNetUsd,
   nextScheduledProcessingDate,
 } from '@/lib/payoutConfig'
 
 async function resolveUser(request: NextRequest) {
-  const bearer = (request.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
+  const bearer = (request.headers.get('authorization') ?? '').replace(/^Bearer\\s+/i, '').trim()
   if (bearer) {
     const supa = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -24,29 +23,34 @@ async function resolveUser(request: NextRequest) {
   return res.data?.user ?? null
 }
 
+function jsonError(error: string, status = 500) {
+  return new Response(JSON.stringify({ error }), {
+    status,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+  })
+}
+
 /**
  * GET /api/payouts/me
  * Returns only the authenticated user's balances, breakdown, and payout history.
- * Balances are computed server-side from referral_commissions + payout_requests.
+ * Any failed ledger read fails closed instead of being treated as an empty ledger.
  */
 export async function GET(request: NextRequest) {
   const user = await resolveUser(request)
-  if (!user) {
-    return new Response(JSON.stringify({ error: 'NOT_AUTHENTICATED' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!user) return jsonError('NOT_AUTHENTICATED', 401)
 
   const admin = adminClient()
-
-  const { data: referralRows } = await admin
+  const { data: referralRows, error: referralsError } = await admin
     .from('referrals')
     .select('id')
     .eq('referrer_id', user.id)
 
-  const referralIds = (referralRows ?? []).map((r: { id: string }) => r.id)
+  if (referralsError || !referralRows) {
+    console.error('[payouts/me] referral lookup failed', referralsError)
+    return jsonError('PAYOUT_DATA_UNAVAILABLE')
+  }
 
+  const referralIds = referralRows.map((r: { id: string }) => r.id)
   let commissions: {
     id: string
     commission_amount: number | null
@@ -58,11 +62,23 @@ export async function GET(request: NextRequest) {
   }[] = []
 
   if (referralIds.length > 0) {
-    const { data } = await admin
+    const { data, error } = await admin
       .from('referral_commissions')
       .select('id, commission_amount, status, currency, created_at, available_at, paid_at')
       .in('referral_id', referralIds)
-    commissions = data ?? []
+
+    if (error || !data) {
+      console.error('[payouts/me] commission lookup failed', error)
+      return jsonError('PAYOUT_DATA_UNAVAILABLE')
+    }
+    commissions = data
+  }
+
+  // Do not mix currencies in a USD payout balance.
+  const nonUsdCommission = commissions.some((c) => (c.currency ?? 'USD').toUpperCase() !== 'USD')
+  if (nonUsdCommission) {
+    console.error('[payouts/me] non-USD commission found for USD payout ledger', { userId: user.id })
+    return jsonError('PAYOUT_DATA_UNAVAILABLE')
   }
 
   const sum = (status: string | string[]) => {
@@ -76,44 +92,45 @@ export async function GET(request: NextRequest) {
   const availableCommissions = Math.round(sum('available') * 100) / 100
   const paidFromCommissions = Math.round(sum('paid') * 100) / 100
 
-  const { data: payouts } = await admin
+  const { data: payouts, error: payoutsError } = await admin
     .from('payout_requests')
-    .select('id, amount, status, requested_at, reviewed_at, paid_at')
+    .select('id, amount, status, method, dropverse_fee, estimated_net, requested_at, reviewed_at, paid_at')
     .eq('user_id', user.id)
     .order('requested_at', { ascending: false })
     .limit(100)
 
-  const openPayouts = (payouts ?? []).filter((p) => p.status === 'pending' || p.status === 'approved')
+  if (payoutsError || !payouts) {
+    console.error('[payouts/me] payout history lookup failed', payoutsError)
+    return jsonError('PAYOUT_DATA_UNAVAILABLE')
+  }
+
+  const openPayouts = payouts.filter((p) => p.status === 'pending' || p.status === 'approved')
   const processingBalance = Math.round(
     openPayouts.reduce((s, p) => s + Number(p.amount || 0), 0) * 100,
   ) / 100
   const totalPaidPayouts = Math.round(
-    (payouts ?? [])
+    payouts
       .filter((p) => p.status === 'paid')
       .reduce((s, p) => s + Number(p.amount || 0), 0) * 100,
   ) / 100
 
-  // Available to request = available commissions minus open (unpaid) payout requests.
   const availableBalance = Math.max(0, Math.round((availableCommissions - processingBalance) * 100) / 100)
 
-  const history = (payouts ?? []).map((p) => {
-    const gross = Number(p.amount || 0)
-    const est = estimateNetUsd(gross)
-    return {
-      id: p.id,
-      requestedAt: p.requested_at,
-      amount: gross,
-      currency: PAYOUT_CURRENCY,
-      dropverseFee: DROPVERSE_PAYOUT_FEE_USD,
-      providerFee: null as number | null,
-      estimatedNet: est.estimatedNet,
-      method: null as string | null,
-      status: p.status,
-      reviewedAt: p.reviewed_at,
-      paidAt: p.paid_at,
-      failureReason: null as string | null,
-    }
-  })
+  const history = payouts.map((p) => ({
+    id: p.id,
+    requestedAt: p.requested_at,
+    amount: Number(p.amount || 0),
+    currency: PAYOUT_CURRENCY,
+    // Existing requests predate these persisted terms; don't invent historical fees.
+    dropverseFee: p.dropverse_fee == null ? null : Number(p.dropverse_fee),
+    providerFee: null as number | null,
+    estimatedNet: p.estimated_net == null ? null : Number(p.estimated_net),
+    method: p.method ?? null,
+    status: p.status,
+    reviewedAt: p.reviewed_at,
+    paidAt: p.paid_at,
+    failureReason: null as string | null,
+  }))
 
   const nextProcessing = nextScheduledProcessingDate()
 
@@ -133,8 +150,6 @@ export async function GET(request: NextRequest) {
           available: availableCommissions,
           paid: paidFromCommissions,
         },
-        // Lead marketplace seller settlements and freelancer payouts are not
-        // yet tracked in a withdrawable ledger — omit fabricated zeros as sources.
         sourcesNote:
           'Only approved affiliate commissions that have reached available status can be withdrawn. Lead Marketplace and project fulfillment earnings are not yet connected to this ledger.',
       },
