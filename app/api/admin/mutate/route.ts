@@ -22,7 +22,7 @@ import { PROJECT_TYPES, FULFILLMENT_RATES } from '@/lib/projectConfig'
  *   update_program       { holding_days?, eligibility_months? }
  *   set_user_role        { userId, role }   (admin/manager only — never downgrade self)
  *   set_referral_active  { referralId, status }
- *   create_test_referral { referrerUserId, referredUserId }  — manual attribution for testing
+ *   create_test_referral { referredUserId, code }  — manual attribution for testing
  *   confirm_user         { email }  — confirm a user's email (admin tooling)
  *   confirm_user_invitation { email } — invite an email to become admin (creates user if needed)
  */
@@ -182,10 +182,17 @@ export async function POST(request: NextRequest) {
       }
 
       case 'create_test_referral': {
-        const referrerUserId = String(body.referrerUserId ?? '')
+        // attributeReferral resolves the referrer from an active referral code — not a raw user id.
         const referredUserId = String(body.referredUserId ?? '')
-        if (!referrerUserId || !referredUserId) return { error: 'INVALID_INPUT' }
-        return await attributeReferral({ referrerUserId, referredUserId, actorId: ctx.userId, actorEmail: ctx.email })
+        const code = String(body.code ?? body.referralCode ?? '')
+        if (!referredUserId || !code) {
+          return { error: 'INVALID_INPUT', message: 'referredUserId and code are required.' }
+        }
+        return await attributeReferral({
+          referredUserId,
+          code,
+          sourceChannel: 'admin_test',
+        })
       }
 
       case 'confirm_user': {
