@@ -13,7 +13,7 @@ on:
       - 'package-lock.json'
       - 'tsconfig.json'
   push:
-    branches: [fix/payouts-critical-safety]
+    branches: [fix/payouts-critical-safety, ci/payouts-db-safety-validation]
     paths:
       - 'app/api/payouts/**'
       - 'app/dashboard/payouts/**'
@@ -23,12 +23,35 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - 'tsconfig.json'
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: 'Git commit SHA to validate (migration + app). Empty = current ref.'
+        required: false
+        type: string
+        default: ''
 
 jobs:
   app-checks:
     runs-on: ubuntu-latest
     steps:
+      - name: Resolve checkout ref
+        id: ref
+        run: |
+          SHA="${{ github.event.inputs.commit_sha }}"
+          if [ -n "$SHA" ]; then
+            echo "ref=$SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.ref.outputs.ref }}
+      - name: Record tested SHA
+        run: |
+          echo "TESTED_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          git rev-parse HEAD
+          git log -1 --oneline
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -59,11 +82,28 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
+      - name: Resolve checkout ref
+        id: ref
+        run: |
+          SHA="${{ github.event.inputs.commit_sha }}"
+          if [ -n "$SHA" ]; then
+            echo "ref=$SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
-      - name: Bootstrap minimal Supabase-compatible test schema
+          ref: ${{ steps.ref.outputs.ref }}
+      - name: Record tested SHA and migration identity
+        run: |
+          echo "TESTED_SHA=$(git rev-parse HEAD)"
+          git rev-parse HEAD
+          git log -1 --oneline
+          sha256sum supabase/migrations/20261021090000_payouts_atomic_reservations.sql
+          test -f supabase/migrations/20261021090000_payouts_atomic_reservations.sql
+          grep -q "'reversed'" supabase/migrations/20261021090000_payouts_atomic_reservations.sql
+
+      - name: Bootstrap production-like baseline schema
         env:
           PGPASSWORD: postgres
         run: |
@@ -77,10 +117,10 @@ jobs:
           language sql stable as $fn$
             select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
           $fn$;
+
           create table public.referrals (
             id uuid primary key,
-            referrer_id uuid not null,
-            constraint referrals_status_check check (true)
+            referrer_id uuid not null
           );
           create table public.referral_commissions (
             id uuid primary key,
@@ -88,11 +128,15 @@ jobs:
             commission_amount numeric not null default 0 check (commission_amount >= 0),
             status text not null default 'pending'
               constraint referral_commissions_status_check
-              check (status in ('pending','approved','paid','cancelled')),
+              check (status in ('pending','approved','available','paid','reversed','cancelled')),
             created_at timestamptz not null default now(),
             reviewed_at timestamptz,
             paid_at timestamptz
           );
+          alter table public.referral_commissions
+            add column currency text not null default 'USD',
+            add column available_at timestamptz;
+
           create table public.payout_requests (
             id uuid primary key default gen_random_uuid(),
             user_id uuid not null,
@@ -103,12 +147,36 @@ jobs:
             reviewed_at timestamptz,
             paid_at timestamptz
           );
+
+          -- Production Supabase grants table DML to API roles; RLS restricts rows.
+          grant select, insert, update, delete on public.referrals to anon, authenticated, service_role;
+          grant select, insert, update, delete on public.referral_commissions to anon, authenticated, service_role;
+          grant select, insert, update, delete on public.payout_requests to anon, authenticated, service_role;
+
+          alter table public.referrals enable row level security;
+          alter table public.referral_commissions enable row level security;
+          alter table public.payout_requests enable row level security;
+
+          create policy "users create own payouts" on public.payout_requests
+            for insert to authenticated with check (user_id = auth.uid());
+          create policy "users read own payouts" on public.payout_requests
+            for select to authenticated using (user_id = auth.uid());
+          create policy "users read own commissions" on public.referral_commissions
+            for select to authenticated using (
+              exists (select 1 from public.referrals r where r.id = referral_id and r.referrer_id = auth.uid())
+            );
+          create policy "users read own referrals" on public.referrals
+            for select to authenticated using (referrer_id = auth.uid());
           SQL
-      - name: Apply payout migration in ephemeral database
+
+      - name: Apply real migration SQL (not a reimplementation)
         env:
           PGPASSWORD: postgres
-        run: psql -h localhost -U postgres -d payout_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261021090000_payouts_atomic_reservations.sql
-      - name: Verify schema, idempotency, and balance reservation
+        run: |
+          psql -h localhost -U postgres -d payout_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20261021090000_payouts_atomic_reservations.sql
+
+      - name: Schema, grants, reversed, balance, idempotency, unique index, RLS
         env:
           PGPASSWORD: postgres
         run: |
@@ -116,44 +184,249 @@ jobs:
           do $test$
           declare
             v_user uuid := '11111111-1111-4111-8111-111111111111';
+            v_other uuid := 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
             v_referral uuid := '22222222-2222-4222-8222-222222222222';
-            v_commission uuid := '33333333-3333-4333-8333-333333333333';
+            v_comm_avail uuid := '33333333-3333-4333-8333-333333333333';
+            v_comm_rev uuid := '44444444-4444-4444-8444-444444444444';
             v_first jsonb;
             v_retry jsonb;
             v_overdraw jsonb;
+            v_second jsonb;
+            v_summary jsonb;
+            v_cnt int;
+            v_def text;
+            v_rls_blocked boolean := false;
+            v_sqlstate text;
+            v_sqlerrm text;
+            v_msg text;
           begin
-            insert into auth.users(id) values (v_user);
+            select pg_get_constraintdef(oid) into v_def
+              from pg_constraint where conname = 'referral_commissions_status_check';
+            if v_def is null or position('reversed' in v_def) = 0 then
+              raise exception 'reversed missing from status check: %', v_def;
+            end if;
+
+            insert into auth.users(id) values (v_user), (v_other);
             insert into public.referrals(id, referrer_id) values (v_referral, v_user);
             insert into public.referral_commissions(id, referral_id, commission_amount, status)
-              values (v_commission, v_referral, 100, 'available');
+              values
+                (v_comm_avail, v_referral, 100, 'available'),
+                (v_comm_rev, v_referral, 25, 'reversed');
+
+            if has_function_privilege('anon', 'public.create_payout_request_atomic(uuid,numeric,text,text,numeric,numeric,text)', 'execute') then
+              raise exception 'anon must not execute create_payout_request_atomic';
+            end if;
+            if has_function_privilege('authenticated', 'public.create_payout_request_atomic(uuid,numeric,text,text,numeric,numeric,text)', 'execute') then
+              raise exception 'authenticated must not execute create_payout_request_atomic';
+            end if;
+            if not has_function_privilege('service_role', 'public.create_payout_request_atomic(uuid,numeric,text,text,numeric,numeric,text)', 'execute') then
+              raise exception 'service_role must execute create_payout_request_atomic';
+            end if;
+            if has_function_privilege('anon', 'public.get_payout_balance_summary(uuid)', 'execute') then
+              raise exception 'anon must not execute get_payout_balance_summary';
+            end if;
+            if not has_function_privilege('service_role', 'public.get_payout_balance_summary(uuid)', 'execute') then
+              raise exception 'service_role must execute get_payout_balance_summary';
+            end if;
+
+            v_summary := public.get_payout_balance_summary(v_user);
+            if (v_summary->>'availableCommissions')::numeric <> 100 then
+              raise exception 'available commissions expected 100 got %', v_summary;
+            end if;
+            if (v_summary->>'available')::numeric <> 100 then
+              raise exception 'available balance expected 100 got %', v_summary;
+            end if;
 
             v_first := public.create_payout_request_atomic(
-              v_user, 60, 'paypal', 'test@example.com', 2, 58,
-              'test-key-00000001'
+              v_user, 60, 'paypal', 'test@example.com', 2, 58, 'test-key-00000001'
             );
             if coalesce((v_first->>'ok')::boolean, false) is not true then
-              raise exception 'first reservation failed: %', v_first;
+              raise exception 'sufficient reservation failed: %', v_first;
             end if;
 
             v_retry := public.create_payout_request_atomic(
-              v_user, 60, 'paypal', 'test@example.com', 2, 58,
-              'test-key-00000001'
+              v_user, 60, 'paypal', 'test@example.com', 2, 58, 'test-key-00000001'
             );
             if coalesce((v_retry->>'duplicate')::boolean, false) is not true then
-              raise exception 'idempotent retry was not recognized: %', v_retry;
+              raise exception 'idempotent retry not recognized: %', v_retry;
+            end if;
+
+            select count(*) into v_cnt from public.payout_requests where user_id = v_user;
+            if v_cnt <> 1 then
+              raise exception 'expected 1 row after idempotent retry, got %', v_cnt;
             end if;
 
             v_overdraw := public.create_payout_request_atomic(
-              v_user, 60, 'paypal', 'test@example.com', 2, 58,
-              'test-key-00000002'
+              v_user, 60, 'paypal', 'test@example.com', 2, 58, 'test-key-00000002'
             );
-            if coalesce((v_overdraw->>'error') = 'INSUFFICIENT_BALANCE', false) is not true then
-              raise exception 'overdraw was not rejected: %', v_overdraw;
+            if coalesce(v_overdraw->>'error', '') <> 'INSUFFICIENT_BALANCE' then
+              raise exception 'overdraw not rejected: %', v_overdraw;
             end if;
 
-            if (select count(*) from public.payout_requests where user_id = v_user) <> 1 then
-              raise exception 'expected exactly one reserved payout request';
+            v_second := public.create_payout_request_atomic(
+              v_user, 40, 'local', null, 2, 38, 'test-key-00000003'
+            );
+            if coalesce((v_second->>'ok')::boolean, false) is not true then
+              raise exception 'second reservation failed: %', v_second;
             end if;
+
+            v_summary := public.get_payout_balance_summary(v_user);
+            if (v_summary->>'available')::numeric <> 0 then
+              raise exception 'available should be 0 after full reservation: %', v_summary;
+            end if;
+            if (v_summary->>'processing')::numeric <> 100 then
+              raise exception 'processing should be 100: %', v_summary;
+            end if;
+
+            begin
+              insert into public.payout_requests (user_id, amount, status, idempotency_key)
+                values (v_user, 10, 'pending', 'test-key-00000001');
+              raise exception 'unique index did not reject duplicate idempotency_key';
+            exception
+              when unique_violation then
+                null;
+            end;
+
+            if not has_table_privilege('authenticated', 'public.payout_requests', 'insert') then
+              raise exception 'baseline missing INSERT grant for authenticated on payout_requests';
+            end if;
+            if not has_table_privilege('authenticated', 'public.payout_requests', 'select') then
+              raise exception 'baseline missing SELECT grant for authenticated on payout_requests';
+            end if;
+
+            -- RLS insert block. PG uses SQLSTATE 42501 for BOTH missing GRANT and RLS
+            -- policy violations — distinguish by message text only.
+            perform set_config('request.jwt.claim.sub', v_user::text, true);
+            execute 'set local role authenticated';
+            begin
+              insert into public.payout_requests (user_id, amount, status)
+                values (v_user, 1, 'pending');
+              raise exception 'authenticated insert should be blocked by restrictive RLS';
+            exception
+              when others then
+                v_sqlstate := sqlstate;
+                v_sqlerrm := sqlerrm;
+                v_msg := lower(v_sqlerrm);
+                if position('permission denied for table' in v_msg) > 0 then
+                  raise exception 'table GRANT missing (not RLS): %', v_sqlerrm;
+                end if;
+                if position('row-level security' in v_msg) = 0
+                   and position('policy' in v_msg) = 0 then
+                  raise exception 'unexpected insert failure (not RLS policy): state=% msg=%', v_sqlstate, v_sqlerrm;
+                end if;
+                v_rls_blocked := true;
+            end;
+            reset role;
+
+            if not v_rls_blocked then
+              raise exception 'authenticated insert was not blocked';
+            end if;
+
+            select count(*) into v_cnt from public.payout_requests where user_id = v_user and amount = 1;
+            if v_cnt <> 0 then
+              raise exception 'client insert bypassed RLS — unauthorized row present';
+            end if;
+
+            perform set_config('request.jwt.claim.sub', v_other::text, true);
+            execute 'set local role authenticated';
+            begin
+              select count(*) into v_cnt from public.payout_requests where user_id = v_user;
+            exception
+              when others then
+                if position('permission denied for table' in lower(sqlerrm)) > 0 then
+                  raise exception 'cross-user read hit table GRANT denial: %', sqlerrm;
+                end if;
+                raise;
+            end;
+            if v_cnt <> 0 then
+              raise exception 'other user could read foreign payout_requests under RLS';
+            end if;
+            reset role;
+
+            raise notice 'ALL_PAYOUT_DB_SAFETY_CHECKS_PASSED';
           end
           $test$;
           SQL
+
+      - name: Concurrent reservations cannot overdraw same user
+        env:
+          PGPASSWORD: postgres
+        run: |
+          python3 <<'PY'
+          import concurrent.futures
+          import json
+          import os
+          import subprocess
+          import sys
+
+          def attempt(key: str, amount: str) -> str:
+              sql = f"""
+              select public.create_payout_request_atomic(
+                'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid,
+                {amount},
+                'paypal',
+                'c@example.com',
+                2,
+                {float(amount)-2},
+                '{key}'
+              )::text;
+              """
+              env = os.environ.copy()
+              env["PGPASSWORD"] = "postgres"
+              r = subprocess.run(
+                  ["psql", "-h", "localhost", "-U", "postgres", "-d", "payout_test",
+                   "-v", "ON_ERROR_STOP=1", "-t", "-A", "-c", sql],
+                  capture_output=True, text=True, env=env,
+              )
+              if r.returncode != 0:
+                  return f"ERR:{r.stderr.strip()}"
+              return r.stdout.strip()
+
+          setup = """
+          insert into auth.users(id) values ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb') on conflict do nothing;
+          insert into public.referrals(id, referrer_id)
+            values ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb')
+            on conflict do nothing;
+          insert into public.referral_commissions(id, referral_id, commission_amount, status)
+            values ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 50, 'available')
+            on conflict do nothing;
+          """
+          env = os.environ.copy()
+          env["PGPASSWORD"] = "postgres"
+          subprocess.check_call(
+              ["psql", "-h", "localhost", "-U", "postgres", "-d", "payout_test",
+               "-v", "ON_ERROR_STOP=1", "-c", setup],
+              env=env,
+          )
+
+          with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+              futs = [
+                  ex.submit(attempt, "conc-key-aaaa-001", "40"),
+                  ex.submit(attempt, "conc-key-bbbb-002", "40"),
+              ]
+              results = [f.result() for f in futs]
+
+          print("CONCURRENCY_RESULTS:", results)
+          parsed = []
+          for r in results:
+              if r.startswith("ERR:"):
+                  print(r)
+                  sys.exit(1)
+              parsed.append(json.loads(r))
+          ok_count = sum(1 for p in parsed if p.get("ok") is True and not p.get("duplicate"))
+          insuff = sum(1 for p in parsed if p.get("error") == "INSUFFICIENT_BALANCE")
+          if ok_count != 1 or insuff != 1:
+              print("FAIL parsed", parsed)
+              sys.exit(1)
+
+          cnt = subprocess.check_output(
+              ["psql", "-h", "localhost", "-U", "postgres", "-d", "payout_test",
+               "-t", "-A", "-c",
+               "select count(*) from public.payout_requests where user_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'"],
+              text=True, env=env,
+          ).strip()
+          if cnt != "1":
+              print("FAIL row count", cnt)
+              sys.exit(1)
+          print("CONCURRENCY_CHECK_PASSED")
+          PY
