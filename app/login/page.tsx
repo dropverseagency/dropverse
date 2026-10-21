@@ -9,9 +9,9 @@ import { createClient } from '../../lib/supabase'
 import { COUNTRIES, type Country } from '../../lib/countries'
 import { applyPendingReferral } from '../../lib/attributeReferralAction'
 
-/** Buttons show unless explicitly set to "false". Providers must be enabled in Supabase. */
+/** Google shows unless NEXT_PUBLIC_GOOGLE_SIGN_IN=false. Apple stays off until configured. */
 const GOOGLE_SIGN_IN_ENABLED = process.env.NEXT_PUBLIC_GOOGLE_SIGN_IN !== 'false'
-const APPLE_SIGN_IN_ENABLED = process.env.NEXT_PUBLIC_APPLE_SIGN_IN !== 'false'
+const APPLE_SIGN_IN_ENABLED = false
 
 export default function LoginPage() {
   return (
@@ -62,7 +62,6 @@ function LoginPageInner() {
     return '/pricing'
   }
 
-  // After OAuth callback (/auth/callback → /login?oauth=1) or existing session
   useEffect(() => {
     const oauth = searchParams.get('oauth') === '1'
     if (!oauth && typeof window !== 'undefined' && window.location.hash.length < 3) return
@@ -70,7 +69,6 @@ function LoginPageInner() {
     const supabase = createClient()
 
     ;(async () => {
-      // Legacy hash tokens (implicit flow)
       if (typeof window !== 'undefined' && window.location.hash.length >= 3) {
         const { data, error: exchErr } = await supabase.auth.exchangeCodeForSession(window.location.hash)
         if (!exchErr && data.session) {
@@ -207,7 +205,7 @@ function LoginPageInner() {
     }
   }
 
-  async function handleProvider(provider: 'google' | 'apple') {
+  async function handleProvider(provider: 'google') {
     setError(null)
     setMessage(null)
     setProviderLoading(provider)
@@ -217,10 +215,7 @@ function LoginPageInner() {
       provider,
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=${next}`,
-        queryParams:
-          provider === 'google'
-            ? { access_type: 'offline', prompt: 'select_account' }
-            : undefined,
+        queryParams: { access_type: 'offline', prompt: 'select_account' },
       },
     })
     if (providerError) {
@@ -272,19 +267,6 @@ function LoginPageInner() {
                           fill="#34A853"
                           d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
                         />
-                      </svg>
-                    }
-                  />
-                ) : null}
-                {APPLE_SIGN_IN_ENABLED ? (
-                  <ProviderButton
-                    provider="apple"
-                    label="Apple"
-                    loading={providerLoading === 'apple'}
-                    onClick={() => handleProvider('apple')}
-                    logo={
-                      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true" fill="currentColor">
-                        <path d="M16.365 1.43c0 1.14-.42 2.2-1.23 3.03-.87.9-2.3 1.6-3.5 1.5-.15-1.1.42-2.27 1.2-3.1.88-.94 2.4-1.63 3.53-1.43zM20.5 17.2c-.55 1.27-.82 1.84-1.54 2.96-1 1.53-2.4 3.43-4.15 3.45-1.56.02-1.96-1-4.08-1-2.12 0-2.56.98-4.1 1.02-1.72.04-3.04-1.66-4.05-3.18C.9 17.4-.6 12.9 1.1 9.8c1.07-1.86 2.76-3.03 4.7-3.06 1.48-.03 2.88 1 3.9 1 1.02 0 2.62-1.23 4.42-1.05.75.03 2.86.3 4.21 2.27-3.7 2.05-3.1 7.35.17 8.24z" />
                       </svg>
                     }
                   />
@@ -348,9 +330,7 @@ function LoginPageInner() {
                 </fieldset>
                 <label className="block text-sm font-medium text-[#d9e0dc]">
                   Mobile number{' '}
-                  <span className="text-xs font-normal text-[#9aaca6]">
-                    (must work on WhatsApp or Telegram)
-                  </span>
+                  <span className="text-xs font-normal text-[#9aaca6]">(must work on WhatsApp or Telegram)</span>
                   <CountryPhoneField />
                 </label>
                 <label className="block text-sm font-medium text-[#d9e0dc]">
@@ -377,9 +357,7 @@ function LoginPageInner() {
                 </label>
                 <label className="block text-sm font-medium text-[#d9e0dc]">
                   Referral code{' '}
-                  <span className="text-xs font-normal text-[#9aaca6]">
-                    (optional — from a friend&apos;s invite link)
-                  </span>
+                  <span className="text-xs font-normal text-[#9aaca6]">(optional — from a friend's invite link)</span>
                   <input
                     name="referral_code"
                     id="referral_code"
