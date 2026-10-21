@@ -190,4 +190,61 @@ drop policy if exists "users read own payout requests" on public.payout_requests
 create policy "users read own payout requests" on public.payout_requests
   for select to authenticated using (user_id = auth.uid());
 
+
+-- Complete balance summary independent of the 100-row UI history limit.
+create or replace function public.get_payout_balance_summary(p_user_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $
+declare
+  v_pending_commissions numeric(12,2);
+  v_available_commissions numeric(12,2);
+  v_paid_commissions numeric(12,2);
+  v_non_usd_count bigint;
+  v_open_payouts numeric(12,2);
+  v_paid_payouts numeric(12,2);
+begin
+  if p_user_id is null then
+    raise exception 'INVALID_USER_ID' using errcode = '22023';
+  end if;
+
+  select
+    coalesce(sum(rc.commission_amount) filter (where rc.status in ('pending', 'approved')), 0)::numeric(12,2),
+    coalesce(sum(rc.commission_amount) filter (where rc.status = 'available'), 0)::numeric(12,2),
+    coalesce(sum(rc.commission_amount) filter (where rc.status = 'paid'), 0)::numeric(12,2),
+    count(*) filter (where upper(coalesce(rc.currency, 'USD')) <> 'USD')
+  into v_pending_commissions, v_available_commissions, v_paid_commissions, v_non_usd_count
+  from public.referral_commissions rc
+  join public.referrals r on r.id = rc.referral_id
+  where r.referrer_id = p_user_id;
+
+  if v_non_usd_count > 0 then
+    raise exception 'NON_USD_COMMISSION_IN_USD_PAYOUT_LEDGER' using errcode = '22023';
+  end if;
+
+  select
+    coalesce(sum(pr.amount) filter (where pr.status in ('pending', 'approved')), 0)::numeric(12,2),
+    coalesce(sum(pr.amount) filter (where pr.status = 'paid'), 0)::numeric(12,2)
+  into v_open_payouts, v_paid_payouts
+  from public.payout_requests pr
+  where pr.user_id = p_user_id;
+
+  return jsonb_build_object(
+    'pending', v_pending_commissions,
+    'availableCommissions', v_available_commissions,
+    'available', greatest(0, round((v_available_commissions - v_open_payouts)::numeric, 2)),
+    'processing', v_open_payouts,
+    'paidCommissions', v_paid_commissions,
+    'totalPaidPayouts', v_paid_payouts
+  );
+end;
+$;
+
+revoke all on function public.get_payout_balance_summary(uuid) from public;
+revoke all on function public.get_payout_balance_summary(uuid) from anon;
+revoke all on function public.get_payout_balance_summary(uuid) from authenticated;
+grant execute on function public.get_payout_balance_summary(uuid) to service_role;
+
 commit;
