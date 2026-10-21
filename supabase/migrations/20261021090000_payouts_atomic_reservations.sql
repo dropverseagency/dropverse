@@ -12,9 +12,10 @@ alter table public.referral_commissions
 alter table public.referral_commissions
   drop constraint if exists referral_commissions_status_check;
 
+-- Preserve live statuses including 'reversed' (present in production check).
 alter table public.referral_commissions
   add constraint referral_commissions_status_check
-  check (status in ('pending', 'approved', 'available', 'paid', 'cancelled'));
+  check (status in ('pending', 'approved', 'available', 'paid', 'reversed', 'cancelled'));
 
 -- Persist the exact terms accepted when the request was made. Historical rows remain nullable.
 alter table public.payout_requests
