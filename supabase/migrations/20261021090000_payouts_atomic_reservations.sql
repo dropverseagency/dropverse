@@ -75,6 +75,7 @@ begin
   if p_user_id is null
      or p_amount is null
      or p_amount <= 0
+     or p_method is null
      or p_method not in ('paypal', 'local')
      or p_dropverse_fee is null
      or p_dropverse_fee < 0
