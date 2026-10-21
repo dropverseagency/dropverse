@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
   }
 
   const destination = typeof body.destination === 'string' ? body.destination.trim().slice(0, 200) : ''
-  if (method.id === 'paypal' && destination && !/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(destination)) {
+  if (method.id === 'paypal' && destination && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destination)) {
     return new Response(JSON.stringify({ error: 'INVALID_DESTINATION', message: 'Enter a valid PayPal email address.' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
