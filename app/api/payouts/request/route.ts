@@ -9,7 +9,7 @@ import {
 } from '@/lib/payoutConfig'
 
 async function resolveUser(request: NextRequest) {
-  const bearer = (request.headers.get('authorization') ?? '').replace(/^Bearer\\s+/i, '').trim()
+  const bearer = (request.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
   if (bearer) {
     const supa = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
   }
 
   const destination = typeof body.destination === 'string' ? body.destination.trim().slice(0, 200) : ''
-  if (method.id === 'paypal' && destination && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(destination)) {
+  if (method.id === 'paypal' && destination && !/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(destination)) {
     return new Response(JSON.stringify({ error: 'INVALID_DESTINATION', message: 'Enter a valid PayPal email address.' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
