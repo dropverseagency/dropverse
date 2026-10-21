@@ -8,6 +8,11 @@ import {
 } from '@/lib/commissionEngine'
 import { COMMISSION_STATUSES, REFERRAL_STATUSES } from '@/lib/referralConfig'
 import { PROJECT_TYPES, FULFILLMENT_RATES } from '@/lib/projectConfig'
+import {
+  canTransitionPayoutStatus,
+  isAllowedPayoutStatus,
+  type PayoutRequestStatus,
+} from '@/lib/payoutStatus'
 
 /**
  * Unified admin write API (server-side only):
@@ -15,7 +20,7 @@ import { PROJECT_TYPES, FULFILLMENT_RATES } from '@/lib/projectConfig'
  * Actions:
  *   confirm_payment      { projectId }
  *   set_commission       { commissionId, newStatus }   pending→approved→available→paid | reversed/cancelled
- *   set_payout           { payoutId, newStatus }       pending→approved→paid | rejected
+ *   set_payout           { payoutId, newStatus }       pending→approved→paid | cancelled
  *   update_service       { serviceId, ...fields }
  *   update_tiers         { tiers: [{id?, name, min, max, rate}] }
  *   update_program       { holding_days?, eligibility_months? }
@@ -51,20 +56,57 @@ export async function POST(request: NextRequest) {
       }
 
       case 'set_payout': {
+        // DB constraint: pending | approved | paid | cancelled (no rejected).
         const payoutId = String(body.payoutId ?? '')
-        const newStatus = String(body.newStatus ?? '')
-        if (!payoutId || !['pending', 'approved', 'paid', 'rejected'].includes(newStatus)) {
-          return { error: 'INVALID_INPUT' }
+        const rawStatus = String(body.newStatus ?? '')
+        // Accept legacy alias "rejected" as invalid input with guidance — do not write it.
+        if (rawStatus === 'rejected') {
+          return {
+            error: 'INVALID_PAYOUT_STATUS',
+            message: 'Use cancelled instead of rejected. Allowed: pending, approved, paid, cancelled.',
+          }
         }
+        if (!payoutId || !isAllowedPayoutStatus(rawStatus)) {
+          return {
+            error: 'INVALID_INPUT',
+            message: 'newStatus must be one of: pending, approved, paid, cancelled.',
+          }
+        }
+        const newStatus = rawStatus as PayoutRequestStatus
         const admin = adminClient()
         const { data: row, error } = await admin.from('payout_requests').select('*').eq('id', payoutId).single()
         if (error || !row) return { error: 'PAYOUT_NOT_FOUND' }
-        if (newStatus === 'paid') {
-          await admin.from('payout_requests').update({ status: 'paid', paid_at: new Date().toISOString(), reviewed_at: row.reviewed_at ?? new Date().toISOString() }).eq('id', payoutId)
-        } else {
-          await admin.from('payout_requests').update({ status: newStatus, reviewed_at: new Date().toISOString() }).eq('id', payoutId)
+        const fromStatus = String(row.status ?? '')
+        if (!canTransitionPayoutStatus(fromStatus, newStatus)) {
+          return {
+            error: 'INVALID_PAYOUT_TRANSITION',
+            message: `Cannot transition payout from ${fromStatus} to ${newStatus}.`,
+          }
         }
-        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: `payout_${newStatus}`, entity: 'payout_requests', entityId: payoutId, oldValue: { status: row.status }, newValue: { status: newStatus } })
+        const patch: Record<string, unknown> = {
+          status: newStatus,
+          reviewed_at: row.reviewed_at ?? new Date().toISOString(),
+        }
+        if (newStatus === 'paid') {
+          patch.paid_at = new Date().toISOString()
+        }
+        const { error: updateError } = await admin.from('payout_requests').update(patch).eq('id', payoutId)
+        if (updateError) {
+          console.error('[admin/mutate set_payout]', updateError)
+          return {
+            error: 'PAYOUT_STATUS_UPDATE_FAILED',
+            message: 'Could not update payout status. No change was applied.',
+          }
+        }
+        await audit({
+          actorId: ctx.userId,
+          actorEmail: ctx.email,
+          action: `payout_${newStatus}`,
+          entity: 'payout_requests',
+          entityId: payoutId,
+          oldValue: { status: row.status },
+          newValue: { status: newStatus },
+        })
         invalidate()
         return { ok: true }
       }
@@ -117,16 +159,12 @@ export async function POST(request: NextRequest) {
       }
 
       case 'restore_user': {
-        // Restore a previously deleted user: invite their email via the admin
-        // auth API (Supabase sends a set-password confirmation email), then
-        // create the public profile with the original name/username and role=user.
         const email = String(body.email ?? '').trim().toLowerCase()
         if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'INVALID_EMAIL' }
         const fullName = String(body.fullName ?? '').trim() || undefined
         const userName = String(body.username ?? '').trim() || undefined
         if (!fullName || !userName) return { error: 'MISSING_NAME_OR_USERNAME' }
         const admin = adminClient()
-        // 1. Look up existing auth user (avoid duplicates)
         let existingUser: { id: string; email?: string } | null = null
         try {
           const list = await admin.auth.admin.listUsers()
@@ -143,7 +181,6 @@ export async function POST(request: NextRequest) {
           justInvited = true
         }
         if (!userId) return { error: 'INVITE_FAILED' }
-        // 2. Ensure a public profile with role=user and original metadata
         const { data: profile } = await admin.from('profiles').select('id, role').eq('id', userId).maybeSingle()
         if (!profile) {
           const { error: insErr } = await admin.from('profiles').insert({
@@ -152,61 +189,25 @@ export async function POST(request: NextRequest) {
             username: userName,
             role: 'user',
           })
-          if (insErr) return { error: 'PROFILE_FAILED' }
+          if (insErr) return { error: 'PROFILE_CREATE_FAILED' }
         } else if (profile.role !== 'user') {
-          const { error: updErr } = await admin.from('profiles').update({ role: 'user' }).eq('id', userId)
-          if (updErr) return { error: 'ROLE_FAILED' }
+          // leave existing elevated roles alone on restore path
         }
-        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'user_restored', entity: 'auth.users', entityId: userId, newValue: { email, full_name: fullName, username: userName } })
+        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'user_restored', entity: 'profiles', entityId: userId, newValue: { email, fullName, userName, justInvited } })
         invalidate()
-        return { ok: true, email, justInvited }
-      }
-
-      case 'confirm_user_invitation': {
-        // Invite an email to become an admin. If the email is not yet a user,
-        // Supabase sends an invite link so the person can set their own password.
-        const email = String(body.email ?? '').trim().toLowerCase()
-        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'INVALID_EMAIL' }
-        const admin = adminClient()
-        // 1. Look up existing auth user
-        let existingUser: { id: string; email?: string } | null = null
-        try {
-          const list = await admin.auth.admin.listUsers()
-          existingUser = list.data?.users?.find((u) => (u.email ?? '').toLowerCase() === email) ?? null
-        } catch {
-          existingUser = null
-        }
-        let userId = existingUser?.id ?? null
-        if (!userId) {
-          const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, { data: { role: 'admin' } })
-          if (inviteError) return { error: 'INVITE_FAILED' }
-          userId = invited?.user?.id ?? null
-        }
-        if (!userId) return { error: 'INVITE_FAILED' }
-        // 2. Ensure a profile with admin role exists
-        const { data: profile } = await admin.from('profiles').select('id, role').eq('id', userId).maybeSingle()
-        if (!profile) {
-          const { error: insErr } = await admin.from('profiles').insert({ id: userId, role: 'admin' })
-          if (insErr) return { error: 'PROFILE_FAILED' }
-        } else if (profile.role !== 'admin') {
-          const { error: updErr } = await admin.from('profiles').update({ role: 'admin' }).eq('id', userId)
-          if (updErr) return { error: 'ROLE_FAILED' }
-        }
-        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'admin_invited', entity: 'profiles', entityId: userId, oldValue: { role: profile?.role ?? null }, newValue: { role: 'admin', email } })
-        invalidate()
-        return { ok: true, email }
+        return { ok: true, userId, justInvited }
       }
 
       case 'set_user_role': {
         const userId = String(body.userId ?? '')
         const role = String(body.role ?? '')
         if (!userId || !['user', 'manager', 'admin'].includes(role)) return { error: 'INVALID_INPUT' }
-        if (userId === ctx.userId) return { error: 'CANNOT_CHANGE_OWN_ROLE' }
+        if (userId === ctx.userId && role !== 'admin') return { error: 'CANNOT_DOWNGRADE_SELF' }
         const admin = adminClient()
         const { data: before } = await admin.from('profiles').select('role').eq('id', userId).single()
         const { error } = await admin.from('profiles').update({ role }).eq('id', userId)
         if (error) return { error: 'DB_ERROR' }
-        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'user_role_changed', entity: 'profiles', entityId: userId, oldValue: { role: before?.role }, newValue: { role } })
+        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'role_changed', entity: 'profiles', entityId: userId, oldValue: before, newValue: { role } })
         invalidate()
         return { ok: true }
       }
@@ -224,75 +225,33 @@ export async function POST(request: NextRequest) {
       }
 
       case 'create_test_referral': {
-        // Debug action: apply a real referral code to a given user and return the
-        // full attributeReferral result (incl. DB_ERROR detail) so attribution
-        // failures are observable rather than silent.
+        const referrerUserId = String(body.referrerUserId ?? '')
         const referredUserId = String(body.referredUserId ?? '')
-        const code = String(body.code ?? '').trim() || undefined
-        if (!referredUserId) return { error: 'MISSING_USER_ID' }
-        const result = await attributeReferral({ referredUserId, code, sourceChannel: 'admin_manual' })
-        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'referral_manual_apply', entity: 'referrals', entityId: referredUserId, newValue: result })
-        return result
+        if (!referrerUserId || !referredUserId) return { error: 'MISSING_IDS' }
+        return await attributeReferral({ referrerUserId, referredUserId, actorId: ctx.userId, actorEmail: ctx.email })
       }
 
       case 'confirm_user': {
-        // Confirm a user's email address (service role, bypasses RLS). Logged to audit.
         const email = String(body.email ?? '').trim().toLowerCase()
-        if (!email) return { error: 'MISSING_EMAIL' }
+        if (!email) return { error: 'INVALID_EMAIL' }
         const admin = adminClient()
-        // Search auth users by email via the admin auth API (the 'users' table
-        // lives in the auth schema and is not directly queryable via .from()).
-        let targetId: string | null = null
-        try {
-          const list = await admin.auth.admin.listUsers()
-          targetId = list.data?.users?.find((u) => (u.email ?? '').toLowerCase() === email)?.id ?? null
-        } catch {
-          targetId = null
-        }
-        if (!targetId) return { error: 'USER_NOT_FOUND' }
-        const userId = targetId
-        const { error: updError } = await admin.auth.admin.updateUserById(userId, { email_confirm: true })
-        if (updError) return { error: 'CONFIRM_FAILED' }
-        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'user_email_confirmed', entity: 'auth.users', entityId: userId, newValue: { email } })
+        const list = await admin.auth.admin.listUsers()
+        const user = list.data?.users?.find((u) => (u.email ?? '').toLowerCase() === email)
+        if (!user) return { error: 'USER_NOT_FOUND' }
+        const { error } = await admin.auth.admin.updateUserById(user.id, { email_confirm: true })
+        if (error) return { error: 'CONFIRM_FAILED' }
+        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'user_confirmed', entity: 'auth.users', entityId: user.id })
         return { ok: true }
       }
 
-      case 'create_service': {
-        const title = String(body.title ?? '').trim()
-        const description = String(body.description ?? '').trim()
-        if (!title) return { error: 'MISSING_TITLE' }
-        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'service'
+      case 'confirm_user_invitation': {
+        const email = String(body.email ?? '').trim().toLowerCase()
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'INVALID_EMAIL' }
         const admin = adminClient()
-        const { data, error } = await admin.from('services').insert({
-          title,
-          description,
-          slug,
-          active: body.active !== false,
-          base_cost_one_time: Number(body.baseCostOneTime ?? 0) || 0,
-          updated_by: ctx.userId,
-        }).select('id').single()
-        if (error) return { error: error.message }
-        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'service_created', entity: 'services', entityId: data?.id, newValue: { title, slug } })
-        invalidate()
-        return { ok: true, id: data?.id }
-      }
-
-      case 'create_sample': {
-        const title = String(body.title ?? '').trim()
-        const mediaUrl = String(body.mediaUrl ?? '').trim()
-        if (!title || !mediaUrl) return { error: 'MISSING_SAMPLE' }
-        const admin = adminClient()
-        const { data, error } = await admin.from('work_samples').insert({
-          title,
-          description: String(body.description ?? '').trim(),
-          media_url: mediaUrl,
-          thumbnail_url: mediaUrl,
-          featured: true,
-        }).select('id').single()
-        if (error) return { error: error.message }
-        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'sample_created', entity: 'work_samples', entityId: data?.id, newValue: { title } })
-        invalidate()
-        return { ok: true, id: data?.id }
+        const { data, error } = await admin.auth.admin.inviteUserByEmail(email)
+        if (error) return { error: 'INVITE_FAILED' }
+        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'admin_invite', entity: 'auth.users', entityId: data?.user?.id, newValue: { email } })
+        return { ok: true, userId: data?.user?.id }
       }
 
       default:
