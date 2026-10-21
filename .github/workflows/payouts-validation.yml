@@ -108,7 +108,6 @@ jobs:
           PGPASSWORD: postgres
         run: |
           psql -h localhost -U postgres -d payout_test -v ON_ERROR_STOP=1 <<'SQL'
-          -- Minimal Supabase-compatible roles/auth (ephemeral CI only).
           create role anon nologin;
           create role authenticated nologin;
           create role service_role nologin bypassrls;
@@ -149,9 +148,7 @@ jobs:
             paid_at timestamptz
           );
 
-          -- Match production table grants (Supabase grants API roles table privileges;
-          -- RLS then restricts rows). Without these, SET ROLE authenticated fails at
-          -- table privilege check before any policy runs.
+          -- Production Supabase grants table DML to API roles; RLS restricts rows.
           grant select, insert, update, delete on public.referrals to anon, authenticated, service_role;
           grant select, insert, update, delete on public.referral_commissions to anon, authenticated, service_role;
           grant select, insert, update, delete on public.payout_requests to anon, authenticated, service_role;
@@ -201,6 +198,7 @@ jobs:
             v_rls_blocked boolean := false;
             v_sqlstate text;
             v_sqlerrm text;
+            v_msg text;
           begin
             select pg_get_constraintdef(oid) into v_def
               from pg_constraint where conname = 'referral_commissions_status_check';
@@ -289,7 +287,6 @@ jobs:
                 null;
             end;
 
-            -- Table grants must exist so this is an RLS denial, not privilege denied.
             if not has_table_privilege('authenticated', 'public.payout_requests', 'insert') then
               raise exception 'baseline missing INSERT grant for authenticated on payout_requests';
             end if;
@@ -297,7 +294,8 @@ jobs:
               raise exception 'baseline missing SELECT grant for authenticated on payout_requests';
             end if;
 
-            -- RLS: authenticated client cannot insert (restrictive WITH CHECK false)
+            -- RLS insert block. PG uses SQLSTATE 42501 for BOTH missing GRANT and RLS
+            -- policy violations — distinguish by message text only.
             perform set_config('request.jwt.claim.sub', v_user::text, true);
             execute 'set local role authenticated';
             begin
@@ -308,22 +306,13 @@ jobs:
               when others then
                 v_sqlstate := sqlstate;
                 v_sqlerrm := sqlerrm;
-                -- 42501 = table privilege; that means grants are still wrong.
-                if v_sqlstate = '42501' then
-                  raise exception 'got table permission denied instead of RLS policy denial: %', v_sqlerrm;
+                v_msg := lower(v_sqlerrm);
+                if position('permission denied for table' in v_msg) > 0 then
+                  raise exception 'table GRANT missing (not RLS): %', v_sqlerrm;
                 end if;
-                -- RLS policy violations typically 42501 is NOT used; often 44000 or custom.
-                -- Accept policy-related messages; reject unexpected success paths only.
-                if position('policy' in lower(v_sqlerrm)) = 0
-                   and position('row-level security' in lower(v_sqlerrm)) = 0
-                   and v_sqlstate not in ('42501') then
-                  -- PostgreSQL uses: new row violates row-level security policy
-                  if position('row-level security' in lower(v_sqlerrm)) = 0 then
-                    -- still require that insert failed; log state for diagnosis
-                    if position('violates' in lower(v_sqlerrm)) = 0 and v_sqlstate not in ('P0001') then
-                      raise exception 'unexpected insert failure (not RLS): state=% msg=%', v_sqlstate, v_sqlerrm;
-                    end if;
-                  end if;
+                if position('row-level security' in v_msg) = 0
+                   and position('policy' in v_msg) = 0 then
+                  raise exception 'unexpected insert failure (not RLS policy): state=% msg=%', v_sqlstate, v_sqlerrm;
                 end if;
                 v_rls_blocked := true;
             end;
@@ -338,14 +327,16 @@ jobs:
               raise exception 'client insert bypassed RLS — unauthorized row present';
             end if;
 
-            -- Cross-user read: other authenticated user sees zero foreign rows (RLS filter)
             perform set_config('request.jwt.claim.sub', v_other::text, true);
             execute 'set local role authenticated';
             begin
               select count(*) into v_cnt from public.payout_requests where user_id = v_user;
             exception
-              when insufficient_privilege then
-                raise exception 'cross-user read hit table permission denied; grants missing';
+              when others then
+                if position('permission denied for table' in lower(sqlerrm)) > 0 then
+                  raise exception 'cross-user read hit table GRANT denial: %', sqlerrm;
+                end if;
+                raise;
             end;
             if v_cnt <> 0 then
               raise exception 'other user could read foreign payout_requests under RLS';
