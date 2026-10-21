@@ -9,7 +9,9 @@ import { createClient } from '../../lib/supabase'
 import { COUNTRIES, type Country } from '../../lib/countries'
 import { applyPendingReferral } from '../../lib/attributeReferralAction'
 
-const GOOGLE_SIGN_IN_ENABLED = process.env.NEXT_PUBLIC_GOOGLE_SIGN_IN === 'true'
+/** Buttons show unless explicitly set to "false". Providers must be enabled in Supabase. */
+const GOOGLE_SIGN_IN_ENABLED = process.env.NEXT_PUBLIC_GOOGLE_SIGN_IN !== 'false'
+const APPLE_SIGN_IN_ENABLED = process.env.NEXT_PUBLIC_APPLE_SIGN_IN !== 'false'
 
 export default function LoginPage() {
   return (
@@ -22,12 +24,12 @@ export default function LoginPage() {
 function LoginPageInner() {
   const searchParams = useSearchParams()
   const [redirectTo] = useState(() => searchParams.get('redirect') || '/dashboard')
-  const [mode, setMode] = useState<'login' | 'signup'>(() => searchParams.get('ref') ? 'signup' : 'login')
+  const [mode, setMode] = useState<'login' | 'signup'>(() => (searchParams.get('ref') ? 'signup' : 'login'))
   const [referralPrefill] = useState(() => searchParams.get('ref') || '')
   const [loading, setLoading] = useState(false)
   const [providerLoading, setProviderLoading] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(() => searchParams.get('error'))
 
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
@@ -40,6 +42,56 @@ function LoginPageInner() {
     s.dataset.turnstile = '1'
     document.head.appendChild(s)
   }, [])
+
+  async function firstLoginTarget(
+    supabase: ReturnType<typeof createClient>,
+    userId: string,
+  ): Promise<string> {
+    if (!userId) return redirectTo
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('user_type, user_types')
+      .eq('id', userId)
+      .maybeSingle()
+    const hasType =
+      Boolean(profile?.user_type) ||
+      (Array.isArray(profile?.user_types) && profile.user_types.length > 0)
+    if (!hasType) return `/onboarding?redirect=${encodeURIComponent(redirectTo)}`
+    const { data } = await supabase.from('organizations').select('id').limit(1)
+    if (data && data.length > 0) return redirectTo
+    return '/pricing'
+  }
+
+  // After OAuth callback (/auth/callback → /login?oauth=1) or existing session
+  useEffect(() => {
+    const oauth = searchParams.get('oauth') === '1'
+    if (!oauth && typeof window !== 'undefined' && window.location.hash.length < 3) return
+
+    const supabase = createClient()
+
+    ;(async () => {
+      // Legacy hash tokens (implicit flow)
+      if (typeof window !== 'undefined' && window.location.hash.length >= 3) {
+        const { data, error: exchErr } = await supabase.auth.exchangeCodeForSession(window.location.hash)
+        if (!exchErr && data.session) {
+          applyPendingReferral().catch(() => undefined)
+          window.location.assign(await firstLoginTarget(supabase, data.session.user.id))
+          return
+        }
+      }
+
+      if (oauth) {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        if (session?.user?.id) {
+          applyPendingReferral().catch(() => undefined)
+          window.location.assign(await firstLoginTarget(supabase, session.user.id))
+        }
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [redirectTo, searchParams])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -54,7 +106,7 @@ function LoginPageInner() {
 
     try {
       const turnstileToken =
-        (typeof form.get('cf-turnstile-response') === 'string' && form.get('cf-turnstile-response'))
+        typeof form.get('cf-turnstile-response') === 'string' && form.get('cf-turnstile-response')
           ? String(form.get('cf-turnstile-response'))
           : null
       const guardRes = await fetch('/api/auth/guard', {
@@ -79,7 +131,10 @@ function LoginPageInner() {
           throw new Error('Username is required (at least 3 characters).')
         }
         const allowedTypes = ['lead_generator', 'drop_servicer', 'freelancer'] as const
-        const userTypes = form.getAll('user_types').map((v) => String(v).trim()).filter((v) => (allowedTypes as readonly string[]).includes(v))
+        const userTypes = form
+          .getAll('user_types')
+          .map((v) => String(v).trim())
+          .filter((v) => (allowedTypes as readonly string[]).includes(v))
         if (userTypes.length === 0) {
           throw new Error('Please select at least one: Lead Generator, Drop Servicer, or Freelancer.')
         }
@@ -88,7 +143,9 @@ function LoginPageInner() {
         if (referralCode) {
           try {
             await fetch('/api/referral/pending?code=' + encodeURIComponent(referralCode))
-          } catch { /* non-fatal */ }
+          } catch {
+            /* non-fatal */
+          }
         }
 
         const { data, error: signUpError } = await supabase.auth.signUp({
@@ -96,24 +153,42 @@ function LoginPageInner() {
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/login`,
-            data: { full_name: fullName, phone, username, telegram_username: telegramUsername, user_types: userTypes, user_type: userTypes[0] },
+            data: {
+              full_name: fullName,
+              phone,
+              username,
+              telegram_username: telegramUsername,
+              user_types: userTypes,
+              user_type: userTypes[0],
+            },
             ...(turnstileToken ? { captchaToken: turnstileToken } : {}),
           },
         })
         if (signUpError) {
           const sMsg = signUpError.message || ''
           const sDetail = ((signUpError as { details?: string }).details || '').toLowerCase()
-          if (sMsg.includes('already registered') || sDetail.includes('duplicate') || sMsg.includes('duplicate')) {
-            throw new Error('This email is already registered — please sign in instead, or use a different email.')
+          if (
+            sMsg.includes('already registered') ||
+            sDetail.includes('duplicate') ||
+            sMsg.includes('duplicate')
+          ) {
+            throw new Error(
+              'This email is already registered — please sign in instead, or use a different email.',
+            )
           }
           throw signUpError
         }
         applyPendingReferral().catch(() => undefined)
         if (data.session?.user?.id) {
-          await supabase.from('profiles').update({ user_types: userTypes, user_type: userTypes[0] }).eq('id', data.session.user.id)
+          await supabase
+            .from('profiles')
+            .update({ user_types: userTypes, user_type: userTypes[0] })
+            .eq('id', data.session.user.id)
           window.location.assign(redirectTo)
         } else {
-          setMessage('Account created. Please open the confirmation email we sent to your inbox, then sign in.')
+          setMessage(
+            'Account created. Please open the confirmation email we sent to your inbox, then sign in.',
+          )
         }
       } else {
         const { error: signInError, data: signInData } = await supabase.auth.signInWithPassword({
@@ -132,14 +207,21 @@ function LoginPageInner() {
     }
   }
 
-  async function handleProvider(provider: 'google') {
+  async function handleProvider(provider: 'google' | 'apple') {
     setError(null)
     setMessage(null)
     setProviderLoading(provider)
     const supabase = createClient()
+    const next = encodeURIComponent(redirectTo)
     const { error: providerError } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${window.location.origin}/login?redirect=${encodeURIComponent(redirectTo)}` },
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${next}`,
+        queryParams:
+          provider === 'google'
+            ? { access_type: 'offline', prompt: 'select_account' }
+            : undefined,
+      },
     })
     if (providerError) {
       setError(providerError.message)
@@ -147,30 +229,7 @@ function LoginPageInner() {
     }
   }
 
-  async function firstLoginTarget(
-    supabase: ReturnType<typeof createClient>,
-    userId: string,
-  ): Promise<string> {
-    if (!userId) return redirectTo
-    const { data: profile } = await supabase.from('profiles').select('user_type, user_types').eq('id', userId).maybeSingle()
-    const hasType = Boolean(profile?.user_type) || (Array.isArray(profile?.user_types) && profile.user_types.length > 0)
-    if (!hasType) return `/onboarding?redirect=${encodeURIComponent(redirectTo)}`
-    const { data } = await supabase.from('organizations').select('id').limit(1)
-    if (data && data.length > 0) return redirectTo
-    return '/pricing'
-  }
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (window.location.hash.length < 3) return
-    const supabase = createClient()
-    supabase.auth.exchangeCodeForSession(window.location.hash).then(async ({ data, error }) => {
-      if (!error) {
-        applyPendingReferral().catch(() => undefined)
-        window.location.assign(await firstLoginTarget(supabase, data.session?.user?.id ?? ''))
-      }
-    })
-  }, [redirectTo])
+  const showProviders = GOOGLE_SIGN_IN_ENABLED || APPLE_SIGN_IN_ENABLED
 
   return (
     <main className="min-h-screen grid-bg px-5 py-12 sm:py-20">
@@ -178,67 +237,231 @@ function LoginPageInner() {
         <Brand />
         <div className="card mt-8 rounded-3xl p-7 sm:p-8">
           <p className="text-sm text-[#d8b45a]">{mode === 'login' ? 'Welcome back' : 'Start your journey'}</p>
-          <h1 className="font-display mt-2 text-3xl font-extrabold">{mode === 'login' ? 'Sign in to DropVerse' : 'Create your account'}</h1>
-          <p className="mt-3 text-sm leading-6 text-[#8fa29c]">Access workflow tools, client management templates, and collaborative workspaces for digital teams.</p>
+          <h1 className="font-display mt-2 text-3xl font-extrabold">
+            {mode === 'login' ? 'Sign in to DropVerse' : 'Create your account'}
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-[#8fa29c]">
+            Access workflow tools, client management templates, and collaborative workspaces for digital
+            teams.
+          </p>
 
-          {GOOGLE_SIGN_IN_ENABLED ? (
+          {showProviders ? (
             <>
               <div className="mt-7 grid gap-3">
-                <ProviderButton
-                  provider="google"
-                  label="Google"
-                  loading={providerLoading === 'google'}
-                  onClick={() => handleProvider('google')}
-                  logo={
-                    <svg viewBox="0 0 48 48" className="h-5 w-5" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.01 24.01 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-                  }
-                />
+                {GOOGLE_SIGN_IN_ENABLED ? (
+                  <ProviderButton
+                    provider="google"
+                    label="Google"
+                    loading={providerLoading === 'google'}
+                    onClick={() => handleProvider('google')}
+                    logo={
+                      <svg viewBox="0 0 48 48" className="h-5 w-5" aria-hidden="true">
+                        <path
+                          fill="#EA4335"
+                          d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+                        />
+                        <path
+                          fill="#4285F4"
+                          d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.01 24.01 0 0 0 0 21.56l7.98-6.19z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+                        />
+                      </svg>
+                    }
+                  />
+                ) : null}
+                {APPLE_SIGN_IN_ENABLED ? (
+                  <ProviderButton
+                    provider="apple"
+                    label="Apple"
+                    loading={providerLoading === 'apple'}
+                    onClick={() => handleProvider('apple')}
+                    logo={
+                      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true" fill="currentColor">
+                        <path d="M16.365 1.43c0 1.14-.42 2.2-1.23 3.03-.87.9-2.3 1.6-3.5 1.5-.15-1.1.42-2.27 1.2-3.1.88-.94 2.4-1.63 3.53-1.43zM20.5 17.2c-.55 1.27-.82 1.84-1.54 2.96-1 1.53-2.4 3.43-4.15 3.45-1.56.02-1.96-1-4.08-1-2.12 0-2.56.98-4.1 1.02-1.72.04-3.04-1.66-4.05-3.18C.9 17.4-.6 12.9 1.1 9.8c1.07-1.86 2.76-3.03 4.7-3.06 1.48-.03 2.88 1 3.9 1 1.02 0 2.62-1.23 4.42-1.05.75.03 2.86.3 4.21 2.27-3.7 2.05-3.1 7.35.17 8.24z" />
+                      </svg>
+                    }
+                  />
+                ) : null}
               </div>
-              <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-[.16em] text-[#718781]"><span className="h-px flex-1 bg-white/10" />or email<span className="h-px flex-1 bg-white/10" /></div>
+              <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-[.16em] text-[#718781]">
+                <span className="h-px flex-1 bg-white/10" />
+                or email
+                <span className="h-px flex-1 bg-white/10" />
+              </div>
             </>
           ) : null}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === 'signup' && <>
-              <label className="block text-sm font-medium text-[#d9e0dc]">Full name<input name="full_name" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="text" placeholder="Your full name" required autoComplete="name" /></label>
-              <fieldset className="space-y-2">
-                <legend className="text-sm font-medium text-[#d9e0dc]">I am a… <span className="text-xs font-normal text-[#9aaca6]">(select all that apply)</span></legend>
-                <div className="grid gap-2 sm:grid-cols-3">
-                  {[
-                    { value: 'lead_generator', label: 'Lead Generator', desc: 'I generate & sell leads' },
-                    { value: 'drop_servicer', label: 'Drop Servicer', desc: 'I sell services via freelancers' },
-                    { value: 'freelancer', label: 'Freelancer', desc: 'I deliver the work myself' },
-                  ].map((opt) => (
-                    <label
-                      key={opt.value}
-                      className="cursor-pointer rounded-xl border border-white/10 bg-white/5 p-3 transition has-[:checked]:border-[rgba(216,180,90,0.55)] has-[:checked]:bg-[rgba(216,180,90,0.12)]"
-                    >
-                      <input type="checkbox" name="user_types" value={opt.value} className="sr-only" />
-                      <span className="block text-sm font-semibold text-[#f0f4f2]">{opt.label}</span>
-                      <span className="mt-0.5 block text-[11px] leading-4 text-[#849792]">{opt.desc}</span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-              <label className="block text-sm font-medium text-[#d9e0dc]">Mobile number <span className="text-xs font-normal text-[#9aaca6]">(must work on WhatsApp or Telegram)</span><CountryPhoneField /></label>
-              <label className="block text-sm font-medium text-[#d9e0dc]">Username<input name="username" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="text" placeholder="Pick a username" required minLength={3} autoComplete="username" /></label>
-              <label className="block text-sm font-medium text-[#d9e0dc]">Telegram username <span className="text-xs font-normal text-[#9aaca6]">(optional)</span><input name="telegram_username" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="text" placeholder="@username" autoComplete="nickname" /></label>
-              <label className="block text-sm font-medium text-[#d9e0dc]">Referral code <span className="text-xs font-normal text-[#9aaca6]">(optional — from a friend's invite link)</span><input name="referral_code" id="referral_code" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 uppercase outline-none focus:border-[rgba(216,180,90,0.50)]" type="text" placeholder="DV-XXXXXXXX" maxLength={12} autoComplete="off" defaultValue={referralPrefill} /></label>
-            </>}
-            <label className="block text-sm font-medium text-[#d9e0dc]">Email address<input name="email" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="email" placeholder="you@example.com" required autoComplete="email" /></label>
-            <label className="block text-sm font-medium text-[#d9e0dc]">Password<input name="password" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]" type="password" placeholder="At least 8 characters" required minLength={8} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} /></label>
-            {message && <p className="rounded-lg border border-[rgba(216,180,90,0.30)] bg-[rgba(216,180,90,0.10)] px-4 py-2.5 text-sm text-[#f0d98b]">{message}</p>}
-            {error && <p className="rounded-lg border border-red-400/30 bg-red-400/10 px-4 py-2.5 text-sm text-red-200">{error}</p>}
+            {mode === 'signup' && (
+              <>
+                <label className="block text-sm font-medium text-[#d9e0dc]">
+                  Full name
+                  <input
+                    name="full_name"
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]"
+                    type="text"
+                    placeholder="Your full name"
+                    required
+                    autoComplete="name"
+                  />
+                </label>
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-medium text-[#d9e0dc]">
+                    I am a…{' '}
+                    <span className="text-xs font-normal text-[#9aaca6]">(select all that apply)</span>
+                  </legend>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {[
+                      {
+                        value: 'lead_generator',
+                        label: 'Lead Generator',
+                        desc: 'I generate & sell leads',
+                      },
+                      {
+                        value: 'drop_servicer',
+                        label: 'Drop Servicer',
+                        desc: 'I sell services via freelancers',
+                      },
+                      {
+                        value: 'freelancer',
+                        label: 'Freelancer',
+                        desc: 'I deliver the work myself',
+                      },
+                    ].map((opt) => (
+                      <label
+                        key={opt.value}
+                        className="cursor-pointer rounded-xl border border-white/10 bg-white/5 p-3 transition has-[:checked]:border-[rgba(216,180,90,0.55)] has-[:checked]:bg-[rgba(216,180,90,0.12)]"
+                      >
+                        <input type="checkbox" name="user_types" value={opt.value} className="sr-only" />
+                        <span className="block text-sm font-semibold text-[#f0f4f2]">{opt.label}</span>
+                        <span className="mt-0.5 block text-[11px] leading-4 text-[#849792]">{opt.desc}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                <label className="block text-sm font-medium text-[#d9e0dc]">
+                  Mobile number{' '}
+                  <span className="text-xs font-normal text-[#9aaca6]">
+                    (must work on WhatsApp or Telegram)
+                  </span>
+                  <CountryPhoneField />
+                </label>
+                <label className="block text-sm font-medium text-[#d9e0dc]">
+                  Username
+                  <input
+                    name="username"
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]"
+                    type="text"
+                    placeholder="Pick a username"
+                    required
+                    minLength={3}
+                    autoComplete="username"
+                  />
+                </label>
+                <label className="block text-sm font-medium text-[#d9e0dc]">
+                  Telegram username <span className="text-xs font-normal text-[#9aaca6]">(optional)</span>
+                  <input
+                    name="telegram_username"
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]"
+                    type="text"
+                    placeholder="@username"
+                    autoComplete="nickname"
+                  />
+                </label>
+                <label className="block text-sm font-medium text-[#d9e0dc]">
+                  Referral code{' '}
+                  <span className="text-xs font-normal text-[#9aaca6]">
+                    (optional — from a friend&apos;s invite link)
+                  </span>
+                  <input
+                    name="referral_code"
+                    id="referral_code"
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 uppercase outline-none focus:border-[rgba(216,180,90,0.50)]"
+                    type="text"
+                    placeholder="DV-XXXXXXXX"
+                    maxLength={12}
+                    autoComplete="off"
+                    defaultValue={referralPrefill}
+                  />
+                </label>
+              </>
+            )}
+            <label className="block text-sm font-medium text-[#d9e0dc]">
+              Email address
+              <input
+                name="email"
+                className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]"
+                type="email"
+                placeholder="you@example.com"
+                required
+                autoComplete="email"
+              />
+            </label>
+            <label className="block text-sm font-medium text-[#d9e0dc]">
+              Password
+              <input
+                name="password"
+                className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]"
+                type="password"
+                placeholder="At least 8 characters"
+                required
+                minLength={8}
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              />
+            </label>
+            {message && (
+              <p className="rounded-lg border border-[rgba(216,180,90,0.30)] bg-[rgba(216,180,90,0.10)] px-4 py-2.5 text-sm text-[#f0d98b]">
+                {message}
+              </p>
+            )}
+            {error && (
+              <p className="rounded-lg border border-red-400/30 bg-red-400/10 px-4 py-2.5 text-sm text-red-200">
+                {error}
+              </p>
+            )}
             {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? (
               <div className="flex justify-center">
-                <div className="cf-turnstile" data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY} data-theme="dark" />
+                <div
+                  className="cf-turnstile"
+                  data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+                  data-theme="dark"
+                />
               </div>
             ) : null}
-            <button disabled={loading || Boolean(providerLoading)} className="w-full rounded-xl bg-[#d8b45a] px-5 py-3.5 font-bold text-[#10221f] transition hover:bg-[#f0d98b] disabled:opacity-60">{loading ? 'Processing...' : mode === 'login' ? 'Sign In' : 'Create Account'}</button>
+            <button
+              disabled={loading || Boolean(providerLoading)}
+              className="w-full rounded-xl bg-[#d8b45a] px-5 py-3.5 font-bold text-[#10221f] transition hover:bg-[#f0d98b] disabled:opacity-60"
+            >
+              {loading ? 'Processing...' : mode === 'login' ? 'Sign In' : 'Create Account'}
+            </button>
           </form>
-          {mode === 'signup' && <p className="mt-4 text-xs leading-5 text-[#81948e]">Please make sure your phone number works on WhatsApp or Telegram so we can contact you when needed.</p>}
-          <button type="button" onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(null); setMessage(null) }} className="mt-5 w-full text-sm text-[#9aaca6] hover:text-[#f0d98b]">{mode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}</button>
-          <Link href="/" className="mt-5 block text-center text-xs text-[#718781] hover:text-[#d8b45a]">Back to home</Link>
+          {mode === 'signup' && (
+            <p className="mt-4 text-xs leading-5 text-[#81948e]">
+              Please make sure your phone number works on WhatsApp or Telegram so we can contact you when
+              needed.
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setMode(mode === 'login' ? 'signup' : 'login')
+              setError(null)
+              setMessage(null)
+            }}
+            className="mt-5 w-full text-sm text-[#9aaca6] hover:text-[#f0d98b]"
+          >
+            {mode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+          </button>
+          <Link href="/" className="mt-5 block text-center text-xs text-[#718781] hover:text-[#d8b45a]">
+            Back to home
+          </Link>
         </div>
       </div>
     </main>
@@ -249,7 +472,7 @@ function CountryPhoneField() {
   const [country, setCountry] = useState<Country>(() => {
     const lang = typeof navigator !== 'undefined' ? navigator.language : 'en'
     const cc = lang.split('-').pop()?.toUpperCase() || 'US'
-    return COUNTRIES.find(c => c.iso2 === cc) || COUNTRIES.find(c => c.iso2 === 'US')!
+    return COUNTRIES.find((c) => c.iso2 === cc) || COUNTRIES.find((c) => c.iso2 === 'US')!
   })
   const [number, setNumber] = useState('')
   const [query, setQuery] = useState('')
@@ -268,10 +491,11 @@ function CountryPhoneField() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return COUNTRIES
-    return COUNTRIES.filter(c =>
-      c.name.toLowerCase().includes(q) ||
-      c.iso2.toLowerCase().includes(q) ||
-      c.dialCode.includes(q.replace(/\+/, ''))
+    return COUNTRIES.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.iso2.toLowerCase().includes(q) ||
+        c.dialCode.includes(q.replace(/\+/, '')),
     )
   }, [query])
 
@@ -286,34 +510,49 @@ function CountryPhoneField() {
       <div ref={boxRef} className="relative w-[11rem] shrink-0">
         <button
           type="button"
-          onClick={() => setOpen(o => !o)}
+          onClick={() => setOpen((o) => !o)}
           className="flex h-full w-full items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2 py-3.5 text-sm outline-none focus:border-[rgba(216,180,90,0.50)]"
           aria-label="Choose country code"
         >
           <span className="text-base leading-none">{country.flag}</span>
           <span className="font-semibold text-[#d9e0dc]">{country.iso2}</span>
           <span className="text-[#9aaca6]">{country.dialCode}</span>
-          <svg viewBox="0 0 20 20" fill="currentColor" className="ml-auto h-4 w-4 text-[#718781]" aria-hidden="true"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.09 1.03l-4.25 4.5a.75.75 0 01-1.09 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
+          <svg
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="ml-auto h-4 w-4 text-[#718781]"
+            aria-hidden="true"
+          >
+            <path
+              fillRule="evenodd"
+              d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.09 1.03l-4.25 4.5a.75.75 0 01-1.09 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+              clipRule="evenodd"
+            />
+          </svg>
         </button>
         {open && (
           <div className="absolute left-0 top-full z-40 mt-1 w-[16rem] overflow-hidden rounded-xl border border-white/10 bg-[#122521] shadow-xl">
             <div className="border-b border-white/10 p-2">
               <input
                 value={query}
-                onChange={e => setQuery(e.target.value)}
+                onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search country or code..."
                 autoFocus
                 className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-[rgba(216,180,90,0.50)]"
               />
             </div>
             <ul className="max-h-56 overflow-y-auto">
-              {filtered.length === 0 && <li className="px-3 py-2 text-xs text-[#718781]">No country found</li>}
-              {filtered.map(c => (
+              {filtered.length === 0 && (
+                <li className="px-3 py-2 text-xs text-[#718781]">No country found</li>
+              )}
+              {filtered.map((c) => (
                 <li key={`${c.iso2}-${c.dialCode}-${c.name}`}>
                   <button
                     type="button"
                     onClick={() => pick(c)}
-                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-white/10 ${c.iso2 === country.iso2 ? 'bg-[rgba(216,180,90,0.12)] text-[#f0d98b]' : 'text-[#d9e0dc]'}`}
+                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-white/10 ${
+                      c.iso2 === country.iso2 ? 'bg-[rgba(216,180,90,0.12)] text-[#f0d98b]' : 'text-[#d9e0dc]'
+                    }`}
                   >
                     <span className="text-base leading-none">{c.flag}</span>
                     <span className="w-8 font-semibold">{c.iso2}</span>
@@ -333,7 +572,7 @@ function CountryPhoneField() {
         placeholder="555 123 4567"
         required
         value={number}
-        onChange={e => setNumber(e.target.value)}
+        onChange={(e) => setNumber(e.target.value)}
       />
       <input type="hidden" name="phone" value={`${country.dialCode} ${number.trim()}`} />
     </div>
