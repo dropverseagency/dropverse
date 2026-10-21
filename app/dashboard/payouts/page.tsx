@@ -138,6 +138,7 @@ export default function PayoutsPage() {
   const feePreview = estimateNetUsd(Number.isFinite(amountNum) && amountNum > 0 ? amountNum : 0)
 
   function validateClient(): string | null {
+    if (!data?.policy.withdrawalsEnabled) return 'Withdrawals are not available yet.'
     if (!selectedMethod?.enabled) return 'Selected method is not available.'
     if (!Number.isFinite(amountNum) || amountNum <= 0) return 'Enter a valid amount.'
     if (selectedMethod && amountNum < selectedMethod.minUsd) {
@@ -242,7 +243,12 @@ export default function PayoutsPage() {
               {/* Summary cards */}
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <Stat label="Pending" value={formatUsd(data.balances.pending)} hint="Awaiting approval" />
-                <Stat label="Available" value={formatUsd(data.balances.available)} hint="Eligible to withdraw" accent />
+                <Stat
+                  label="Available"
+                  value={formatUsd(data.balances.available)}
+                  hint={data.policy.withdrawalsEnabled ? 'Eligible to withdraw' : 'Balance tracked — withdrawals not open yet'}
+                  accent
+                />
                 <Stat label="Processing" value={formatUsd(data.balances.processing)} hint="Open requests" />
                 <Stat label="Total paid" value={formatUsd(data.balances.totalPaid)} hint="Completed payouts" />
               </div>
@@ -293,8 +299,8 @@ export default function PayoutsPage() {
                     <button
                       key={m.id}
                       type="button"
-                      disabled={!m.enabled}
-                      onClick={() => m.enabled && setMethod(m.id)}
+                      disabled={!m.enabled || !data.policy.withdrawalsEnabled}
+                      onClick={() => m.enabled && data.policy.withdrawalsEnabled && setMethod(m.id)}
                       className={`rounded-xl border p-4 text-left transition ${
                         method === m.id && m.enabled
                           ? 'border-[rgba(216,180,90,0.55)] bg-[rgba(216,180,90,0.1)]'
@@ -317,6 +323,21 @@ export default function PayoutsPage() {
                   ))}
                 </div>
 
+                {!data.policy.withdrawalsEnabled ? (
+                  <div className="mt-4 rounded-xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] p-5">
+                    <div className="flex items-start gap-2 text-sm text-[#e4c979]">
+                      <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-semibold text-[#f0f4f2]">Withdrawals are not available yet</p>
+                        <p className="mt-1 text-[#c1cbc7]">
+                          PayPal and Local Payments are disabled until provider eligibility and operational setup are
+                          complete. Balances still update here; payout requests cannot be submitted until a method is
+                          enabled.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
                 <div className="mt-4 rounded-xl border border-white/10 bg-[#0a2926] p-5">
                   {data.balances.available <= 0 ? (
                     <div className="flex items-start gap-2 text-sm text-[#81948e]">
@@ -377,6 +398,7 @@ export default function PayoutsPage() {
                     </>
                   )}
                 </div>
+                )}
               </section>
 
               {/* History */}
@@ -415,7 +437,7 @@ export default function PayoutsPage() {
                         <div className="hidden text-[#81948e] sm:block">{h.dropverseFee == null ? '—' : formatUsd(h.dropverseFee)}</div>
                         <div className="hidden text-[#c8d4d0] sm:block">{h.estimatedNet == null ? '—' : formatUsd(h.estimatedNet)}</div>
                         <div className="mt-2 sm:mt-0">
-                          <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-bold ${statusClass(h.status)}`}>
+                          <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClass(h.status)}`}>
                             {statusLabel(h.status)}
                           </span>
                         </div>
@@ -430,35 +452,34 @@ export default function PayoutsPage() {
       </div>
 
       {confirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0a2926] p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0a2926] p-6 shadow-xl">
             <h3 className="font-display text-xl font-bold text-[#f0f4f2]">Confirm payout request</h3>
             <p className="mt-2 text-sm text-[#81948e]">
-              No automatic transfer will be sent yet. Ops will process on a scheduled payout date.
+              This records a pending request for review. No automatic transfer is sent.
             </p>
             <div className="mt-4 space-y-1 rounded-lg border border-white/5 bg-[#071210] px-4 py-3 text-sm">
               <Row label="Method" value={selectedMethod?.label || method} />
               <Row label="Amount" value={formatUsd(feePreview.gross)} />
               <Row label="DropVerse fee" value={`− ${formatUsd(feePreview.dropverseFee)}`} />
               <Row label="Estimated net" value={formatUsd(feePreview.estimatedNet)} strong />
-              {destination && <Row label="Destination" value={destination} />}
-              <Row label="Next processing" value={data?.policy.nextScheduledProcessingDate || '—'} />
             </div>
+            {formErr && <p className="mt-3 text-sm text-[#e89a8d]">{formErr}</p>}
             <div className="mt-5 flex flex-wrap gap-2">
               <button
                 type="button"
                 disabled={submitting}
                 onClick={submitRequest}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-[#d8b45a] px-4 py-3 text-sm font-bold text-[#10221f] hover:bg-[#f0d98b] disabled:opacity-60"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-[#d8b45a] px-5 py-3 text-sm font-bold text-[#10221f] disabled:opacity-60"
               >
-                {submitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                {submitting ? <Loader2 className="animate-spin" size={16} /> : null}
                 Submit request
               </button>
               <button
                 type="button"
                 disabled={submitting}
                 onClick={() => setConfirmOpen(false)}
-                className="rounded-full border border-white/15 px-4 py-3 text-sm font-semibold text-[#c8d4d0] hover:bg-white/5"
+                className="rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-[#c1cbc7]"
               >
                 Cancel
               </button>
@@ -478,23 +499,22 @@ function Stat({
 }: {
   label: string
   value: string
-  hint: string
+  hint?: string
   accent?: boolean
 }) {
   return (
     <div
       className={`rounded-xl border p-4 ${
         accent
-          ? 'border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.06)]'
+          ? 'border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)]'
           : 'border-white/5 bg-[rgba(255,255,255,0.02)]'
       }`}
     >
-      <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-[#7f918c]">
-        {label === 'Available' ? <Wallet size={13} className="text-[#d8b45a]" /> : <Clock size={13} className="text-[#d8b45a]" />}
-        {label}
+      <div className="text-[11px] font-bold uppercase tracking-wider text-[#7f918c]">{label}</div>
+      <div className={`mt-1 font-display text-xl font-extrabold ${accent ? 'text-[#e4c979]' : 'text-[#f0f4f2]'}`}>
+        {value}
       </div>
-      <div className="mt-1 text-xl font-extrabold text-[#f0f4f2] sm:text-2xl">{value}</div>
-      <div className="mt-0.5 text-[11px] text-[#81948e]">{hint}</div>
+      {hint ? <div className="mt-0.5 text-[11px] text-[#81948e]">{hint}</div> : null}
     </div>
   )
 }
@@ -502,18 +522,18 @@ function Stat({
 function Row({
   label,
   value,
-  strong,
   muted,
+  strong,
 }: {
   label: string
   value: string
-  strong?: boolean
   muted?: boolean
+  strong?: boolean
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-[#81948e]">{label}</span>
-      <span className={strong ? 'font-bold text-[#f0d98b]' : muted ? 'text-[#7f918c]' : 'text-[#e8efe9]'}>
+      <span className={strong ? 'font-semibold text-[#f0f4f2]' : muted ? 'text-[#7f918c]' : 'text-[#c8d4d0]'}>
         {value}
       </span>
     </div>
