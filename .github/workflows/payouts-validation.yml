@@ -10,6 +10,7 @@ on:
       - 'lib/payoutConfig.ts'
       - 'lib/payoutStatus.ts'
       - 'tests/**'
+      - 'scripts/payouts-ci-db.sh'
       - 'supabase/migrations/**'
       - '.github/workflows/payouts-validation.yml'
       - 'package.json'
@@ -24,6 +25,7 @@ on:
       - 'lib/payoutConfig.ts'
       - 'lib/payoutStatus.ts'
       - 'tests/**'
+      - 'scripts/payouts-ci-db.sh'
       - 'supabase/migrations/**'
       - '.github/workflows/payouts-validation.yml'
       - 'package.json'
@@ -85,7 +87,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg-isready -U postgres -d payout_test"
+          --health-cmd "pg_isready -U postgres -d payout_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -114,17 +116,4 @@ jobs:
       - name: Bootstrap + apply migration + safety tests
         env:
           PGPASSWORD: postgres
-        run: |
-          set -euo pipefail
-          echo "TESTED_SHA=$(git rev-parse HEAD)"
-          # Reuse existing workflow body from repo history for migration tests.
-          # If the full script is maintained elsewhere, keep this job aligned.
-          if [ -f scripts/payouts-ci-db.sh ]; then
-            bash scripts/payouts-ci-db.sh
-          else
-            # Minimal presence check: migration file and reversed status must exist
-            test -f supabase/migrations/20261021090000_payouts_atomic_reservations.sql
-            grep -q "reversed" supabase/migrations/20261021090000_payouts_atomic_reservations.sql
-            grep -q "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PARAMS" supabase/migrations/20261021090000_payouts_atomic_reservations.sql
-            echo "Migration file presence checks passed (full ephemeral DB suite runs on existing CI paths)."
-          fi
+        run: bash scripts/payouts-ci-db.sh
