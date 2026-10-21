@@ -135,6 +135,15 @@ export async function POST(request: NextRequest) {
         headers: { 'Content-Type': 'application/json' },
       })
     }
+    if (result.error === 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PARAMS') {
+      return new Response(JSON.stringify({
+        error: 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PARAMS',
+        message: 'This request key was already used with different payout terms. Generate a new key or retry with the original amount and method.',
+      }), {
+        status: 409,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
     console.error('[payouts/request] atomic reservation rejected', result.error)
     return new Response(JSON.stringify({ error: 'SAVE_FAILED' }), {
       status: 500,
