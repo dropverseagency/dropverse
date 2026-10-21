@@ -247,4 +247,44 @@ revoke all on function public.get_payout_balance_summary(uuid) from anon;
 revoke all on function public.get_payout_balance_summary(uuid) from authenticated;
 grant execute on function public.get_payout_balance_summary(uuid) to service_role;
 
+-- Restrictive policies keep any pre-existing permissive policy from widening
+-- access to other users' financial records or enabling direct client writes.
+drop policy if exists "users only read own referrals" on public.referrals;
+create policy "users only read own referrals" on public.referrals
+  as restrictive for select to authenticated using (referrer_id = auth.uid());
+
+drop policy if exists "users only read own referral commissions" on public.referral_commissions;
+create policy "users only read own referral commissions" on public.referral_commissions
+  as restrictive for select to authenticated using (
+    exists (
+      select 1 from public.referrals r
+      where r.id = referral_commissions.referral_id
+        and r.referrer_id = auth.uid()
+    )
+  );
+
+drop policy if exists "users only read own payout requests" on public.payout_requests;
+create policy "users only read own payout requests" on public.payout_requests
+  as restrictive for select to authenticated using (user_id = auth.uid());
+
+drop policy if exists "clients cannot insert payout requests directly" on public.payout_requests;
+create policy "clients cannot insert payout requests directly" on public.payout_requests
+  as restrictive for insert to anon, authenticated with check (false);
+drop policy if exists "clients cannot update payout requests directly" on public.payout_requests;
+create policy "clients cannot update payout requests directly" on public.payout_requests
+  as restrictive for update to anon, authenticated using (false) with check (false);
+drop policy if exists "clients cannot delete payout requests directly" on public.payout_requests;
+create policy "clients cannot delete payout requests directly" on public.payout_requests
+  as restrictive for delete to anon, authenticated using (false);
+
+drop policy if exists "clients cannot insert referral commissions directly" on public.referral_commissions;
+create policy "clients cannot insert referral commissions directly" on public.referral_commissions
+  as restrictive for insert to anon, authenticated with check (false);
+drop policy if exists "clients cannot update referral commissions directly" on public.referral_commissions;
+create policy "clients cannot update referral commissions directly" on public.referral_commissions
+  as restrictive for update to anon, authenticated using (false) with check (false);
+drop policy if exists "clients cannot delete referral commissions directly" on public.referral_commissions;
+create policy "clients cannot delete referral commissions directly" on public.referral_commissions
+  as restrictive for delete to anon, authenticated using (false);
+
 commit;
