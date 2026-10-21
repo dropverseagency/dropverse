@@ -197,7 +197,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = public, pg_temp
-as $
+as $$
 declare
   v_pending_commissions numeric(12,2);
   v_available_commissions numeric(12,2);
