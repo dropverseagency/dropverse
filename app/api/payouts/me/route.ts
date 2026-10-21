@@ -40,57 +40,14 @@ export async function GET(request: NextRequest) {
   if (!user) return jsonError('NOT_AUTHENTICATED', 401)
 
   const admin = adminClient()
-  const { data: referralRows, error: referralsError } = await admin
-    .from('referrals')
-    .select('id')
-    .eq('referrer_id', user.id)
 
-  if (referralsError || !referralRows) {
-    console.error('[payouts/me] referral lookup failed', referralsError)
+  const { data: summary, error: summaryError } = await admin.rpc('get_payout_balance_summary', {
+    p_user_id: user.id,
+  })
+  if (summaryError || !summary || typeof summary !== 'object') {
+    console.error('[payouts/me] balance summary failed', summaryError)
     return jsonError('PAYOUT_DATA_UNAVAILABLE')
   }
-
-  const referralIds = referralRows.map((r: { id: string }) => r.id)
-  let commissions: {
-    id: string
-    commission_amount: number | null
-    status: string
-    currency: string | null
-    created_at: string
-    available_at: string | null
-    paid_at: string | null
-  }[] = []
-
-  if (referralIds.length > 0) {
-    const { data, error } = await admin
-      .from('referral_commissions')
-      .select('id, commission_amount, status, currency, created_at, available_at, paid_at')
-      .in('referral_id', referralIds)
-
-    if (error || !data) {
-      console.error('[payouts/me] commission lookup failed', error)
-      return jsonError('PAYOUT_DATA_UNAVAILABLE')
-    }
-    commissions = data
-  }
-
-  // Do not mix currencies in a USD payout balance.
-  const nonUsdCommission = commissions.some((c) => (c.currency ?? 'USD').toUpperCase() !== 'USD')
-  if (nonUsdCommission) {
-    console.error('[payouts/me] non-USD commission found for USD payout ledger', { userId: user.id })
-    return jsonError('PAYOUT_DATA_UNAVAILABLE')
-  }
-
-  const sum = (status: string | string[]) => {
-    const set = new Set(Array.isArray(status) ? status : [status])
-    return commissions
-      .filter((c) => set.has(c.status))
-      .reduce((s, c) => s + Number(c.commission_amount || 0), 0)
-  }
-
-  const pendingBalance = Math.round(sum(['pending', 'approved']) * 100) / 100
-  const availableCommissions = Math.round(sum('available') * 100) / 100
-  const paidFromCommissions = Math.round(sum('paid') * 100) / 100
 
   const { data: payouts, error: payoutsError } = await admin
     .from('payout_requests')
@@ -104,17 +61,12 @@ export async function GET(request: NextRequest) {
     return jsonError('PAYOUT_DATA_UNAVAILABLE')
   }
 
-  const openPayouts = payouts.filter((p) => p.status === 'pending' || p.status === 'approved')
-  const processingBalance = Math.round(
-    openPayouts.reduce((s, p) => s + Number(p.amount || 0), 0) * 100,
-  ) / 100
-  const totalPaidPayouts = Math.round(
-    payouts
-      .filter((p) => p.status === 'paid')
-      .reduce((s, p) => s + Number(p.amount || 0), 0) * 100,
-  ) / 100
-
-  const availableBalance = Math.max(0, Math.round((availableCommissions - processingBalance) * 100) / 100)
+  const pendingBalance = Number(summary.pending ?? 0)
+  const availableCommissions = Number(summary.availableCommissions ?? 0)
+  const paidFromCommissions = Number(summary.paidCommissions ?? 0)
+  const processingBalance = Number(summary.processing ?? 0)
+  const availableBalance = Number(summary.available ?? 0)
+  const totalPaidPayouts = Number(summary.totalPaidPayouts ?? 0)
 
   const history = payouts.map((p) => ({
     id: p.id,
