@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
         nextScheduledProcessingDate: nextProcessing.toISOString().slice(0, 10),
         scheduleNote:
           'Processing runs on the 5th and 20th of each month. If a date falls on a non-business day or the provider is unavailable, processing may move to the next applicable business day. These are scheduled processing dates, not guaranteed arrival dates.',
-        withdrawalsEnabled: true,
+        withdrawalsEnabled: PAYOUT_METHODS.some((m) => m.enabled),
         transfersActivated: false,
         transfersNote:
           'Requests are recorded for admin review. Automatic provider transfers are not activated yet — status stays pending until operations processes the payout.',

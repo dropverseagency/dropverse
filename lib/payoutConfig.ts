@@ -32,14 +32,14 @@ export const PAYOUT_METHODS: PayoutMethodConfig[] = [
     id: 'paypal',
     label: 'PayPal',
     minUsd: 50,
-    enabled: true,
+    enabled: false,
     description: 'Withdraw to a PayPal account in USD. Minimum $50.',
   },
   {
     id: 'local',
     label: 'Local Payments',
     minUsd: 25,
-    enabled: true,
+    enabled: false,
     description:
       'Local bank transfer or mobile money (Egypt / regional). Minimum $25 equivalent. Ops confirms corridor details before sending.',
   },
