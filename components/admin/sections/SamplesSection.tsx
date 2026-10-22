@@ -15,7 +15,7 @@ type Sample = {
   cover_url: string | null
   freelancer: string
   sample_costs?: { cost_usd: number }[]
-  sample_files?: { id: string; kind: string; mime: string; size_bytes: number }[]
+  sample_files?: { id: string; kind: string; mime: string; size_bytes: number; signed_url?: string | null }[]
 }
 
 export default function SamplesSection() {
@@ -90,10 +90,11 @@ export default function SamplesSection() {
                   <span>Client price: {sample.price_usd == null ? 'not set' : `$${Number(sample.price_usd).toFixed(2)}`}</span>
                   <span>{sample.sample_files?.length || 0} file(s)</span>
                 </div>
+                {sample.sample_files?.length ? <div className="mt-3 flex flex-wrap gap-2">{sample.sample_files.map((file) => file.signed_url ? <a key={file.id} href={file.signed_url} target="_blank" rel="noreferrer" className="rounded-full border border-white/15 px-3 py-1.5 text-xs text-[#e4c979] hover:bg-white/5">Preview {file.kind} · {Math.max(1, Math.round(file.size_bytes / 1024))} KB ↗</a> : null)}</div> : null}
               </div>
             </div>
 
-            {sample.status === 'pending_review' || sample.status === 'rejected' || sample.status === 'unpublished' ? (
+            {sample.status === 'pending_review' || sample.status === 'rejected' || sample.status === 'unpublished' || sample.status === 'approved' ? (
               <div className="mt-5 grid gap-3 border-t border-white/10 pt-4 sm:grid-cols-[1fr_auto]">
                 <div className="space-y-3">
                   <label className="block text-xs text-[#a9bbb5]">Client price (USD, required for approval)
