@@ -151,7 +151,7 @@ export default function FreelancerSamplesPage() {
             </label>
             <label className="flex items-start gap-3 text-xs leading-5 text-[#a9bbb5]">
               <input type="checkbox" checked={rights} onChange={(e) => setRights(e.target.checked)} className="mt-1 accent-[#d8b45a]" />
-              <span>I confirm that I own this work or have permission to share it, and that it contains no confidential client information or material I am not authorized to publish.</span>
+              <span>I confirm that I own this work or have permission to share it, and that it contains no confidential client information or material I am not authorized to publish. If DropVerse approves it, I grant DropVerse a non-exclusive, worldwide, royalty-free license to display and promote this sample in the public Samples Vault and let DropVerse users (including Drop Servicers) show it in proposals, portfolios, and marketing to help sell the relevant digital services. I understand this does not transfer ownership or let anyone claim they created my work. I can request that DropVerse remove the public listing for future use by contacting support; this does not undo uses already made lawfully.</span>
             </label>
             {error ? <p role="alert" className="rounded-xl border border-red-400/20 bg-red-400/5 p-3 text-sm text-red-200">{error}</p> : null}
             {success ? <p role="status" className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-3 text-sm text-emerald-200">{success}</p> : null}
