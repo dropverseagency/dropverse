@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Link from 'next/link'
 import SpaceRemitPayForm from '../../../components/SpaceRemitPayForm'
 import PayPalCheckout from '../../../components/PayPalCheckout'
 import PaymentMethodPicker, { type PaymentRail } from '../../../components/PaymentMethodPicker'
@@ -18,6 +19,44 @@ export default function InvoicePayForm({ invoiceId, due, amount, preferredMethod
   const [payError, setPayError] = useState<string | null>(null)
   const [paySuccess, setPaySuccess] = useState(false)
   const [paying, setPaying] = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [termsRecorded, setTermsRecorded] = useState(false)
+  const [termsBusy, setTermsBusy] = useState(false)
+
+  async function changeTermsAcceptance(checked: boolean) {
+    setTermsAccepted(checked)
+    setTermsRecorded(false)
+    setPayError(null)
+    if (!checked) return
+    setTermsBusy(true)
+    try {
+      const response = await fetch('/api/legal/acceptance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accepted: true,
+          termsVersion: '2026-10-23',
+          itemType: 'invoice',
+          itemId: invoiceId,
+          itemName: `Invoice ${invoiceId.slice(0, 8)}`,
+        }),
+      })
+      const json = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        setTermsAccepted(false)
+        setPayError(json.error === 'INVOICE_NOT_PAYABLE'
+          ? 'This invoice is no longer payable.'
+          : 'We could not record your agreement. Please try again.')
+        return
+      }
+      setTermsRecorded(true)
+    } catch {
+      setTermsAccepted(false)
+      setPayError('We could not record your agreement. Please check your connection and try again.')
+    } finally {
+      setTermsBusy(false)
+    }
+  }
 
   async function confirmPayment(paymentId: string, provider: 'spaceremit' | 'paypal') {
     setPaying(true)
@@ -84,6 +123,22 @@ export default function InvoicePayForm({ invoiceId, due, amount, preferredMethod
         </div>
       )}
 
+      {rail === 'local' && (
+        <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-[#071f1d] p-3 text-xs leading-5 text-[#c5d0cb]">
+          <input
+            type="checkbox"
+            checked={termsAccepted}
+            disabled={termsBusy || paying}
+            onChange={(event) => void changeTermsAcceptance(event.target.checked)}
+            className="mt-1 h-4 w-4 shrink-0 accent-[#d8b45a]"
+          />
+          <span>
+            I agree to the <Link href="/terms" target="_blank" className="font-semibold text-[#e4c979] underline underline-offset-2">Terms of Service</Link> and <Link href="/refund" target="_blank" className="font-semibold text-[#e4c979] underline underline-offset-2">Refund Policy</Link> for this digital service and invoice payment.
+            {termsBusy ? ' Recording agreement…' : ''}
+          </span>
+        </label>
+      )}
+
       {rail === 'paypal' ? (
         <div className="mt-5">
           <p className="mb-3 text-[11px] leading-5 text-[#687d76]">
@@ -94,6 +149,8 @@ export default function InvoicePayForm({ invoiceId, due, amount, preferredMethod
             amount={amount}
             description={`DropVerse invoice ${invoiceId} — ${due}`}
             disabled={paying}
+            itemType="invoice"
+            itemId={invoiceId}
             onSuccess={(details) => {
               void confirmPayment(details.orderId, 'paypal')
             }}
@@ -121,6 +178,7 @@ export default function InvoicePayForm({ invoiceId, due, amount, preferredMethod
             submitLabel={`Pay ${due} →`}
             publicKey={process.env.NEXT_PUBLIC_SPACEREMIT_PUBLIC_KEY ?? ''}
             onPaid={(code) => void confirmPayment(code, 'spaceremit')}
+            disabled={!termsRecorded || termsBusy || paying}
             onMessage={(msg: string) => setPayError(msg)}
           />
           {paying && <div className="mt-4 text-center text-xs text-[#8f9f9a]">Verifying your payment…</div>}
