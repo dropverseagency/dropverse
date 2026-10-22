@@ -60,6 +60,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'PACK_NOT_FOUND' }, { status: 404 })
     }
 
+    const { data: consent } = await admin
+      .from('audit_logs')
+      .select('id, new_value')
+      .eq('action', 'checkout_terms_accepted')
+      .eq('entity', 'lead_pack')
+      .eq('entity_id', purchase.pack_id)
+      .eq('actor_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const consentValue = consent?.new_value as Record<string, unknown> | null
+    if (!consent || consentValue?.accepted !== true || consentValue?.terms_version !== '2026-10-23') {
+      return NextResponse.json({ error: 'TERMS_ACCEPTANCE_REQUIRED' }, { status: 400 })
+    }
+
     const spRes = await fetch('https://spaceremit.com/api/v2/payment_info/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
