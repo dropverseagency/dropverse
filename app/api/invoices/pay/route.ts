@@ -131,6 +131,21 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // The client must have affirmatively accepted the current terms before the payment API can confirm an invoice.
+  const { data: consent } = await getServiceSupabase()
+    .from('audit_logs')
+    .select('id, new_value')
+    .eq('action', 'checkout_terms_accepted')
+    .eq('entity', 'invoice')
+    .eq('entity_id', invoiceId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const consentValue = consent?.new_value as Record<string, unknown> | null
+  if (!consent || consentValue?.accepted !== true || consentValue?.terms_version !== '2026-10-23') {
+    return NextResponse.json({ error: 'TERMS_ACCEPTANCE_REQUIRED' }, { status: 400 })
+  }
+
   const expectedAmount = Number((invoice as any).amount || 0)
   const expectedCurrency = String((invoice as any).currency || 'USD')
 
