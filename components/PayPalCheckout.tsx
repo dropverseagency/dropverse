@@ -108,7 +108,7 @@ export default function PayPalCheckout({
                     accepted: true,
                     termsVersion: '2026-10-23',
                     itemType,
-                    itemId: itemId || planName,
+                    itemId,
                     itemName: planName,
                   }),
                 })
