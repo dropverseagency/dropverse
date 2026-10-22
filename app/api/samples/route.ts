@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
         .eq('owner_id', userId)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return NextResponse.json({ items: (data ?? []).map((item) => publicSample(item, true)) })
+      return NextResponse.json({ items: (data ?? []).map((item) => publicSample(item)) })
     }
 
     const { data, error } = await admin
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
       .select('id, title, slug, category, description, price_usd, turnaround_days, cover_path, created_at, freelancer_display_name, freelancer_category')
       .order('created_at', { ascending: false })
     if (error) throw error
-    return NextResponse.json({ items: (data ?? []).map(publicSample) })
+    return NextResponse.json({ items: (data ?? []).map((item) => publicSample(item, true)) })
   } catch (e) {
     const code = (e as Error).message
     if (code === 'NOT_AUTHENTICATED') return NextResponse.json({ error: code }, { status: 401 })
