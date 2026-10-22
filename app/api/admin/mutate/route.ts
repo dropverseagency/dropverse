@@ -7,6 +7,7 @@ import {
   type CommissionStatus,
 } from '@/lib/commissionEngine'
 import { COMMISSION_STATUSES, REFERRAL_STATUSES } from '@/lib/referralConfig'
+import { decidePayoutStatusUpdate } from '@/lib/payoutStatus'
 import { PROJECT_TYPES, FULFILLMENT_RATES } from '@/lib/projectConfig'
 
 /**
@@ -15,7 +16,7 @@ import { PROJECT_TYPES, FULFILLMENT_RATES } from '@/lib/projectConfig'
  * Actions:
  *   confirm_payment      { projectId }
  *   set_commission       { commissionId, newStatus }   pending→approved→available→paid | reversed/cancelled
- *   set_payout           { payoutId, newStatus }       pending→approved→paid | rejected
+ *   set_payout           { payoutId, newStatus }       pending→approved→paid | cancelled (rejected alias)
  *   update_service       { serviceId, ...fields }
  *   update_tiers         { tiers: [{id?, name, min, max, rate}] }
  *   update_program       { holding_days?, eligibility_months? }
@@ -52,21 +53,50 @@ export async function POST(request: NextRequest) {
 
       case 'set_payout': {
         const payoutId = String(body.payoutId ?? '')
-        const newStatus = String(body.newStatus ?? '')
-        if (!payoutId || !['pending', 'approved', 'paid', 'rejected'].includes(newStatus)) {
-          return { error: 'INVALID_INPUT' }
+        const requestedStatus = String(body.newStatus ?? '')
+        if (!payoutId || !requestedStatus) {
+          return { error: 'INVALID_INPUT', message: 'payoutId and newStatus are required.' }
         }
         const admin = adminClient()
         const { data: row, error } = await admin.from('payout_requests').select('*').eq('id', payoutId).single()
         if (error || !row) return { error: 'PAYOUT_NOT_FOUND' }
-        if (newStatus === 'paid') {
-          await admin.from('payout_requests').update({ status: 'paid', paid_at: new Date().toISOString(), reviewed_at: row.reviewed_at ?? new Date().toISOString() }).eq('id', payoutId)
-        } else {
-          await admin.from('payout_requests').update({ status: newStatus, reviewed_at: new Date().toISOString() }).eq('id', payoutId)
+
+        const decision = decidePayoutStatusUpdate(String(row.status), requestedStatus)
+        if (!decision.ok) {
+          return { error: decision.error, message: decision.message }
         }
-        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: `payout_${newStatus}`, entity: 'payout_requests', entityId: payoutId, oldValue: { status: row.status }, newValue: { status: newStatus } })
+        if (decision.noop) {
+          return { ok: true, status: decision.status, noop: true }
+        }
+
+        const patch: Record<string, unknown> = {
+          status: decision.status,
+          reviewed_at: row.reviewed_at ?? new Date().toISOString(),
+        }
+        if (decision.status === 'paid') {
+          patch.paid_at = new Date().toISOString()
+          patch.reviewed_at = row.reviewed_at ?? new Date().toISOString()
+        }
+
+        const { error: updError } = await admin.from('payout_requests').update(patch).eq('id', payoutId)
+        if (updError) {
+          console.error('[admin/mutate set_payout]', updError)
+          return {
+            error: 'PAYOUT_UPDATE_FAILED',
+            message: 'Could not update payout status. Check that the status is allowed by the database.',
+          }
+        }
+        await audit({
+          actorId: ctx.userId,
+          actorEmail: ctx.email,
+          action: `payout_${decision.status}`,
+          entity: 'payout_requests',
+          entityId: payoutId,
+          oldValue: { status: row.status },
+          newValue: { status: decision.status, requested: requestedStatus },
+        })
         invalidate()
-        return { ok: true }
+        return { ok: true, status: decision.status }
       }
 
       case 'update_service': {
@@ -117,16 +147,12 @@ export async function POST(request: NextRequest) {
       }
 
       case 'restore_user': {
-        // Restore a previously deleted user: invite their email via the admin
-        // auth API (Supabase sends a set-password confirmation email), then
-        // create the public profile with the original name/username and role=user.
         const email = String(body.email ?? '').trim().toLowerCase()
         if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'INVALID_EMAIL' }
         const fullName = String(body.fullName ?? '').trim() || undefined
         const userName = String(body.username ?? '').trim() || undefined
         if (!fullName || !userName) return { error: 'MISSING_NAME_OR_USERNAME' }
         const admin = adminClient()
-        // 1. Look up existing auth user (avoid duplicates)
         let existingUser: { id: string; email?: string } | null = null
         try {
           const list = await admin.auth.admin.listUsers()
@@ -143,7 +169,6 @@ export async function POST(request: NextRequest) {
           justInvited = true
         }
         if (!userId) return { error: 'INVITE_FAILED' }
-        // 2. Ensure a public profile with role=user and original metadata
         const { data: profile } = await admin.from('profiles').select('id, role').eq('id', userId).maybeSingle()
         if (!profile) {
           const { error: insErr } = await admin.from('profiles').insert({
@@ -163,12 +188,9 @@ export async function POST(request: NextRequest) {
       }
 
       case 'confirm_user_invitation': {
-        // Invite an email to become an admin. If the email is not yet a user,
-        // Supabase sends an invite link so the person can set their own password.
         const email = String(body.email ?? '').trim().toLowerCase()
         if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'INVALID_EMAIL' }
         const admin = adminClient()
-        // 1. Look up existing auth user
         let existingUser: { id: string; email?: string } | null = null
         try {
           const list = await admin.auth.admin.listUsers()
@@ -183,7 +205,6 @@ export async function POST(request: NextRequest) {
           userId = invited?.user?.id ?? null
         }
         if (!userId) return { error: 'INVITE_FAILED' }
-        // 2. Ensure a profile with admin role exists
         const { data: profile } = await admin.from('profiles').select('id, role').eq('id', userId).maybeSingle()
         if (!profile) {
           const { error: insErr } = await admin.from('profiles').insert({ id: userId, role: 'admin' })
@@ -224,9 +245,6 @@ export async function POST(request: NextRequest) {
       }
 
       case 'create_test_referral': {
-        // Debug action: apply a real referral code to a given user and return the
-        // full attributeReferral result (incl. DB_ERROR detail) so attribution
-        // failures are observable rather than silent.
         const referredUserId = String(body.referredUserId ?? '')
         const code = String(body.code ?? '').trim() || undefined
         if (!referredUserId) return { error: 'MISSING_USER_ID' }
@@ -236,12 +254,9 @@ export async function POST(request: NextRequest) {
       }
 
       case 'confirm_user': {
-        // Confirm a user's email address (service role, bypasses RLS). Logged to audit.
         const email = String(body.email ?? '').trim().toLowerCase()
         if (!email) return { error: 'MISSING_EMAIL' }
         const admin = adminClient()
-        // Search auth users by email via the admin auth API (the 'users' table
-        // lives in the auth schema and is not directly queryable via .from()).
         let targetId: string | null = null
         try {
           const list = await admin.auth.admin.listUsers()
