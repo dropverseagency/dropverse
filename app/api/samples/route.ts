@@ -102,6 +102,8 @@ export async function POST(request: NextRequest) {
     if (!Number.isFinite(costUsd) || costUsd < 1 || costUsd > 5000) return NextResponse.json({ error: 'INVALID_COST' }, { status: 400 })
     if (!rightsConfirmed) return NextResponse.json({ error: 'RIGHTS_CONFIRMATION_REQUIRED' }, { status: 400 })
     if (files.length < 1 || files.length > SAMPLE_MAX_FILES) return NextResponse.json({ error: 'FILES_REQUIRED_OR_LIMIT_EXCEEDED' }, { status: 400 })
+    const totalBytes = files.reduce((sum, file) => sum + file.size, 0) + (cover instanceof File && cover.size > 0 ? cover.size : 0)
+    if (totalBytes > 100 * 1024 * 1024) return NextResponse.json({ error: 'TOTAL_UPLOAD_TOO_LARGE' }, { status: 400 })
     for (const file of files) {
       if (file.size > SAMPLE_MAX_FILE_BYTES || !sampleFileKind((file.type || '').toLowerCase())) {
         return NextResponse.json({ error: 'INVALID_FILE_TYPE_OR_SIZE' }, { status: 400 })
