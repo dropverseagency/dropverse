@@ -15,6 +15,7 @@ export default async function AdminSectionPage({ params }: { params: Promise<{ p
     'agency-landings',
     'freelancers',
     'leads',
+    'samples',
     'academy-waitlist',
     'audit',
     'settings',

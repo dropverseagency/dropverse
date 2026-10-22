@@ -176,6 +176,7 @@ export default function UserDashboardHome() {
           {orgRole && <span className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-[#9aaca6]">Role: {orgRole}</span>}
           {isAdmin && <Link href="/admin" className="rounded-full border border-[#5a4a28] bg-[#2a2414] px-3 py-1.5 text-xs font-bold text-[#f0d98b]">Admin</Link>}
         </div>
+        <Link href="/dashboard/samples" className="inline-flex items-center gap-2 rounded-full border border-[#2c403a] px-4 py-2.5 text-sm font-semibold text-[#d9e0dc] hover:border-[#d8b45a]">Samples Vault</Link>
         <Link href="/dashboard/create-project" className="inline-flex items-center gap-2 rounded-full bg-[#d8b45a] px-4 py-2.5 text-sm font-bold text-[#10221f]">
           <Plus size={16} /> New project
         </Link>
