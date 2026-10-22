@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
 
     const { data: submitted, error: submitError } = await admin
       .from('samples')
-      .update({ status: 'pending_review' })
+      .update({ status: 'pending_review', rights_attested_at: new Date().toISOString(), rights_terms_version: SAMPLE_RIGHTS_TERMS_VERSION })
       .eq('id', id)
       .eq('owner_id', userId)
       .select('id, title, status, created_at')
