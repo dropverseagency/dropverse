@@ -24,16 +24,17 @@ export async function GET(request: NextRequest) {
       const cover = sample.cover_path
         ? admin.storage.from(SAMPLE_COVER_BUCKET).getPublicUrl(sample.cover_path).data.publicUrl
         : null
+      const filesWithLinks = await Promise.all(files.map(async (file: Record<string, any>) => {
+        const signed = await admin.storage.from('sample-originals').createSignedUrl(String(file.storage_path), 60 * 30)
+        return { ...file, signed_url: signed.data?.signedUrl ?? null }
+      }))
       return {
         ...sample,
         cover_url: cover,
         freelancer: profile.data?.full_name || profile.data?.username || 'Freelancer',
         user_type: profile.data?.user_type || null,
         user_types: profile.data?.user_types || [],
-        sample_files: files.map((file: Record<string, any>) => ({
-          ...file,
-          signed_url: null,
-        })),
+        sample_files: filesWithLinks,
       }
     }))
     return NextResponse.json({ items })
