@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/adminCore'
-import { requireUser } from '@/lib/leads/auth'
 
 export const runtime = 'nodejs'
 
@@ -10,13 +9,34 @@ const ALLOWED_ITEM_TYPES = new Set(['subscription', 'lead_pack', 'project', 'inv
 /** Record affirmative Terms + Refund Policy acceptance before a paid checkout. */
 export async function POST(request: NextRequest) {
   try {
-    const { userId, email } = await requireUser()
     const body = await request.json().catch(() => ({})) as {
       accepted?: boolean
       termsVersion?: string
       itemType?: string
       itemId?: string
       itemName?: string
+    }
+    const itemType = String(body.itemType || '')
+    let userId: string | null = null
+    let email: string | null = null
+
+    if (itemType === 'invoice') {
+      const invoiceId = String(body.itemId || '').trim()
+      if (!invoiceId) return NextResponse.json({ error: 'INVOICE_REQUIRED' }, { status: 400 })
+      const { data: invoice, error: invoiceError } = await adminClient()
+        .from('invoices')
+        .select('id, status, client_email, amount, currency')
+        .eq('id', invoiceId)
+        .single()
+      if (invoiceError || !invoice || invoice.status !== 'PENDING') {
+        return NextResponse.json({ error: 'INVOICE_NOT_PAYABLE' }, { status: 409 })
+      }
+      email = invoice.client_email || null
+    } else {
+      const { requireUser } = await import('@/lib/leads/auth')
+      const user = await requireUser()
+      userId = user.userId
+      email = user.email
     }
 
     if (body.accepted !== true) {
@@ -25,7 +45,6 @@ export async function POST(request: NextRequest) {
     if (body.termsVersion !== CURRENT_TERMS_VERSION) {
       return NextResponse.json({ error: 'TERMS_VERSION_MISMATCH', currentTermsVersion: CURRENT_TERMS_VERSION }, { status: 409 })
     }
-    const itemType = String(body.itemType || '')
     if (!ALLOWED_ITEM_TYPES.has(itemType)) {
       return NextResponse.json({ error: 'INVALID_PURCHASE_TYPE' }, { status: 400 })
     }
