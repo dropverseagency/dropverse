@@ -26,6 +26,7 @@ export default function FreelancerSamplesPage() {
   const [items, setItems] = useState<Sample[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [accessDenied, setAccessDenied] = useState(false)
   const [busy, setBusy] = useState(false)
   const [success, setSuccess] = useState('')
   const [title, setTitle] = useState('')
@@ -44,6 +45,7 @@ export default function FreelancerSamplesPage() {
     const json = await response.json().catch(() => ({}))
     setLoading(false)
     if (!response.ok) {
+      if (response.status === 403) setAccessDenied(true)
       setError(json.error === 'FREELANCER_ONLY' ? 'Only accounts registered as a freelancer can submit work samples.' : json.error || 'Could not load your samples.')
       return
     }
@@ -100,6 +102,8 @@ export default function FreelancerSamplesPage() {
     if (coverInput) coverInput.value = ''
     await load()
   }
+
+  if (accessDenied) return <main className="min-h-screen bg-[#071b19] px-4 py-16 text-[#f4f7f5]"><div className="mx-auto max-w-xl rounded-3xl border border-white/10 bg-[#0b2824] p-8 text-center"><h1 className="text-2xl font-black">Freelancer account required</h1><p className="mt-3 text-sm leading-6 text-[#a9bbb5]">Only accounts registered as a freelancer can submit work samples. Sign in with the correct account or update your account type in profile settings.</p><Link href="/dashboard" className="mt-6 inline-flex rounded-full bg-[#d8b45a] px-5 py-3 font-bold text-[#10221f]">Back to dashboard</Link></div></main>
 
   return (
     <main className="min-h-screen bg-[#071b19] px-4 py-8 text-[#f4f7f5] sm:px-6">
