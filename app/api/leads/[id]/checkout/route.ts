@@ -16,7 +16,38 @@ export async function POST(
     const { id: packId } = await ctx.params
     if (!packId) return NextResponse.json({ error: 'MISSING_ID' }, { status: 400 })
 
-    const body = (await request.json().catch(() => ({}))) as { idempotencyKey?: string }
+    const body = (await request.json().catch(() => ({}))) as {
+      idempotencyKey?: string
+      acceptedTerms?: boolean
+      termsVersion?: string
+    }
+    if (body.acceptedTerms !== true || body.termsVersion !== '2026-10-23') {
+      return NextResponse.json({ error: 'TERMS_ACCEPTANCE_REQUIRED' }, { status: 400 })
+    }
+
+    const forwardedFor = request.headers.get('x-forwarded-for') || ''
+    const ip = forwardedFor.split(',')[0]?.trim().slice(0, 80) || request.headers.get('x-real-ip') || null
+    const { error: acceptanceError } = await adminClient().from('audit_logs').insert({
+      actor_id: userId,
+      actor_email: email,
+      action: 'checkout_terms_accepted',
+      entity: 'lead_pack',
+      entity_id: packId,
+      new_value: {
+        accepted: true,
+        terms_version: '2026-10-23',
+        refund_policy_version: '2026-10-23',
+        accepted_at: new Date().toISOString(),
+        ip,
+        user_agent: request.headers.get('user-agent')?.slice(0, 500) || null,
+        method: 'explicit_checkbox_before_checkout',
+      },
+    })
+    if (acceptanceError) {
+      console.error('[leads checkout] terms acceptance audit failed', acceptanceError.message)
+      return NextResponse.json({ error: 'TERMS_ACCEPTANCE_COULD_NOT_BE_RECORDED' }, { status: 503 })
+    }
+
     const idempotencyKey =
       String(body?.idempotencyKey || '').trim() ||
       `lp-${packId}-${userId}-${randomBytes(8).toString('hex')}`
