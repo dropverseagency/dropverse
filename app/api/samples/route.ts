@@ -18,11 +18,28 @@ import { limitPublicForm, rateLimitResponse } from '@/lib/rateLimit'
 
 export const runtime = 'nodejs'
 
-function publicSample(item: Record<string, any>) {
+function publicSample(item: Record<string, any>, publicOnly = false) {
   const coverPath = item.cover_path as string | null
   const { data } = coverPath
     ? adminClient().storage.from(SAMPLE_COVER_BUCKET).getPublicUrl(coverPath)
     : { data: { publicUrl: null } }
+
+  if (publicOnly) {
+    return {
+      id: item.id,
+      title: item.title,
+      slug: item.slug,
+      category: item.category,
+      description: item.description,
+      price_usd: item.price_usd,
+      turnaround_days: item.turnaround_days,
+      created_at: item.created_at,
+      freelancer_display_name: item.freelancer_display_name,
+      freelancer_category: item.freelancer_category,
+      cover_url: data.publicUrl,
+    }
+  }
+
   return { ...item, cover_url: data.publicUrl }
 }
 
@@ -52,7 +69,7 @@ export async function GET(request: NextRequest) {
         .eq('owner_id', userId)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return NextResponse.json({ items: (data ?? []).map(publicSample) })
+      return NextResponse.json({ items: (data ?? []).map((item) => publicSample(item, true)) })
     }
 
     const { data, error } = await admin
@@ -193,14 +210,20 @@ export async function POST(request: NextRequest) {
       .single()
     if (submitError || !submitted) throw new Error('SUBMISSION_FAILED')
 
-    await audit({
-      actorId: userId,
-      actorEmail: email,
-      action: 'sample_submitted',
-      entity: 'sample',
-      entityId: id,
-      newValue: { title, category, fileCount: files.length },
-    })
+    // The sample is now successfully submitted. Audit logging is best-effort and
+    // must never turn a successful submission into a cleanup/delete path.
+    try {
+      await audit({
+        actorId: userId,
+        actorEmail: email,
+        action: 'sample_submitted',
+        entity: 'sample',
+        entityId: id,
+        newValue: { title, category, fileCount: files.length },
+      })
+    } catch (auditError) {
+      console.error('[samples POST audit]', auditError)
+    }
     return NextResponse.json({ ok: true, sample: submitted }, { status: 201 })
   } catch (e) {
     const code = (e as Error).message
