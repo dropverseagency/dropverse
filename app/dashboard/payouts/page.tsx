@@ -469,19 +469,20 @@ export default function PayoutsPage() {
                     </p>
                   </div>
                 </div>
-              ) : data.balances.available <= 0 ? (
-                <div className="flex items-start gap-2 text-sm text-[#81948e]">
-                  <AlertCircle size={16} className="mt-0.5 shrink-0 text-[#d8b45a]" />
-                  <div>
-                    <p>No available balance yet — you can still register PayPal or Local above.</p>
-                    <p className="mt-1 text-xs">
-                      Earnings become withdrawable after approval. Min: PayPal {formatUsd(50)} · Local{' '}
-                      {formatUsd(25)}.
-                    </p>
-                  </div>
-                </div>
               ) : (
                 <>
+                  {data.balances.available <= 0 && (
+                    <div className="mb-4 flex items-start gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-sm text-[#c1cbc7]">
+                      <AlertCircle size={16} className="mt-0.5 shrink-0 text-[#d8b45a]" />
+                      <div>
+                        <p className="font-semibold text-[#f0f4f2]">No available balance yet.</p>
+                        <p className="mt-1 text-xs text-[#81948e]">
+                          You can enter an amount below, but a request can only be submitted when your available balance covers it.
+                          Minimum: PayPal {formatUsd(50)} · Local {formatUsd(25)}.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   <label className="block text-xs font-bold uppercase tracking-wider text-[#7f918c]">
                     Amount (USD)
                   </label>
