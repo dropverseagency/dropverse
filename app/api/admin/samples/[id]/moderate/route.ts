@@ -31,14 +31,22 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       rejection_reason: action === 'reject' ? rejectionReason : null,
       status: action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'unpublished',
     }
-    if (action === 'approve' && sample.price_usd == null) {
+    let priceUsd: number | null = sample.price_usd == null ? null : Number(sample.price_usd)
+    if (action === 'approve' && body?.priceUsd !== undefined && body?.priceUsd !== null && String(body.priceUsd).trim() !== '') {
+      priceUsd = Number(body.priceUsd)
+      if (!Number.isFinite(priceUsd) || priceUsd < 0 || priceUsd > 1000000) {
+        return NextResponse.json({ error: 'INVALID_PRICE' }, { status: 400 })
+      }
+    }
+    if (action === 'approve' && priceUsd === null) {
       return NextResponse.json({ error: 'PRICE_REQUIRED_BEFORE_APPROVAL' }, { status: 400 })
     }
+    if (action === 'approve') patch.price_usd = priceUsd
     const { data: updated, error: updateError } = await admin
       .from('samples')
       .update(patch)
       .eq('id', id)
-      .select('id, title, status, rejection_reason, reviewed_at')
+      .select('id, title, status, price_usd, rejection_reason, reviewed_at')
       .single()
     if (updateError || !updated) throw new Error('UPDATE_FAILED')
 
