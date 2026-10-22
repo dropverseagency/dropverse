@@ -18,30 +18,36 @@ export type PayoutMethodConfig = {
   id: PayoutMethodId
   label: string
   minUsd: number
-  /** When false, UI shows Coming soon and API rejects requests. */
+  /**
+   * When true, users may submit a withdrawal request for admin review.
+   * This does not mean automatic/provider transfers are enabled.
+   */
   enabled: boolean
   description: string
 }
 
 /**
- * Supported withdrawal methods. Crypto/USDT intentionally omitted.
- * Local Payments remains listed but not enabled until a verified corridor exists.
+ * Request intake is enabled for PayPal and Local Payments so requests can
+ * appear in the admin workflow. All payouts remain manually reviewed/processed;
+ * no automatic provider transfer is initiated by this setting. Crypto/USDT
+ * intentionally omitted.
  */
 export const PAYOUT_METHODS: PayoutMethodConfig[] = [
   {
     id: 'paypal',
     label: 'PayPal',
     minUsd: 50,
-    enabled: false,
-    description: 'Unavailable until PayPal eligibility and operational processing are verified for your country. Minimum $50 once enabled.',
+    enabled: true,
+    description:
+      'Submit a PayPal withdrawal request for admin review. Minimum $50. Requests are not paid automatically; transfer eligibility and processing are reviewed manually.',
   },
   {
     id: 'local',
     label: 'Local Payments',
     minUsd: 25,
-    enabled: false,
+    enabled: true,
     description:
-      'Local bank or mobile-money corridors (equivalent of $25). Available once a verified provider is configured for your country.',
+      'Submit a local bank/mobile-money withdrawal request for admin review (minimum equivalent of $25). Requests are not paid automatically; availability and processing are reviewed manually.',
   },
 ]
 
