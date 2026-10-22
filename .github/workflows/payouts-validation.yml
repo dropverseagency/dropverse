@@ -1,0 +1,119 @@
+name: Payouts safety validation
+
+on:
+  pull_request:
+    branches: [feature/dashboard-payouts, main, release/payouts-safe-from-main, fix/pr28-preserve-admin]
+    paths:
+      - 'app/api/payouts/**'
+      - 'app/dashboard/payouts/**'
+      - 'app/api/admin/mutate/**'
+      - 'lib/payoutConfig.ts'
+      - 'lib/payoutStatus.ts'
+      - 'tests/**'
+      - 'scripts/payouts-ci-db.sh'
+      - 'supabase/migrations/**'
+      - '.github/workflows/payouts-validation.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+  push:
+    branches: [fix/payouts-critical-safety, ci/payouts-db-safety-validation, fix/payouts-idempotency-destination, fix/payouts-rc-hardening, release/payouts-safe-from-main, hotfix/disable-payout-methods, fix/pr28-preserve-admin]
+    paths:
+      - 'app/api/payouts/**'
+      - 'app/dashboard/payouts/**'
+      - 'app/api/admin/mutate/**'
+      - 'lib/payoutConfig.ts'
+      - 'lib/payoutStatus.ts'
+      - 'tests/**'
+      - 'scripts/payouts-ci-db.sh'
+      - 'supabase/migrations/**'
+      - '.github/workflows/payouts-validation.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: 'Git commit SHA to validate (migration + app). Empty = current ref.'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  app-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve checkout ref
+        id: ref
+        run: |
+          SHA="${{ github.event.inputs.commit_sha }}"
+          if [ -n "$SHA" ]; then
+            echo "ref=$SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.ref.outputs.ref }}
+      - name: Record tested SHA
+        run: |
+          echo "TESTED_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          git rev-parse HEAD
+          git log -1 --oneline
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Payout status unit tests
+        run: node --test tests/payoutStatus.test.mjs
+      - name: Next.js production build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+          NEXTAUTH_SECRET: test-secret-for-ci-only
+
+  migration-check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: payout_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d payout_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Resolve checkout ref
+        id: ref
+        run: |
+          SHA="${{ github.event.inputs.commit_sha }}"
+          if [ -n "$SHA" ]; then
+            echo "ref=$SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.ref.outputs.ref }}
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Wait for Postgres
+        run: |
+          for i in $(seq 1 30); do
+            if pg_isready -h localhost -p 5432 -U postgres -d payout_test; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Bootstrap + apply migration + safety tests
+        env:
+          PGPASSWORD: postgres
+        run: bash scripts/payouts-ci-db.sh
