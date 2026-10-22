@@ -114,13 +114,12 @@ export async function POST(request: NextRequest) {
 
     const admin = adminClient()
     const displayName = String(profile.full_name || profile.username || email?.split('@')[0] || 'Freelancer').trim().slice(0, 80)
-    const { error: profileError } = await admin.from('freelancer_profiles').upsert({
-      user_id: userId,
-      display_name: displayName.length >= 2 ? displayName : 'Freelancer',
-      category,
-      bio: '',
-    }, { onConflict: 'user_id' })
-    if (profileError) throw new Error('FREELANCER_PROFILE_SAVE_FAILED')
+    const { data: existingFreelancerProfile, error: existingProfileError } = await admin.from('freelancer_profiles').select('user_id').eq('user_id', userId).maybeSingle()
+    if (existingProfileError) throw new Error('FREELANCER_PROFILE_CHECK_FAILED')
+    if (!existingFreelancerProfile) {
+      const { error: profileError } = await admin.from('freelancer_profiles').insert({ user_id: userId, display_name: displayName.length >= 2 ? displayName : 'Freelancer', category, bio: '' })
+      if (profileError) throw new Error('FREELANCER_PROFILE_SAVE_FAILED')
+    }
 
     const id = randomUUID()
     sampleId = id
