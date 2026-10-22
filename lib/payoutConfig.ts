@@ -25,7 +25,7 @@ export type PayoutMethodConfig = {
 
 /**
  * Supported withdrawal methods. Crypto/USDT intentionally omitted.
- * Local Payments is available for registration and withdrawal requests.
+ * Local Payments remains listed but not enabled until a verified corridor exists.
  */
 export const PAYOUT_METHODS: PayoutMethodConfig[] = [
   {
@@ -33,7 +33,7 @@ export const PAYOUT_METHODS: PayoutMethodConfig[] = [
     label: 'PayPal',
     minUsd: 50,
     enabled: false,
-    description: 'Withdraw to a PayPal account in USD. Minimum $50.',
+    description: 'Unavailable until PayPal eligibility and operational processing are verified for your country. Minimum $50 once enabled.',
   },
   {
     id: 'local',
@@ -41,7 +41,7 @@ export const PAYOUT_METHODS: PayoutMethodConfig[] = [
     minUsd: 25,
     enabled: false,
     description:
-      'Local bank transfer or mobile money (Egypt / regional). Minimum $25 equivalent. Ops confirms corridor details before sending.',
+      'Local bank or mobile-money corridors (equivalent of $25). Available once a verified provider is configured for your country.',
   },
 ]
 
