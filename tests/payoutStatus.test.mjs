@@ -8,8 +8,11 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
 import vm from 'node:vm'
-import ts from 'typescript'
+
+const require = createRequire(import.meta.url)
+const ts = require('typescript')
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const srcPath = path.join(__dirname, '../lib/payoutStatus.ts')
