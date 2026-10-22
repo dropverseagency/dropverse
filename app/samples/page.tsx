@@ -26,7 +26,7 @@ export default function SamplesPage() {
       <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#d8b45a]">The Samples Vault</p>
       <div className="mt-4 grid gap-8 md:grid-cols-[1.4fr_0.6fr] md:items-end"><div>
         <h1 className="max-w-3xl text-4xl font-black leading-tight sm:text-6xl">Real work. Reviewed before it goes live.</h1>
-        <p className="mt-5 max-w-2xl text-base leading-7 text-[#a9bbb5]">Explore approved work samples from DropVerse freelancers. Every public listing is reviewed before it appears here.</p>
+        <p className="mt-5 max-w-2xl text-base leading-7 text-[#a9bbb5]">Explore approved work samples from DropVerse freelancers. Every public listing is reviewed before it appears here. Approved samples may be shown by Drop Servicers in proposals, portfolios, and marketing to promote the relevant digital services, under the freelancer’s sample-use permission.</p>
       </div><div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5"><p className="text-sm font-semibold">Are you a freelancer?</p><p className="mt-2 text-sm leading-6 text-[#a9bbb5]">Sign in with a freelancer account to submit your work for review.</p><Link href="/login?redirect=/dashboard/samples" className="mt-4 inline-flex rounded-full border border-[#d8b45a]/50 px-4 py-2 text-sm font-bold text-[#e8cc7d]">Submit your work →</Link></div></div>
       <div className="mt-12 flex flex-wrap gap-2">{categories.map(x=><button key={x} onClick={()=>setCategory(x)} className={`rounded-full px-4 py-2 text-xs font-semibold ${category===x?'bg-[#d8b45a] text-[#10221f]':'border border-white/10 text-[#a9bbb5]'}`}>{x}</button>)}</div>
       {loading&&<div className="py-20 text-center text-sm text-[#a9bbb5]">Loading approved samples…</div>}
