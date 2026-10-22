@@ -6,7 +6,6 @@ import {
   PAYOUT_CURRENCY,
   PAYOUT_METHODS,
   PAYOUT_SCHEDULE_DAYS,
-  estimateNetUsd,
   nextScheduledProcessingDate,
 } from '@/lib/payoutConfig'
 
@@ -24,96 +23,89 @@ async function resolveUser(request: NextRequest) {
   return res.data?.user ?? null
 }
 
+function jsonError(error: string, status = 500) {
+  return new Response(JSON.stringify({ error }), {
+    status,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+  })
+}
+
 /**
  * GET /api/payouts/me
  * Returns only the authenticated user's balances, breakdown, and payout history.
- * Balances are computed server-side from referral_commissions + payout_requests.
+ * Any failed ledger read fails closed instead of being treated as an empty ledger.
  */
 export async function GET(request: NextRequest) {
   const user = await resolveUser(request)
-  if (!user) {
-    return new Response(JSON.stringify({ error: 'NOT_AUTHENTICATED' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!user) return jsonError('NOT_AUTHENTICATED', 401)
 
   const admin = adminClient()
 
-  const { data: referralRows } = await admin
-    .from('referrals')
-    .select('id')
-    .eq('referrer_id', user.id)
+  // Ledger reads must fail closed: a failed query must not be treated as an empty ledger.
+  const { data: commissions, error: commissionsError } = await admin
+    .from('referral_commissions')
+    .select('commission_amount, status, referral_id, referrals!inner(referrer_id)')
+    .eq('referrals.referrer_id', user.id)
 
-  const referralIds = (referralRows ?? []).map((r: { id: string }) => r.id)
-
-  let commissions: {
-    id: string
-    commission_amount: number | null
-    status: string
-    currency: string | null
-    created_at: string
-    available_at: string | null
-    paid_at: string | null
-  }[] = []
-
-  if (referralIds.length > 0) {
-    const { data } = await admin
-      .from('referral_commissions')
-      .select('id, commission_amount, status, currency, created_at, available_at, paid_at')
-      .in('referral_id', referralIds)
-    commissions = data ?? []
+  if (commissionsError || !commissions) {
+    console.error('[payouts/me] commission ledger lookup failed', commissionsError)
+    return jsonError('PAYOUT_DATA_UNAVAILABLE')
   }
 
-  const sum = (status: string | string[]) => {
-    const set = new Set(Array.isArray(status) ? status : [status])
-    return commissions
-      .filter((c) => set.has(c.status))
-      .reduce((s, c) => s + Number(c.commission_amount || 0), 0)
-  }
-
-  const pendingBalance = Math.round(sum(['pending', 'approved']) * 100) / 100
-  const availableCommissions = Math.round(sum('available') * 100) / 100
-  const paidFromCommissions = Math.round(sum('paid') * 100) / 100
-
-  const { data: payouts } = await admin
+  const { data: payouts, error: payoutsError } = await admin
     .from('payout_requests')
-    .select('id, amount, status, requested_at, reviewed_at, paid_at')
+    .select('id, amount, status, method, dropverse_fee, estimated_net, requested_at, reviewed_at, paid_at')
     .eq('user_id', user.id)
     .order('requested_at', { ascending: false })
     .limit(100)
 
-  const openPayouts = (payouts ?? []).filter((p) => p.status === 'pending' || p.status === 'approved')
-  const processingBalance = Math.round(
-    openPayouts.reduce((s, p) => s + Number(p.amount || 0), 0) * 100,
-  ) / 100
-  const totalPaidPayouts = Math.round(
-    (payouts ?? [])
-      .filter((p) => p.status === 'paid')
-      .reduce((s, p) => s + Number(p.amount || 0), 0) * 100,
-  ) / 100
+  if (payoutsError || !payouts) {
+    console.error('[payouts/me] payout history lookup failed', payoutsError)
+    return jsonError('PAYOUT_DATA_UNAVAILABLE')
+  }
 
-  // Available to request = available commissions minus open (unpaid) payout requests.
-  const availableBalance = Math.max(0, Math.round((availableCommissions - processingBalance) * 100) / 100)
+  let pendingBalance = 0
+  let availableCommissions = 0
+  let paidFromCommissions = 0
+  for (const c of commissions) {
+    const amt = Number(c.commission_amount || 0)
+    if (c.status === 'pending' || c.status === 'approved') pendingBalance += amt
+    else if (c.status === 'available') availableCommissions += amt
+    else if (c.status === 'paid') paidFromCommissions += amt
+  }
 
-  const history = (payouts ?? []).map((p) => {
-    const gross = Number(p.amount || 0)
-    const est = estimateNetUsd(gross)
-    return {
-      id: p.id,
-      requestedAt: p.requested_at,
-      amount: gross,
-      currency: PAYOUT_CURRENCY,
-      dropverseFee: DROPVERSE_PAYOUT_FEE_USD,
-      providerFee: null as number | null,
-      estimatedNet: est.estimatedNet,
-      method: null as string | null,
-      status: p.status,
-      reviewedAt: p.reviewed_at,
-      paidAt: p.paid_at,
-      failureReason: null as string | null,
+  let processingBalance = 0
+  let totalPaidPayouts = 0
+  let reservedFromOpenRequests = 0
+  for (const p of payouts) {
+    const amt = Number(p.amount || 0)
+    if (p.status === 'pending' || p.status === 'approved') {
+      processingBalance += amt
+      reservedFromOpenRequests += amt
+    } else if (p.status === 'paid') {
+      totalPaidPayouts += amt
     }
-  })
+  }
+
+  // Available = earned available commissions minus open (pending/approved) requests.
+  // Paid payouts are already reflected by commission status transitions to 'paid'.
+  const availableBalance = Math.max(0, Math.round((availableCommissions - reservedFromOpenRequests) * 100) / 100)
+
+  const history = payouts.map((p) => ({
+    id: p.id,
+    requestedAt: p.requested_at,
+    amount: Number(p.amount || 0),
+    currency: PAYOUT_CURRENCY,
+    // Existing requests predate these persisted terms; don't invent historical fees.
+    dropverseFee: p.dropverse_fee == null ? null : Number(p.dropverse_fee),
+    providerFee: null as number | null,
+    estimatedNet: p.estimated_net == null ? null : Number(p.estimated_net),
+    method: p.method ?? null,
+    status: p.status,
+    reviewedAt: p.reviewed_at,
+    paidAt: p.paid_at,
+    failureReason: null as string | null,
+  }))
 
   const nextProcessing = nextScheduledProcessingDate()
 
@@ -121,20 +113,18 @@ export async function GET(request: NextRequest) {
     JSON.stringify({
       currency: PAYOUT_CURRENCY,
       balances: {
-        pending: pendingBalance,
+        pending: Math.round(pendingBalance * 100) / 100,
         available: availableBalance,
-        processing: processingBalance,
-        totalPaid: totalPaidPayouts,
+        processing: Math.round(processingBalance * 100) / 100,
+        totalPaid: Math.round(totalPaidPayouts * 100) / 100,
       },
       breakdown: {
         affiliate: {
           label: 'Affiliate / referral commissions',
-          pending: pendingBalance,
-          available: availableCommissions,
-          paid: paidFromCommissions,
+          pending: Math.round(pendingBalance * 100) / 100,
+          available: Math.round(availableCommissions * 100) / 100,
+          paid: Math.round(paidFromCommissions * 100) / 100,
         },
-        // Lead marketplace seller settlements and freelancer payouts are not
-        // yet tracked in a withdrawable ledger — omit fabricated zeros as sources.
         sourcesNote:
           'Only approved affiliate commissions that have reached available status can be withdrawn. Lead Marketplace and project fulfillment earnings are not yet connected to this ledger.',
       },
@@ -144,7 +134,7 @@ export async function GET(request: NextRequest) {
         nextScheduledProcessingDate: nextProcessing.toISOString().slice(0, 10),
         scheduleNote:
           'Processing runs on the 5th and 20th of each month. If a date falls on a non-business day or the provider is unavailable, processing may move to the next applicable business day. These are scheduled processing dates, not guaranteed arrival dates.',
-        withdrawalsEnabled: true,
+        withdrawalsEnabled: PAYOUT_METHODS.some((m) => m.enabled),
         transfersActivated: false,
         transfersNote:
           'Requests are recorded for admin review. Automatic provider transfers are not activated yet — status stays pending until operations processes the payout.',
