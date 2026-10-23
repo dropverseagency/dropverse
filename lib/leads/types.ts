@@ -31,7 +31,7 @@ export type LeadPackPublic = {
 }
 
 // Legacy/default constant retained for compatibility; new purchases use price-based tiers below.
-export const LEAD_COMMISSION_DEFAULT = 0.2
+export const LEAD_COMMISSION_DEFAULT = 0.15
 export const LEAD_DEFAULT_MAX_BUYERS = 10
 export const LEAD_MAX_FILE_BYTES = 10 * 1024 * 1024
 export const LEAD_ALLOWED_MIME = new Set([
@@ -43,17 +43,15 @@ export const LEAD_ALLOWED_MIME = new Set([
 ])
 
 /**
- * DropVerse lead marketplace commission tiers, expressed as decimal rates.
- * < $100: 20%; $100 to < $1,000: 15%; >= $1,000: 10%.
+ * Flat DropVerse lead marketplace commission, expressed as a decimal rate.
+ * All successful lead pack sales carry a 15% platform commission, regardless of price.
  */
 export function leadCommissionRateForPrice(priceUsd: number): number {
   const price = Number(priceUsd)
   if (!Number.isFinite(price) || price <= 0) {
     throw new Error('INVALID_LEAD_PRICE')
   }
-  if (price < 100) return 0.2
-  if (price < 1000) return 0.15
-  return 0.1
+  return 0.15
 }
 
 export function effectiveMaxBuyers(maxBuyers: number, adminMax: number | null | undefined): number {
