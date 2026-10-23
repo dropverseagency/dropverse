@@ -6,13 +6,13 @@ Whop is an additional checkout provider. Existing SpaceRemit and PayPal flows mu
 
 Add these as **server-only** Vercel environment variables (never prefix secrets with NEXT_PUBLIC_):
 
-- `WHOP_API_KEY` — company-scoped API key with permission to create plans.
+- `WHOP_COMPANY_API_KEY` (or `WHOP_API_KEY`) — company API key with `plan:create`, `plan:basic:read`, `checkout_configuration:create`, `payment:basic:read`, and `webhook_receive:payments` permissions.
 - `WHOP_COMPANY_ID` — Whop company ID (`biz_...`).
 - `WHOP_PROJECT_PRODUCT_ID` — Whop product ID used for per-project one-time plans.
 - `WHOP_LEAD_PACK_PRODUCT_ID` — Whop product ID used for per-purchase lead-pack plans.
 - `WHOP_WEBHOOK_SECRET` — webhook signing secret from the Whop dashboard.
 
-For subscriptions, configure pre-created Whop plan IDs for each paid DropVerse plan (monthly and annual) once the corresponding products and prices are set up in Whop.
+For subscriptions, configure the pre-created monthly plan IDs in `NEXT_PUBLIC_WHOP_AGENCY_MONTHLY_PLAN_ID` and `NEXT_PUBLIC_WHOP_AGENCY_PRO_MONTHLY_PLAN_ID`. The server verifies each plan's recurring USD price against `lib/planConfig.ts` before starting checkout.
 
 ## Rollout
 
