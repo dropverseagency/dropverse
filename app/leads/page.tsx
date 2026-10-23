@@ -109,7 +109,7 @@ export default async function LeadsCatalogPage() {
             <div className="grid grid-cols-3 gap-3 sm:gap-4">
               {[
                 { label: 'Live packs', value: String(items.length) },
-                { label: 'Commission', value: '20%' },
+                { label: 'Commission', value: '15%' },
                 { label: 'Default seats', value: '10' },
               ].map((s) => (
                 <div
@@ -198,7 +198,7 @@ export default async function LeadsCatalogPage() {
                 </li>
                 <li className="flex items-start gap-2">
                   <ShieldCheck size={15} className="mt-0.5 shrink-0 text-[#d8b45a]" />
-                  DropVerse takes 20% on successful sales
+                  DropVerse takes a flat 15% commission on successful sales
                 </li>
               </ul>
               <LeadsEmptyCtas />
