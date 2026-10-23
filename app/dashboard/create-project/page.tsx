@@ -279,6 +279,33 @@ export default function CreateProjectPage() {
                   <p>{payError || 'Preparing secure checkout…'}</p>
                 )}
                 {payError && <p className="text-sm text-red-300">{payError}</p>}
+                {!whopSessionId && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setPayError(null)
+                      try {
+                        const retryRes = await fetch('/api/whop/project-checkout', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          credentials: 'include',
+                          body: JSON.stringify({ projectId: pendingProjectId }),
+                        })
+                        const retryJson = await retryRes.json().catch(() => ({})) as { sessionId?: string; error?: string }
+                        if (!retryRes.ok || !retryJson.sessionId) {
+                          setPayError(retryJson.error || 'Could not retry Whop checkout.')
+                        } else {
+                          setWhopSessionId(retryJson.sessionId)
+                        }
+                      } catch {
+                        setPayError('Could not retry Whop checkout.')
+                      }
+                    }}
+                    className="rounded-xl border border-white/15 px-4 py-2 text-xs font-semibold text-[#e4c979]"
+                  >
+                    Retry Whop checkout
+                  </button>
+                )}
               </div>
             )}
             {pendingProjectId && paymentMethod === 'SPACEREMIT' && (
