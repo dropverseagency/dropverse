@@ -218,7 +218,6 @@ export default function SellerLeadsPage() {
         </label>
         <textarea
           required
-          required
           minLength={10}
           placeholder="Source attestation (how you obtained these leads & rights to resell)"
           className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-3 py-2.5 text-sm"
