@@ -1,12 +1,22 @@
-import { createHmac, timingSafeEqual } from 'node:crypto'
-
-export type WhopTargetType = 'project' | 'lead_pack' | 'subscription'
+import { Whop } from '@whop/sdk'
 
 export function whopConfig() {
-  const apiKey = process.env.WHOP_API_KEY
+  const apiKey = process.env.WHOP_COMPANY_API_KEY || process.env.WHOP_API_KEY
   const companyId = process.env.WHOP_COMPANY_ID
   if (!apiKey || !companyId) throw new Error('WHOP_NOT_CONFIGURED')
   return { apiKey, companyId }
+}
+
+export function whopClient() {
+  const { apiKey } = whopConfig()
+  const sandbox = process.env.WHOP_SANDBOX === 'true'
+  return new Whop({
+    apiKey,
+    baseURL: sandbox ? 'https://sandbox-api.whop.com/api/v1' : 'https://api.whop.com/api/v1',
+    ...(process.env.WHOP_WEBHOOK_SECRET
+      ? { webhookKey: Buffer.from(process.env.WHOP_WEBHOOK_SECRET).toString('base64') }
+      : {}),
+  })
 }
 
 export async function createWhopPlan(input: {
@@ -38,10 +48,7 @@ export async function createWhopPlan(input: {
   }
   const response = await fetch('https://api.whop.com/api/v1/plans', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
     cache: 'no-store',
   })
@@ -50,11 +57,15 @@ export async function createWhopPlan(input: {
     console.error('[whop] plan creation failed', response.status, result?.message || result?.error)
     throw new Error('WHOP_PLAN_CREATE_FAILED')
   }
-  return { planId: result.id, purchaseUrl: `https://whop.com/checkout/${result.id}` }
+  return { planId: result.id }
 }
 
-export function verifyWhopSignature(payload: string, signature: string, secret: string) {
-  // Whop uses Svix-style webhook signatures; use the official Svix verifier at the route.
-  // This helper intentionally does not implement signature parsing itself.
-  return Boolean(payload && signature && secret)
+export async function createWhopCheckout(planId: string, orderId: string) {
+  const client = whopClient()
+  const checkout = await client.checkoutConfigurations.create(
+    { plan_id: planId, mode: 'payment', metadata: { order_id: orderId } },
+    { headers: { 'Idempotency-Key': `dropverse-checkout-${orderId}` } },
+  )
+  if (!checkout?.id) throw new Error('WHOP_CHECKOUT_CREATE_FAILED')
+  return { sessionId: checkout.id }
 }
