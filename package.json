@@ -17,8 +17,8 @@
     "next": "15.5.23",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "@whop/checkout": "^0.2.0",
-    "svix": "^1.76.1"
+    "@whop/checkout": "^0.6.0",
+    "@whop/sdk": "^2.6.0"
   },
   "devDependencies": {
     "@types/node": "22.15.0",
