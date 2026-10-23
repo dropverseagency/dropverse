@@ -27,6 +27,7 @@ type Pack = {
   remaining_seats: number
   effective_max_buyers: number
   countries: string[]
+  preview_meta?: Record<string, unknown>
 }
 
 async function fetchPacks(): Promise<Pack[]> {
@@ -220,6 +221,7 @@ export default async function LeadsCatalogPage() {
                             {p.niche}
                           </span>
                         ) : null}
+                        {p.preview_meta?.serviceTarget ? <span className="mt-2 inline-block rounded-full bg-emerald-400/10 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-200">For: {String(p.preview_meta.serviceTarget)}</span> : null}
                         <h2 className="mt-2 text-lg font-semibold text-white group-hover:text-[#f0d98b]">{p.title}</h2>
                       </div>
                       <span className="shrink-0 rounded-full bg-[#d8b45a] px-3 py-1 text-sm font-bold text-[#10221f]">
