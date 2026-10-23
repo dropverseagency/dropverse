@@ -16,10 +16,10 @@ For subscriptions, configure the pre-created monthly plan IDs in `NEXT_PUBLIC_WH
 
 ## Rollout
 
-1. Apply `supabase/migrations/20261023020000_whop_checkout_sessions.sql`.
+1. Apply `supabase/migrations/20261023020000_whop_checkout_sessions.sql` and `supabase/migrations/20261023020100_whop_confirm_lead_pack.sql`.
 2. Configure the environment variables above.
-3. Configure the Whop webhook endpoint at `/api/whop/webhook` for successful payment events.
+3. Configure the Whop webhook endpoint at `/api/whop/webhook`, API version `v1`, and subscribe to `payment.succeeded`. The handler verifies the signature and retrieves the payment from Whop before fulfilling an order.
 4. Run sandbox checkouts for success, cancellation, wrong amount, duplicate webhook delivery, and replayed webhook delivery.
-5. Do not treat the checkout return URL or browser callback as proof of payment. Only the signed server webhook may mark a purchase paid.
+5. Do not treat the checkout return URL or browser callback as proof of payment. Only the signed server webhook may mark a purchase paid. The embedded checkout must use the server-created checkout session ID; do not replace it with a raw browser-supplied plan ID.
 
 Dynamic one-time project and lead-pack pricing uses a server-created hidden Whop plan, so prices are sourced and validated by DropVerse on the server rather than trusted from browser input.
