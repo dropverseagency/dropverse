@@ -38,8 +38,14 @@ export type PaymentMethod =
   | 'SPACEREMIT'
   | 'INVOICE_SEND'
   | 'SELLER_COLLECTED'
+  | 'WHOP'
 
 export const PAYMENT_METHODS: { id: PaymentMethod; label: string; description: string; recommended?: boolean }[] = [
+  {
+    id: 'WHOP',
+    label: 'Whop Secure Checkout',
+    description: 'Pay by card and supported payment methods in an embedded secure checkout.',
+  },
   {
     id: 'SPACEREMIT',
     label: 'Local payment',

@@ -3,12 +3,12 @@ import type { NextConfig } from 'next'
 const cspDirectives = [
   "default-src 'self'",
   // unsafe-inline/eval: Next.js hydration + Framer Motion; prefer nonces in a later pass
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://js.spaceremit.com https://*.spaceremit.com https://accounts.google.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://js.spaceremit.com https://*.spaceremit.com https://accounts.google.com https://t.whop.tw https://js.whop.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob: https://*.supabase.co https://*.vercel.app https://lh3.googleusercontent.com",
   "font-src 'self' https://fonts.gstatic.com data:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://challenges.cloudflare.com https://*.spaceremit.com https://api.spaceremit.com https://accounts.google.com",
-  "frame-src 'self' https://challenges.cloudflare.com https://*.spaceremit.com https://accounts.google.com https://www.google.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://challenges.cloudflare.com https://*.spaceremit.com https://api.spaceremit.com https://accounts.google.com https://api.whop.com https://*.whop.com",
+  "frame-src 'self' https://challenges.cloudflare.com https://*.spaceremit.com https://accounts.google.com https://www.google.com https://*.whop.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self' https://accounts.google.com",
