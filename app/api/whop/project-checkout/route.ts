@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { adminClient } from '@/lib/adminCore'
-import { createWhopPlan } from '@/lib/whop'
+import { createWhopPlan, createWhopCheckout } from '@/lib/whop'
 
 export const runtime = 'nodejs'
 
@@ -38,22 +38,22 @@ export async function POST(request: NextRequest) {
       amount,
       planType: 'one_time',
     })
-
-    const { error: mapError } = await admin.from('whop_checkout_sessions').insert({
-      plan_id: planId,
-      target_type: 'project',
-      target_id: project.id,
-      user_id: user.id,
-      expected_amount: amount,
-      currency: 'USD',
-      status: 'pending',
-    })
-    if (mapError) {
-      console.error('[whop] project session insert failed', mapError.message)
+    const { data: session, error: mapError } = await admin.from('whop_checkout_sessions').insert({
+      plan_id: planId, target_type: 'project', target_id: project.id, user_id: user.id,
+      expected_amount: amount, currency: 'USD', status: 'pending',
+    }).select('id').single()
+    if (mapError || !session) {
+      console.error('[whop] project session insert failed', mapError?.message)
       return NextResponse.json({ error: 'CHECKOUT_SESSION_FAILED' }, { status: 500 })
     }
-
-    return NextResponse.json({ ok: true, planId, amount, currency: 'USD' })
+    const { sessionId } = await createWhopCheckout(planId, session.id)
+    const { error: checkoutIdError } = await admin.from('whop_checkout_sessions')
+      .update({ checkout_id: sessionId }).eq('id', session.id)
+    if (checkoutIdError) {
+      console.error('[whop] checkout id persistence failed', checkoutIdError.message)
+      return NextResponse.json({ error: 'CHECKOUT_SESSION_FAILED' }, { status: 500 })
+    }
+    return NextResponse.json({ ok: true, sessionId, amount, currency: 'USD' })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'INTERNAL'
     const status = message === 'WHOP_NOT_CONFIGURED' || message === 'WHOP_PRODUCT_NOT_CONFIGURED' ? 503 : 500
