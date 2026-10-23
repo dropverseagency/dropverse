@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { whopClient } from '@/lib/whop'
+import { retrieveWhopPayment } from '@/lib/whop'
+import { Webhook } from 'standardwebhooks'
 import { adminClient } from '@/lib/adminCore'
 
 export const runtime = 'nodejs'
@@ -29,7 +30,11 @@ export async function POST(request: NextRequest) {
   const headers = Object.fromEntries(request.headers.entries())
   let event: WhopEvent
   try {
-    event = whopClient().webhooks.unwrap(raw, { headers }) as unknown as WhopEvent
+    event = new Webhook(process.env.WHOP_WEBHOOK_SECRET).verify(raw, {
+      'webhook-id': request.headers.get('webhook-id') || '',
+      'webhook-timestamp': request.headers.get('webhook-timestamp') || '',
+      'webhook-signature': request.headers.get('webhook-signature') || '',
+    }) as WhopEvent
   } catch {
     return NextResponse.json({ error: 'INVALID_SIGNATURE' }, { status: 401 })
   }
@@ -53,7 +58,7 @@ export async function POST(request: NextRequest) {
 
   let payment: Record<string, unknown>
   try {
-    payment = await whopClient().payments.retrieve(paymentId) as unknown as Record<string, unknown>
+    payment = await retrieveWhopPayment(paymentId)
   } catch (error) {
     console.error('[whop webhook] payment retrieval failed', error instanceof Error ? error.message : 'unknown')
     return NextResponse.json({ error: 'PAYMENT_NOT_VERIFIED' }, { status: 502 })
