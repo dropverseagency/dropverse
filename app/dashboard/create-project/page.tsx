@@ -36,7 +36,7 @@ export default function CreateProjectPage() {
   const [invoiceId, setInvoiceId] = useState<string | null>(null)
   const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null)
   const [payError, setPayError] = useState<string | null>(null)
-  const [whopPlanId, setWhopPlanId] = useState<string | null>(null)
+  const [whopSessionId, setWhopSessionId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!auth.loading && !auth.user) window.location.assign('/login')
@@ -78,12 +78,12 @@ export default function CreateProjectPage() {
           credentials: 'include',
           body: JSON.stringify({ projectId: id }),
         })
-        const checkoutJson = await checkoutRes.json().catch(() => ({})) as { planId?: string; error?: string }
-        if (!checkoutRes.ok || !checkoutJson.planId) {
+        const checkoutJson = await checkoutRes.json().catch(() => ({})) as { sessionId?: string; error?: string }
+        if (!checkoutRes.ok || !checkoutJson.sessionId) {
           setPayError(checkoutJson.error || 'Whop checkout could not be created. Please retry or choose another payment method.')
           return
         }
-        setWhopPlanId(checkoutJson.planId)
+        setWhopSessionId(checkoutJson.sessionId)
       } catch {
         setPayError('Whop checkout could not be created. Please retry or choose another payment method.')
       }
@@ -273,8 +273,8 @@ export default function CreateProjectPage() {
             {pendingProjectId && paymentMethod === 'WHOP' && (
               <div className="mt-6 space-y-3 rounded-2xl border border-white/10 bg-[#071f1d] p-5 text-sm text-[#c1cbc7]">
                 <p className="font-semibold text-[#e4c979]">Secure Whop checkout</p>
-                {whopPlanId ? (
-                  <WhopCheckoutPanel planId={whopPlanId} returnUrl={typeof window !== 'undefined' ? window.location.origin + '/dashboard?payment=whop' : '/dashboard?payment=whop'} />
+                {whopSessionId ? (
+                  <WhopCheckoutPanel sessionId={whopSessionId} returnUrl={typeof window !== 'undefined' ? window.location.origin + '/dashboard?payment=whop' : '/dashboard?payment=whop'} />
                 ) : (
                   <p>{payError || 'Preparing secure checkout…'}</p>
                 )}
