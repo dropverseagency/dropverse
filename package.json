@@ -18,7 +18,7 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "@whop/checkout": "^0.6.0",
-    "@whop/sdk": "^1.1.5"
+    "standardwebhooks": "^1.0.0"
   },
   "devDependencies": {
     "@types/node": "22.15.0",
