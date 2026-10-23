@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 import { adminClient, audit } from '@/lib/adminCore'
 import { requireUser } from '@/lib/leads/auth'
-import { LEAD_COMMISSION_DEFAULT, remainingSeats, splitCommission } from '@/lib/leads/types'
+import { leadCommissionRateForPrice, remainingSeats, splitCommission } from '@/lib/leads/types'
 
 export const runtime = 'nodejs'
 
@@ -88,23 +88,38 @@ export async function POST(
       return NextResponse.json({ error: 'ALREADY_PURCHASED', purchaseId: existing.id }, { status: 409 })
     }
     if (existing?.status === 'pending_payment') {
+      // Refresh a pending purchase to the current server-side tier rules while preserving
+      // the amount already attached to that pending payment.
+      const pendingPrice = Math.round(Number(existing.price_usd) * 100) / 100
+      const pendingRate = leadCommissionRateForPrice(pendingPrice)
+      const pendingSplit = splitCommission(pendingPrice, pendingRate)
+      const { error: refreshError } = await admin
+        .from('lead_pack_purchases')
+        .update({
+          commission_rate: pendingRate,
+          platform_fee_usd: pendingSplit.platformFee,
+          seller_net_usd: pendingSplit.sellerNet,
+        })
+        .eq('id', existing.id)
+        .eq('status', 'pending_payment')
+
+      if (refreshError) {
+        console.error('[leads] pending commission refresh failed', refreshError.message)
+        return NextResponse.json({ error: 'CHECKOUT_FAILED' }, { status: 500 })
+      }
+
       return NextResponse.json({
         ok: true,
         purchaseId: existing.id,
-        amount: Number(existing.price_usd),
+        amount: pendingPrice,
         currency: (pack.currency as string) || 'USD',
         idempotencyKey: existing.idempotency_key,
         spaceremitPublicKey: process.env.NEXT_PUBLIC_SPACEREMIT_PUBLIC_KEY || '',
       })
     }
 
-    const { data: cfg } = await admin
-      .from('lead_marketplace_config')
-      .select('commission_rate')
-      .eq('id', 1)
-      .maybeSingle()
-    const rate = Number(cfg?.commission_rate ?? LEAD_COMMISSION_DEFAULT)
     const price = Math.round(Number(pack.price_usd) * 100) / 100
+    const rate = leadCommissionRateForPrice(price)
     const { platformFee, sellerNet } = splitCommission(price, rate)
 
     const { data: purchase, error: insErr } = await admin
@@ -136,7 +151,7 @@ export async function POST(
       action: 'lead_checkout_started',
       entity: 'lead_pack_purchase',
       entityId: purchase.id,
-      newValue: { packId, price },
+      newValue: { packId, price, commissionRate: rate, platformFee, sellerNet },
     })
 
     return NextResponse.json({
@@ -150,6 +165,9 @@ export async function POST(
   } catch (e) {
     if ((e as Error).message === 'NOT_AUTHENTICATED') {
       return NextResponse.json({ error: 'NOT_AUTHENTICATED' }, { status: 401 })
+    }
+    if ((e as Error).message === 'INVALID_LEAD_PRICE') {
+      return NextResponse.json({ error: 'INVALID_PRICE' }, { status: 400 })
     }
     console.error('[leads] checkout', e)
     return NextResponse.json({ error: 'INTERNAL' }, { status: 500 })
