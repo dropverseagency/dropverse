@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import SpaceRemitPayForm from '@/components/SpaceRemitPayForm'
+import WhopCheckoutPanel from '@/components/WhopCheckoutPanel'
 
 export default function LeadBuyPanel({
   packId,
@@ -15,9 +16,10 @@ export default function LeadBuyPanel({
   remaining: number
   currency: string
 }) {
-  const [phase, setPhase] = useState<'idle' | 'pay' | 'done' | 'error'>('idle')
+  const [phase, setPhase] = useState<'idle' | 'pay' | 'whop' | 'done' | 'error'>('idle')
   const [msg, setMsg] = useState<string | null>(null)
   const [purchaseId, setPurchaseId] = useState<string | null>(null)
+  const [whopPlanId, setWhopPlanId] = useState<string | null>(null)
   const [publicKey, setPublicKey] = useState('')
   const [buyer, setBuyer] = useState({ name: '', email: '', phone: '' })
   const [termsAccepted, setTermsAccepted] = useState(false)
@@ -47,6 +49,33 @@ export default function LeadBuyPanel({
     setPurchaseId(json.purchaseId)
     setPublicKey(json.spaceremitPublicKey || '')
     setPhase('pay')
+  }
+
+
+  async function startWhopCheckout() {
+    setMsg(null)
+    if (!termsAccepted) {
+      setPhase('error')
+      setMsg('Please accept the Terms of Service and Refund Policy before continuing.')
+      return
+    }
+    const res = await fetch('/api/whop/lead-pack-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ packId, acceptedTerms: true, termsVersion: '2026-10-23' }),
+    })
+    const json = await res.json().catch(() => ({})) as { planId?: string; error?: string }
+    if (res.status === 401) {
+      window.location.href = `/login?redirect=/leads/${packId}`
+      return
+    }
+    if (!res.ok || !json.planId) {
+      setPhase('error')
+      setMsg(json.error || 'Whop checkout could not be started.')
+      return
+    }
+    setWhopPlanId(json.planId)
+    setPhase('whop')
   }
 
   async function onPaid(code: string) {
@@ -80,6 +109,17 @@ export default function LeadBuyPanel({
         <Link href="/dashboard/leads/purchases" className="font-semibold underline">
           Open purchases
         </Link>
+      </div>
+    )
+  }
+
+  if (phase === 'whop' && whopPlanId) {
+    return (
+      <div className="space-y-4 rounded-2xl border border-[rgba(216,180,90,0.25)] bg-[rgba(216,180,90,0.04)] p-5">
+        <p className="text-sm text-[#c5d0cb]">Complete the secure Whop checkout to purchase this lead pack.</p>
+        <WhopCheckoutPanel planId={whopPlanId} returnUrl={typeof window !== 'undefined' ? window.location.origin + `/leads/${packId}?payment=whop` : `/leads/${packId}?payment=whop`} />
+        <p className="text-xs text-[#8fa29c]">Access is unlocked only after DropVerse verifies the signed payment notification.</p>
+        <button type="button" onClick={() => setPhase('idle')} className="text-xs font-semibold text-[#e4c979] underline">Choose another payment method</button>
       </div>
     )
   }
@@ -150,14 +190,24 @@ export default function LeadBuyPanel({
             I agree to the <Link href="/terms" target="_blank" className="font-semibold text-[#e4c979] underline underline-offset-2">Terms of Service</Link> and <Link href="/refund" target="_blank" className="font-semibold text-[#e4c979] underline underline-offset-2">Refund Policy</Link>. I understand this is a digital lead file, review the stated fields/limitations, and agree that download/access and any complaint must be handled under these policies.
           </span>
         </label>
-      <button
-        type="button"
-        onClick={startCheckout}
-        disabled={!termsAccepted}
-        className="w-full rounded-full bg-[#d8b45a] px-6 py-3.5 text-sm font-bold text-[#10221f] hover:bg-[#f0d98b] disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        Buy this pack — ${priceUsd.toFixed(2)}
-      </button>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={startWhopCheckout}
+          disabled={!termsAccepted}
+          className="w-full rounded-full bg-[#d8b45a] px-6 py-3.5 text-sm font-bold text-[#10221f] hover:bg-[#f0d98b] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Pay with Whop — ${priceUsd.toFixed(2)}
+        </button>
+        <button
+          type="button"
+          onClick={startCheckout}
+          disabled={!termsAccepted}
+          className="w-full rounded-full border border-white/15 px-6 py-3.5 text-sm font-bold text-[#d9e0dc] hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Pay with SpaceRemit
+        </button>
+      </div>
       {msg ? <p className="mt-3 text-center text-xs text-red-300">{msg}</p> : null}
       <p className="mt-3 text-center text-[11px] text-[#6f827c]">You must be logged in. Refund requests are reviewed under the published policy and applicable law.</p>
     </div>
