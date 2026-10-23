@@ -7,6 +7,7 @@ import { createClient } from '../../../lib/supabase'
 import { type OrgRow } from '../../../lib/orgs'
 import { PLAN_CONFIG, membersLabelFor, planById } from '../../../lib/planConfig'
 import PayPalCheckoutModal from '../../../components/PayPalCheckoutModal'
+import WhopCheckoutPanel from '../../../components/WhopCheckoutPanel'
 
 type BillingOrder = {
   id: string
@@ -30,7 +31,33 @@ export default function BillingPage() {
   const [focusPlan, setFocusPlan] = useState<string | null>(null)
   const [checkoutPlan, setCheckoutPlan] = useState<{ id: string; displayName: string; price: number } | null>(null)
   const [payError, setPayError] = useState<string | null>(null)
+  const [whopCheckout, setWhopCheckout] = useState<{ sessionId: string; displayName: string; price: number } | null>(null)
+  const [whopLoadingPlan, setWhopLoadingPlan] = useState<string | null>(null)
   const router = useRouter()
+
+  async function startWhopSubscription(planKey: string, displayName: string, price: number) {
+    if (!activeOrgId || whopLoadingPlan) return
+    setPayError(null)
+    setWhopLoadingPlan(planKey)
+    try {
+      const response = await fetch('/api/whop/subscription-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ organizationId: activeOrgId, planKey }),
+      })
+      const data = await response.json().catch(() => ({})) as { sessionId?: string; error?: string }
+      if (!response.ok || !data.sessionId) {
+        setPayError(data.error || 'Could not start Whop checkout.')
+        return
+      }
+      setWhopCheckout({ sessionId: data.sessionId, displayName, price })
+    } catch {
+      setPayError('Could not start Whop checkout. Please try again.')
+    } finally {
+      setWhopLoadingPlan(null)
+    }
+  }
 
   async function openPortal() {
     setPortalError('Billing portal is temporarily unavailable.')
@@ -200,16 +227,26 @@ export default function BillingPage() {
                       Contact Sales
                     </a>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPayError(null)
-                        setCheckoutPlan({ id: p.id, displayName: p.displayName, price: p.price })
-                      }}
-                      className="mt-5 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-[#d8b45a] py-3.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]"
-                    >
-                      {`Pay with PayPal — $${p.price}/mo`}
-                    </button>
+                    <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPayError(null)
+                          setCheckoutPlan({ id: p.id, displayName: p.displayName, price: p.price })
+                        }}
+                        className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-[#d8b45a] py-3.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]"
+                      >
+                        {`Pay with PayPal — ${p.price}/mo`}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void startWhopSubscription(p.id, p.displayName, p.price)}
+                        disabled={Boolean(whopLoadingPlan)}
+                        className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-[rgba(216,180,90,0.40)] py-3.5 text-sm font-bold text-[#e4c979] transition hover:bg-[rgba(216,180,90,0.08)] disabled:opacity-50"
+                      >
+                        {whopLoadingPlan === p.id ? 'Preparing Whop…' : `Pay with Whop — ${p.price}/mo`}
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}
@@ -226,6 +263,21 @@ export default function BillingPage() {
         )}
       </div>
     </main>
+      {whopCheckout && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
+          <div className="my-8 w-full max-w-xl rounded-3xl border border-white/10 bg-[#071f1d] p-5 sm:p-7">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-display text-xl font-bold">Whop checkout — {whopCheckout.displayName}</h2>
+                <p className="mt-1 text-sm text-[#849792]">${whopCheckout.price}/month · recurring subscription</p>
+              </div>
+              <button type="button" onClick={() => setWhopCheckout(null)} className="rounded-full border border-white/10 px-3 py-2 text-sm text-[#c1cbc7]">Close</button>
+            </div>
+            <WhopCheckoutPanel sessionId={whopCheckout.sessionId} returnUrl={typeof window !== 'undefined' ? window.location.origin + '/dashboard/billing?payment=whop' : '/dashboard/billing?payment=whop'} />
+            <p className="mt-3 text-xs text-[#849792]">Your plan is updated after DropVerse verifies payment with Whop.</p>
+          </div>
+        </div>
+      )}
       <PayPalCheckoutModal
         open={Boolean(checkoutPlan)}
         onClose={() => setCheckoutPlan(null)}
