@@ -46,7 +46,7 @@ export default function LeadEarningsPage() {
       <h1 className="text-2xl font-bold text-white">Lead earnings</h1>
       <p className="mt-2 text-3xl font-bold text-[#e4c979]">${balance.toFixed(2)}</p>
       <p className="mt-1 text-xs leading-5 text-[#8fa29c]">
-        Your share is calculated automatically for each completed sale: 80% for packs under $100, 85% for packs from $100 to under $1,000, and 90% for packs priced at $1,000 or more. Amounts are before payment processor fees, refunds, and adjustments. Payouts are manual after admin review.
+        Your share is 85% of each completed lead pack sale. DropVerse keeps a flat 15% platform commission regardless of pack price. Amounts are before payment processor fees, refunds, and adjustments. Payouts are manual after admin review.
       </p>
 
       <form onSubmit={requestPayout} className="mt-6 flex gap-2">
