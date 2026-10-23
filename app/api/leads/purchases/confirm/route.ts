@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient, audit } from '@/lib/adminCore'
 import { requireUser } from '@/lib/leads/auth'
-import { effectiveMaxBuyers } from '@/lib/leads/types'
+import { effectiveMaxBuyers, leadCommissionRateForPrice, splitCommission } from '@/lib/leads/types'
 
 export const runtime = 'nodejs'
 
 /**
  * POST /api/leads/purchases/confirm
  * Body: { purchaseId, paymentId }
- * Verifies SpaceRemit server-side, marks paid, increments sold_count, credits seller ledger.
+ * Verifies SpaceRemit server-side, applies the server-side tier for the paid price,
+ * marks paid, increments sold_count, and credits the seller ledger.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -107,18 +108,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'SOLD_OUT' }, { status: 409 })
     }
 
-    const { error: payErr } = await admin
+    // Recalculate immediately before crediting the seller so stale client data or
+    // legacy pending purchases cannot bypass the current commission tiers.
+    const commissionRate = leadCommissionRateForPrice(expected)
+    const { platformFee, sellerNet } = splitCommission(expected, commissionRate)
+
+    const { data: updatedPurchase, error: payErr } = await admin
       .from('lead_pack_purchases')
       .update({
         status: 'paid',
+        commission_rate: commissionRate,
+        platform_fee_usd: platformFee,
+        seller_net_usd: sellerNet,
         spaceremit_payment_id: paymentId,
         paid_at: new Date().toISOString(),
       })
       .eq('id', purchaseId)
       .eq('status', 'pending_payment')
+      .select('id')
+      .maybeSingle()
 
-    if (payErr) {
-      console.error('[leads] confirm update', payErr.message)
+    if (payErr || !updatedPurchase) {
+      console.error('[leads] confirm update', payErr?.message || 'purchase status changed concurrently')
       return NextResponse.json({ error: 'CONFIRM_FAILED' }, { status: 500 })
     }
 
@@ -133,17 +144,21 @@ export async function POST(request: NextRequest) {
       .select('amount')
       .eq('seller_id', pack.seller_id)
     const priorSum = (prior ?? []).reduce((s, r) => s + Number(r.amount || 0), 0)
-    const credit = Number(purchase.seller_net_usd)
+    const credit = sellerNet
     const balanceAfter = Math.round((priorSum + credit) * 100) / 100
 
-    await admin.from('lead_marketplace_ledger').insert({
+    const { error: ledgerError } = await admin.from('lead_marketplace_ledger').insert({
       seller_id: pack.seller_id,
       purchase_id: purchaseId,
       event: 'sale_credit',
       amount: credit,
       balance_after: balanceAfter,
-      note: `Sale of pack ${pack.id}`,
+      note: `Sale of pack ${pack.id}; platform commission ${commissionRate * 100}%`,
     })
+    if (ledgerError) {
+      console.error('[leads] seller ledger credit failed', ledgerError.message)
+      return NextResponse.json({ error: 'LEDGER_CREDIT_FAILED' }, { status: 500 })
+    }
 
     await audit({
       actorId: userId,
@@ -154,8 +169,9 @@ export async function POST(request: NextRequest) {
       newValue: {
         paymentId,
         amount: expected,
+        commission_rate: commissionRate,
         seller_net: credit,
-        platform_fee: purchase.platform_fee_usd,
+        platform_fee: platformFee,
       },
     })
 
@@ -163,6 +179,9 @@ export async function POST(request: NextRequest) {
   } catch (e) {
     if ((e as Error).message === 'NOT_AUTHENTICATED') {
       return NextResponse.json({ error: 'NOT_AUTHENTICATED' }, { status: 401 })
+    }
+    if ((e as Error).message === 'INVALID_LEAD_PRICE') {
+      return NextResponse.json({ error: 'INVALID_PRICE' }, { status: 400 })
     }
     console.error('[leads] confirm', e)
     return NextResponse.json({ error: 'INTERNAL' }, { status: 500 })
