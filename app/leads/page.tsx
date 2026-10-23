@@ -51,12 +51,12 @@ const HOW = [
   {
     icon: Upload,
     title: 'Sellers submit packs',
-    text: 'CSV / XLSX with niche, countries, price, and seat limit — reviewed before going live.',
+    text: 'Service-specific CSV / XLSX packs with a clear target market and evidence of why the prospects may need the service. Random lists are rejected.',
   },
   {
     icon: ShieldCheck,
     title: 'Admin approval',
-    text: 'Only approved packs appear publicly. Quality and rights checks first.',
+    text: 'CSV files get automatic header, record-count, contact-coverage and duplicate checks. Every pack also needs a manual quality and data-rights review.',
   },
   {
     icon: ShoppingBag,
