@@ -63,6 +63,15 @@ export async function POST(request: NextRequest) {
       purchaseId = purchase.id
     }
 
+    const { data: priorSession } = await admin.from('whop_checkout_sessions')
+      .select('id,checkout_id,expected_amount')
+      .eq('target_type', 'lead_pack').eq('target_id', purchaseId).eq('user_id', userId)
+      .eq('status', 'pending').not('checkout_id', 'is', null)
+      .order('created_at', { ascending: false }).limit(1).maybeSingle()
+    if (priorSession?.checkout_id && Math.abs(Number(priorSession.expected_amount) - amount) < 0.01) {
+      return NextResponse.json({ ok: true, purchaseId, sessionId: priorSession.checkout_id, amount, currency: 'USD' })
+    }
+
     const { planId } = await createWhopPlan({
       productId: process.env.WHOP_LEAD_PACK_PRODUCT_ID || '',
       title: `DV Lead ${pack.id.slice(0, 8)}`,
