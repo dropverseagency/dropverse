@@ -3,18 +3,18 @@
 import { WhopCheckoutEmbed } from '@whop/checkout/react'
 
 export default function WhopCheckoutPanel({
-  planId,
+  sessionId,
   returnUrl,
   environment = 'production',
 }: {
-  planId: string
+  sessionId: string
   returnUrl: string
   environment?: 'production' | 'sandbox'
 }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0a2926]">
       <WhopCheckoutEmbed
-        planId={planId}
+        sessionId={sessionId}
         returnUrl={returnUrl}
         environment={environment}
         theme="dark"
