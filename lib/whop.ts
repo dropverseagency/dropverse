@@ -1,4 +1,4 @@
-import { Whop } from '@whop/sdk'
+import Whop from '@whop/sdk'
 
 export function whopConfig() {
   const apiKey = process.env.WHOP_COMPANY_API_KEY || process.env.WHOP_API_KEY
