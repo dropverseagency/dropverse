@@ -30,7 +30,7 @@ export type LeadPackPublic = {
   updated_at: string
 }
 
-// Legacy/default constant retained for compatibility; new purchases use price-based tiers below.
+// Default commission for all lead pack sales.
 export const LEAD_COMMISSION_DEFAULT = 0.15
 export const LEAD_DEFAULT_MAX_BUYERS = 10
 export const LEAD_MAX_FILE_BYTES = 10 * 1024 * 1024
