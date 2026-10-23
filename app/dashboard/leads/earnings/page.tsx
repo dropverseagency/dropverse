@@ -45,7 +45,9 @@ export default function LeadEarningsPage() {
     <div className="mx-auto max-w-3xl px-4 py-10 text-[#e7edea]">
       <h1 className="text-2xl font-bold text-white">Lead earnings</h1>
       <p className="mt-2 text-3xl font-bold text-[#e4c979]">${balance.toFixed(2)}</p>
-      <p className="mt-1 text-xs text-[#8fa29c]">80% of each sale (before payment processor fees). Payouts are manual after admin review.</p>
+      <p className="mt-1 text-xs leading-5 text-[#8fa29c]">
+        Your share is calculated automatically for each completed sale: 80% for packs under $100, 85% for packs from $100 to under $1,000, and 90% for packs priced at $1,000 or more. Amounts are before payment processor fees, refunds, and adjustments. Payouts are manual after admin review.
+      </p>
 
       <form onSubmit={requestPayout} className="mt-6 flex gap-2">
         <input
