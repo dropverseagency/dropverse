@@ -31,6 +31,7 @@ export default function LeadsSection() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState<Record<string, string>>({})
   const [adminMax, setAdminMax] = useState<Record<string, string>>({})
+  const [reviewConfirmed, setReviewConfirmed] = useState<Record<string, boolean>>({})
 
   async function load(nextStatus = status) {
     setLoading(true)
@@ -51,11 +52,19 @@ export default function LeadsSection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status])
 
-  async function moderate(id: string, action: 'approve' | 'reject' | 'suspend') {
+  async function moderate(id: string, action: 'approve' | 'reject' | 'request_changes' | 'suspend') {
     setBusyId(id)
     setError(null)
     const body: Record<string, unknown> = { action }
-    if (action === 'reject') {
+    if (action === 'approve') {
+      if (!reviewConfirmed[id]) {
+        setError('Confirm the quality checklist before approving a pack')
+        setBusyId(null)
+        return
+      }
+      body.qualityReviewConfirmed = true
+    }
+    if (action === 'reject' || action === 'request_changes') {
       const reason = (rejectReason[id] || '').trim()
       if (!reason) {
         setError('Reject reason required')
@@ -122,6 +131,19 @@ export default function LeadsSection() {
                   {p.niche ? ` · ${p.niche}` : ''}
                 </p>
                 <p className="mt-2 text-sm text-[#c5d0cb]">{p.description || '—'}</p>
+                {(() => {
+                  const q = (p.preview_meta || {}) as Record<string, unknown>
+                  const score = typeof q.qualityScore === 'number' ? q.qualityScore : null
+                  return <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                    <span className={`rounded-full px-2.5 py-1 font-bold ${score !== null && score >= 80 ? 'bg-emerald-400/15 text-emerald-200' : score !== null && score >= 65 ? 'bg-amber-400/15 text-amber-200' : 'bg-red-400/15 text-red-200'}`}>Quality score: {score === null ? 'Legacy — manual review' : `${score}/100`}</span>
+                    <span className="rounded-full bg-white/5 px-2.5 py-1 text-[#c5d0cb]">Service: {String(q.serviceTarget || 'Not specified')}</span>
+                    <span className="rounded-full bg-white/5 px-2.5 py-1 text-[#c5d0cb]">Buyer: {String(q.audienceType || 'Not specified').replaceAll('_', ' ')}</span>
+                    <span className="rounded-full bg-white/5 px-2.5 py-1 text-[#c5d0cb]">Records: {String(q.recordCount || 'Not stated')}</span>
+                    <span className="rounded-full bg-white/5 px-2.5 py-1 text-[#c5d0cb]">Checked: {String(q.dataAsOf || 'Not stated')}</span>
+                    <span className="rounded-full bg-white/5 px-2.5 py-1 text-[#c5d0cb]">Verification: {String(q.verificationLevel || 'Not stated')}</span>
+                  </div>
+                })()}
+                {p.preview_meta?.needEvidence ? <div className="mt-3 rounded-xl border border-white/10 bg-[#071f1d] p-3 text-xs text-[#c5d0cb]"><strong className="text-white">Why these leads may need the service</strong><p className="mt-1 whitespace-pre-wrap">{String(p.preview_meta.needEvidence)}</p></div> : null}
               </div>
               <span className="rounded-full bg-[#d8b45a]/15 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[#e4c979]">
                 {p.status}
@@ -133,6 +155,8 @@ export default function LeadsSection() {
                 <p className="font-semibold text-[#aebcb7]">Source attestation</p>
                 <p className="mt-1 whitespace-pre-wrap">{p.source_attestation || '—'}</p>
                 <p className="mt-2">Resale rights ack: {p.resale_rights_ack ? 'yes' : 'no'}</p>
+                <p className="mt-1">Duplicate check declared: {p.preview_meta?.duplicatesRemoved ? 'yes' : 'no / not stated'}</p>
+                <p className="mt-1">Targeted-list policy acknowledged: {p.preview_meta?.qualityPolicyAck ? 'yes' : 'no / not stated'}</p>
               </div>
               <div>
                 <p className="font-semibold text-[#aebcb7]">File meta</p>
@@ -147,6 +171,10 @@ export default function LeadsSection() {
 
             {p.status === 'pending_review' || p.status === 'suspended' || p.status === 'rejected' ? (
               <div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4">
+                <label className="flex items-start gap-2 text-xs text-[#c5d0cb]">
+                  <input type="checkbox" checked={Boolean(reviewConfirmed[p.id])} onChange={(e) => setReviewConfirmed((m) => ({ ...m, [p.id]: e.target.checked }))} className="mt-0.5" />
+                  I reviewed service fit, evidence, contact-data quality, freshness, duplicate handling and lawful data rights. I confirm this pack is suitable for freelancers/agencies and is not a random list.
+                </label>
                 <div className="flex flex-wrap items-end gap-2">
                   <label className="text-xs text-[#8fa29c]">
                     Admin max buyers (optional, ≤ seller max)
@@ -171,10 +199,18 @@ export default function LeadsSection() {
                 <div className="flex flex-wrap items-end gap-2">
                   <input
                     className="min-w-[12rem] flex-1 rounded-xl border border-white/10 bg-[#071f1d] px-3 py-2 text-sm"
-                    placeholder="Reject reason"
+                    placeholder="Reject reason / requested corrections"
                     value={rejectReason[p.id] ?? ''}
                     onChange={(e) => setRejectReason((m) => ({ ...m, [p.id]: e.target.value }))}
                   />
+                  <button
+                    type="button"
+                    disabled={busyId === p.id}
+                    onClick={() => moderate(p.id, 'request_changes')}
+                    className="rounded-full border border-amber-300/40 px-4 py-2 text-xs font-bold text-amber-100 disabled:opacity-40"
+                  >
+                    Request changes
+                  </button>
                   <button
                     type="button"
                     disabled={busyId === p.id}
