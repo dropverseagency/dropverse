@@ -23,13 +23,25 @@ async function ensurePrivateBucket(admin: ReturnType<typeof adminClient>) {
   if (created.error) throw new Error(created.error.message)
 }
 
-function buildPreviewMeta(fileName: string, bytes: number, contentType: string): Record<string, unknown> {
+function buildPreviewMeta(fileName: string, bytes: number, contentType: string, quality: Record<string, unknown>): Record<string, unknown> {
   return {
     fileName: fileName.slice(0, 120),
     bytes,
     contentType,
     note: 'Full lead rows are available only after purchase. Preview is metadata only.',
+    ...quality,
   }
+}
+
+function scoreLeadPack(input: { serviceTarget: string; niche: string; evidence: string; verificationLevel: string; dataAsOf: string; duplicatesRemoved: boolean; description: string; countries: string[]; sourceAttestation: string }): number {
+  let score = input.serviceTarget && input.niche.trim().length >= 3 ? 25 : 0
+  score += input.evidence.trim().length >= 50 ? 25 : input.evidence.trim().length >= 30 ? 15 : 0
+  score += input.verificationLevel === 'verified' ? 20 : input.verificationLevel === 'partial' ? 12 : 5
+  const ageDays = Math.floor((Date.now() - new Date(`${input.dataAsOf}T00:00:00Z`).getTime()) / 86400000)
+  score += ageDays <= 90 ? 10 : ageDays <= 180 ? 7 : 3
+  score += input.duplicatesRemoved ? 10 : 0
+  score += input.description.trim().length >= 20 && input.countries.length > 0 && input.sourceAttestation.trim().length >= 10 ? 10 : 0
+  return Math.max(0, Math.min(100, score))
 }
 
 /** GET /api/leads/packs — seller's own packs */
@@ -74,11 +86,40 @@ export async function POST(request: NextRequest) {
       parseInt(String(form.get('max_buyers') || LEAD_DEFAULT_MAX_BUYERS), 10) || LEAD_DEFAULT_MAX_BUYERS,
     )
     const sourceAttestation = String(form.get('source_attestation') || '').trim()
+    const serviceTarget = String(form.get('service_target') || '').trim()
+    const audienceType = String(form.get('audience_type') || '').trim()
+    const needEvidence = String(form.get('need_evidence') || '').trim()
+    const dataAsOf = String(form.get('data_as_of') || '').trim()
+    const recordCount = Number(form.get('record_count') || 0)
+    const verificationLevel = String(form.get('verification_level') || '').trim()
+    const duplicatesRemoved = String(form.get('duplicates_removed') || '') === 'true'
+    const qualityPolicyAck = String(form.get('quality_policy_ack') || '') === 'true'
     const resaleAck = String(form.get('resale_rights_ack') || '') === 'true'
     const file = form.get('file')
 
     if (title.length < 3 || title.length > 120) {
       return NextResponse.json({ error: 'INVALID_TITLE' }, { status: 400 })
+    }
+    if (description.length < 20 || niche.length < 3 || countriesRaw.length < 2) {
+      return NextResponse.json({ error: 'TARGETED_LIST_DETAILS_REQUIRED', message: 'Add a clear description, specific niche, and target country.' }, { status: 400 })
+    }
+    if (!serviceTarget || !['freelancers_and_agencies', 'freelancers', 'agencies'].includes(audienceType)) {
+      return NextResponse.json({ error: 'SERVICE_AND_AUDIENCE_REQUIRED' }, { status: 400 })
+    }
+    if (needEvidence.length < 30) {
+      return NextResponse.json({ error: 'NEED_EVIDENCE_REQUIRED', message: 'Explain why the leads may need this service (at least 30 characters).' }, { status: 400 })
+    }
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(dataAsOf) || Number.isNaN(new Date(`${dataAsOf}T00:00:00Z`).getTime()) || new Date(`${dataAsOf}T00:00:00Z`).getTime() > Date.now()) {
+      return NextResponse.json({ error: 'INVALID_DATA_DATE' }, { status: 400 })
+    }
+    if (!Number.isInteger(recordCount) || recordCount < 1 || recordCount > 1000000) {
+      return NextResponse.json({ error: 'INVALID_RECORD_COUNT' }, { status: 400 })
+    }
+    if (!['verified', 'partial', 'unverified'].includes(verificationLevel)) {
+      return NextResponse.json({ error: 'INVALID_VERIFICATION_LEVEL' }, { status: 400 })
+    }
+    if (!duplicatesRemoved || !qualityPolicyAck) {
+      return NextResponse.json({ error: 'QUALITY_POLICY_ACK_REQUIRED', message: 'Confirm the list is targeted, duplicates were checked, and claims are accurate.' }, { status: 400 })
     }
     if (!(priceUsd > 0)) {
       return NextResponse.json({ error: 'INVALID_PRICE' }, { status: 400 })
@@ -111,6 +152,15 @@ export async function POST(request: NextRequest) {
           .slice(0, 30)
       : []
 
+    if (!countriesRaw.split(',').map((c) => c.trim()).filter(Boolean).length) {
+      return NextResponse.json({ error: 'TARGET_COUNTRY_REQUIRED' }, { status: 400 })
+    }
+
+    const countries = countriesRaw
+      ? countriesRaw.split(',').map((c) => c.trim()).filter(Boolean).slice(0, 30)
+      : []
+    const qualityScore = scoreLeadPack({ serviceTarget, niche, evidence: needEvidence, verificationLevel, dataAsOf, duplicatesRemoved, description, countries, sourceAttestation })
+
     const bytes = Buffer.from(await file.arrayBuffer())
     const sha256 = createHash('sha256').update(bytes).digest('hex')
     const admin = adminClient()
@@ -130,7 +180,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'UPLOAD_FAILED' }, { status: 500 })
     }
 
-    const preview_meta = buildPreviewMeta(file.name || safeName, file.size, mime)
+    const preview_meta = buildPreviewMeta(file.name || safeName, file.size, mime, {
+      serviceTarget,
+      audienceType,
+      needEvidence,
+      dataAsOf,
+      recordCount,
+      verificationLevel,
+      duplicatesRemoved,
+      qualityPolicyAck,
+      qualityScore,
+      qualityBand: qualityScore >= 80 ? 'eligible_for_review' : qualityScore >= 65 ? 'manual_review_required' : 'below_minimum',
+    })
 
     const { data: pack, error: insertError } = await admin
       .from('lead_packs')
@@ -167,7 +228,7 @@ export async function POST(request: NextRequest) {
       action: 'lead_pack_submitted',
       entity: 'lead_pack',
       entityId: packId,
-      newValue: { title, price_usd: priceUsd, max_buyers: maxBuyers, ip: clientIp(request) },
+      newValue: { title, price_usd: priceUsd, max_buyers: maxBuyers, serviceTarget, countries, recordCount, qualityScore, ip: clientIp(request) },
     })
 
     return NextResponse.json({ ok: true, pack })
