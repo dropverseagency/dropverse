@@ -76,7 +76,7 @@ export default function SellerLeadsPage() {
     const json = await res.json().catch(() => ({}))
     setSubmitting(false)
     if (!res.ok) {
-      setError(json.error || 'Upload failed')
+      setError(json.message || (json.error ? String(json.error).replaceAll('_', ' ').toLowerCase() : 'Upload failed'))
       return
     }
     setForm({
@@ -262,7 +262,7 @@ export default function SellerLeadsPage() {
               <li key={p.id} className="rounded-2xl border border-white/10 bg-[#0b2a26] px-4 py-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium text-white">{p.title}</span>
-                  <span className="text-xs uppercase tracking-wide text-[#d8b45a]">{p.status}</span>
+                  <span className="text-xs uppercase tracking-wide text-[#d8b45a]">{p.reject_reason?.startsWith('Changes requested:') ? 'changes requested' : p.status}</span>
                 </div>
                 <p className="mt-1 text-xs text-[#8fa29c]">
                   ${Number(p.price_usd).toFixed(2)} · max {p.max_buyers} buyers
