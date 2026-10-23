@@ -19,7 +19,7 @@ export default function LeadBuyPanel({
   const [phase, setPhase] = useState<'idle' | 'pay' | 'whop' | 'done' | 'error'>('idle')
   const [msg, setMsg] = useState<string | null>(null)
   const [purchaseId, setPurchaseId] = useState<string | null>(null)
-  const [whopPlanId, setWhopPlanId] = useState<string | null>(null)
+  const [whopSessionId, setWhopSessionId] = useState<string | null>(null)
   const [publicKey, setPublicKey] = useState('')
   const [buyer, setBuyer] = useState({ name: '', email: '', phone: '' })
   const [termsAccepted, setTermsAccepted] = useState(false)
@@ -64,17 +64,17 @@ export default function LeadBuyPanel({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ packId, acceptedTerms: true, termsVersion: '2026-10-23' }),
     })
-    const json = await res.json().catch(() => ({})) as { planId?: string; error?: string }
+    const json = await res.json().catch(() => ({})) as { sessionId?: string; error?: string }
     if (res.status === 401) {
       window.location.href = `/login?redirect=/leads/${packId}`
       return
     }
-    if (!res.ok || !json.planId) {
+    if (!res.ok || !json.sessionId) {
       setPhase('error')
       setMsg(json.error || 'Whop checkout could not be started.')
       return
     }
-    setWhopPlanId(json.planId)
+    setWhopSessionId(json.sessionId)
     setPhase('whop')
   }
 
@@ -113,11 +113,11 @@ export default function LeadBuyPanel({
     )
   }
 
-  if (phase === 'whop' && whopPlanId) {
+  if (phase === 'whop' && whopSessionId) {
     return (
       <div className="space-y-4 rounded-2xl border border-[rgba(216,180,90,0.25)] bg-[rgba(216,180,90,0.04)] p-5">
         <p className="text-sm text-[#c5d0cb]">Complete the secure Whop checkout to purchase this lead pack.</p>
-        <WhopCheckoutPanel planId={whopPlanId} returnUrl={typeof window !== 'undefined' ? window.location.origin + `/leads/${packId}?payment=whop` : `/leads/${packId}?payment=whop`} />
+        <WhopCheckoutPanel sessionId={whopSessionId} returnUrl={typeof window !== 'undefined' ? window.location.origin + `/leads/${packId}?payment=whop` : `/leads/${packId}?payment=whop`} />
         <p className="text-xs text-[#8fa29c]">Access is unlocked only after DropVerse verifies the signed payment notification.</p>
         <button type="button" onClick={() => setPhase('idle')} className="text-xs font-semibold text-[#e4c979] underline">Choose another payment method</button>
       </div>
