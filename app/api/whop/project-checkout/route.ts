@@ -32,6 +32,14 @@ export async function POST(request: NextRequest) {
 
     const amount = Math.round(Number(project.client_price) * 100) / 100
     if (!(amount > 0)) return NextResponse.json({ error: 'INVALID_AMOUNT' }, { status: 400 })
+    const { data: priorSession } = await admin.from('whop_checkout_sessions')
+      .select('id,checkout_id,expected_amount')
+      .eq('target_type', 'project').eq('target_id', project.id).eq('user_id', user.id)
+      .eq('status', 'pending').not('checkout_id', 'is', null)
+      .order('created_at', { ascending: false }).limit(1).maybeSingle()
+    if (priorSession?.checkout_id && Math.abs(Number(priorSession.expected_amount) - amount) < 0.01) {
+      return NextResponse.json({ ok: true, sessionId: priorSession.checkout_id, amount, currency: 'USD' })
+    }
     const { planId } = await createWhopPlan({
       productId: process.env.WHOP_PROJECT_PRODUCT_ID || '',
       title: `DV Project ${project.id.slice(0, 8)}`,
