@@ -144,21 +144,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'INVALID_TYPE' }, { status: 400 })
     }
 
-    const countries = countriesRaw
-      ? countriesRaw
-          .split(',')
-          .map((c) => c.trim())
-          .filter(Boolean)
-          .slice(0, 30)
-      : []
-
     if (!countriesRaw.split(',').map((c) => c.trim()).filter(Boolean).length) {
       return NextResponse.json({ error: 'TARGET_COUNTRY_REQUIRED' }, { status: 400 })
     }
 
     const countries = countriesRaw
-      ? countriesRaw.split(',').map((c) => c.trim()).filter(Boolean).slice(0, 30)
-      : []
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean)
+      .slice(0, 30)
     const qualityScore = scoreLeadPack({ serviceTarget, niche, evidence: needEvidence, verificationLevel, dataAsOf, duplicatesRemoved, description, countries, sourceAttestation })
 
     const bytes = Buffer.from(await file.arrayBuffer())
