@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     if (needEvidence.length < 30) {
       return NextResponse.json({ error: 'NEED_EVIDENCE_REQUIRED', message: 'Explain why the leads may need this service (at least 30 characters).' }, { status: 400 })
     }
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(dataAsOf) || Number.isNaN(new Date(`${dataAsOf}T00:00:00Z`).getTime()) || new Date(`${dataAsOf}T00:00:00Z`).getTime() > Date.now()) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dataAsOf) || Number.isNaN(new Date(`${dataAsOf}T00:00:00Z`).getTime()) || new Date(`${dataAsOf}T00:00:00Z`).getTime() > Date.now()) {
       return NextResponse.json({ error: 'INVALID_DATA_DATE' }, { status: 400 })
     }
     if (!Number.isInteger(recordCount) || recordCount < 1 || recordCount > 1000000) {
