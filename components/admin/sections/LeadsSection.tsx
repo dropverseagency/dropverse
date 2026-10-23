@@ -141,6 +141,7 @@ export default function LeadsSection() {
                     <span className="rounded-full bg-white/5 px-2.5 py-1 text-[#c5d0cb]">Records: {String(q.recordCount || 'Not stated')}</span>
                     <span className="rounded-full bg-white/5 px-2.5 py-1 text-[#c5d0cb]">Checked: {String(q.dataAsOf || 'Not stated')}</span>
                     <span className="rounded-full bg-white/5 px-2.5 py-1 text-[#c5d0cb]">Verification: {String(q.verificationLevel || 'Not stated')}</span>
+                    <span className="rounded-full bg-white/5 px-2.5 py-1 text-[#c5d0cb]">File check: {String((q.fileInspection as Record<string, unknown> | undefined)?.inspectionStatus || 'manual review')}</span>
                   </div>
                 })()}
                 {p.preview_meta?.needEvidence ? <div className="mt-3 rounded-xl border border-white/10 bg-[#071f1d] p-3 text-xs text-[#c5d0cb]"><strong className="text-white">Why these leads may need the service</strong><p className="mt-1 whitespace-pre-wrap">{String(p.preview_meta.needEvidence)}</p></div> : null}
