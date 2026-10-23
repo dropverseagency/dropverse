@@ -233,7 +233,8 @@ export async function POST(request: NextRequest) {
           CSV_DUPLICATES_FOUND: `The CSV contains ${inspection.duplicateRecords} duplicate contact records. Remove duplicates and upload again.`,
           CSV_CONTACT_COVERAGE_TOO_LOW: `Only ${inspection.contactCoveragePercent}% of rows have contact data. At least 80% must include a contact field.`,
         }
-        return NextResponse.json({ error: inspection.error, message: messages[inspection.error] || 'CSV quality check failed.', details: inspection }, { status: 400 })
+        const errorCode = String(inspection.error || 'CSV_QUALITY_CHECK_FAILED')
+        return NextResponse.json({ error: errorCode, message: messages[errorCode] || 'CSV quality check failed.', details: inspection }, { status: 400 })
       }
       fileInspection = inspection
     }
