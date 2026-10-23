@@ -41,6 +41,15 @@ export async function POST(request: NextRequest) {
     if (orgError || !org) return NextResponse.json({ error: 'ORGANIZATION_NOT_FOUND' }, { status: 404 })
     if (org.plan === planKey) return NextResponse.json({ error: 'PLAN_ALREADY_ACTIVE' }, { status: 409 })
 
+    const { data: priorSession } = await adminClient().from('whop_checkout_sessions')
+      .select('id,checkout_id,expected_amount')
+      .eq('target_type', 'subscription').eq('target_id', organizationId).eq('user_id', user.id)
+      .eq('status', 'pending').eq('plan_id', planId).not('checkout_id', 'is', null)
+      .order('created_at', { ascending: false }).limit(1).maybeSingle()
+    if (priorSession?.checkout_id && Math.abs(Number(priorSession.expected_amount) - plan.price) < 0.01) {
+      return NextResponse.json({ ok: true, sessionId: priorSession.checkout_id, planKey, amount: plan.price, currency: 'USD' })
+    }
+
     const whopPlan = await whopClient().plans.retrieve(planId) as unknown as Record<string, unknown>
     const recurringPrice = Number(whopPlan.renewal_price)
     if (whopPlan.id !== planId || whopPlan.plan_type !== 'renewal' ||
