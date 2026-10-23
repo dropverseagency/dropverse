@@ -38,7 +38,7 @@ function parseCsvRows(text: string): string[][] {
   let row: string[] = []
   let cell = ''
   let quoted = false
-  const input = text.replace(/^\\uFEFF/, '')
+  const input = text.replace(/^\uFEFF/, '')
   for (let i = 0; i < input.length; i++) {
     const ch = input[i]
     if (ch === '"') {
@@ -51,8 +51,8 @@ function parseCsvRows(text: string): string[][] {
     } else if (ch === ',' && !quoted) {
       row.push(cell.trim())
       cell = ''
-    } else if ((ch === '\\n' || ch === '\\r') && !quoted) {
-      if (ch === '\\r' && input[i + 1] === '\\n') i++
+    } else if ((ch === '\n' || ch === '\r') && !quoted) {
+      if (ch === '\r' && input[i + 1] === '\n') i++
       row.push(cell.trim())
       if (row.some((v) => v.length > 0)) rows.push(row)
       row = []
@@ -70,10 +70,10 @@ function inspectCsv(bytes: Buffer, claimedRecordCount: number) {
   const rows = parseCsvRows(bytes.toString('utf8'))
   if (rows.length < 2) return { error: 'CSV_NEEDS_HEADER_AND_DATA' } as const
   const headers = rows[0].map((h) => h.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim())
-  const nameIndex = headers.findIndex((h) => /\\b(company|business|brand|creator|channel|contact name|business name|company name|name)\\b/.test(h))
+  const nameIndex = headers.findIndex((h) => /\b(company|business|brand|creator|channel|contact name|business name|company name|name)\b/.test(h))
   const contactIndexes = headers
     .map((h, i) => ({ h, i }))
-    .filter(({ h }) => /\\b(email|e mail|phone|telephone|mobile|website|web site|domain|url|linkedin|instagram|tiktok|youtube|profile|handle)\\b/.test(h))
+    .filter(({ h }) => /\b(email|e mail|phone|telephone|mobile|website|web site|domain|url|linkedin|instagram|tiktok|youtube|profile|handle)\b/.test(h))
     .map(({ i }) => i)
   if (nameIndex < 0 || contactIndexes.length === 0) return { error: 'CSV_REQUIRED_COLUMNS_MISSING' } as const
 
@@ -85,8 +85,8 @@ function inspectCsv(bytes: Buffer, claimedRecordCount: number) {
   const seen = new Set<string>()
   let duplicateRecords = 0
   for (const r of dataRows) {
-    const name = (r[nameIndex] || '').toLowerCase().replace(/\\s+/g, ' ').trim()
-    const contacts = contactIndexes.map((i) => (r[i] || '').toLowerCase().replace(/\\s+/g, '').trim()).filter(Boolean)
+    const name = (r[nameIndex] || '').toLowerCase().replace(/\s+/g, ' ').trim()
+    const contacts = contactIndexes.map((i) => (r[i] || '').toLowerCase().replace(/\s+/g, '').trim()).filter(Boolean)
     if (contacts.length) rowsWithContact++
     const identifiers = contacts.length ? contacts : name ? [`name:${name}`] : []
     if (identifiers.some((id) => seen.has(id))) duplicateRecords++
