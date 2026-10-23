@@ -122,6 +122,8 @@ export default function SellerLeadsPage() {
           onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
         />
         <textarea
+          required
+          minLength={20}
           placeholder="Description"
           className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-3 py-2.5 text-sm"
           rows={3}
@@ -130,12 +132,15 @@ export default function SellerLeadsPage() {
         />
         <div className="grid gap-3 sm:grid-cols-2">
           <input
+            required
+            minLength={3}
             placeholder="Niche"
             className="rounded-xl border border-white/10 bg-[#071f1d] px-3 py-2.5 text-sm"
             value={form.niche}
             onChange={(e) => setForm((f) => ({ ...f, niche: e.target.value }))}
           />
           <input
+            required
             placeholder="Countries (comma-separated)"
             className="rounded-xl border border-white/10 bg-[#071f1d] px-3 py-2.5 text-sm"
             value={form.countries}
@@ -213,6 +218,8 @@ export default function SellerLeadsPage() {
         </label>
         <textarea
           required
+          required
+          minLength={10}
           placeholder="Source attestation (how you obtained these leads & rights to resell)"
           className="w-full rounded-xl border border-white/10 bg-[#071f1d] px-3 py-2.5 text-sm"
           rows={2}
