@@ -61,10 +61,10 @@ export async function POST(request: NextRequest) {
 
   const paymentPlanId = nestedId(payment.plan) || readString(payment.plan_id)
   const substatus = readString(payment.substatus)
-  const amount = Number(payment.final_amount ?? payment.amount ?? payment.total_amount ?? NaN)
+  const amount = Number(payment.amount ?? payment.final_amount ?? payment.total_amount ?? NaN)
   const currency = readString(payment.currency).toUpperCase()
   const paymentOrderId = readOrderId(payment)
-  if (substatus !== 'succeeded' || paymentPlanId !== session.plan_id || (paymentOrderId && paymentOrderId !== session.id)) {
+  if (substatus !== 'succeeded' || paymentPlanId !== session.plan_id || paymentOrderId !== session.id) {
     return NextResponse.json({ error: 'PAYMENT_NOT_VERIFIED' }, { status: 422 })
   }
   if (!Number.isFinite(amount) || Math.abs(amount - Number(session.expected_amount)) >= 0.01 ||
