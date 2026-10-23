@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminClient, audit } from '@/lib/adminCore'
 import { requireUser } from '@/lib/leads/auth'
 import { leadCommissionRateForPrice, remainingSeats, splitCommission } from '@/lib/leads/types'
-import { createWhopPlan } from '@/lib/whop'
+import { createWhopPlan, createWhopCheckout } from '@/lib/whop'
+import { randomUUID } from 'node:crypto'
 
 export const runtime = 'nodejs'
 
@@ -49,14 +50,14 @@ export async function POST(request: NextRequest) {
     let purchaseId = existing?.id as string | undefined
     if (existing?.status === 'pending_payment') {
       const { error } = await admin.from('lead_pack_purchases').update({
-        commission_rate: rate, platform_fee_usd: platformFee, seller_net_usd: sellerNet,
+        commission_rate: rate, platform_fee_usd: platformFee, seller_net_usd: sellerNet, payment_provider: 'WHOP',
       }).eq('id', existing.id).eq('status', 'pending_payment')
       if (error) return NextResponse.json({ error: 'CHECKOUT_FAILED' }, { status: 500 })
     } else {
       const { data: purchase, error } = await admin.from('lead_pack_purchases').insert({
         pack_id: packId, buyer_id: userId, price_usd: amount, commission_rate: rate,
         platform_fee_usd: platformFee, seller_net_usd: sellerNet, status: 'pending_payment',
-        payment_provider: 'WHOP', idempotency_key: `whop-${packId}-${userId}-${crypto.randomUUID()}`,
+        payment_provider: 'WHOP', idempotency_key: `whop-${packId}-${userId}-${randomUUID()}`,
       }).select('id').single()
       if (error || !purchase) return NextResponse.json({ error: 'CHECKOUT_FAILED' }, { status: 500 })
       purchaseId = purchase.id
@@ -68,14 +69,18 @@ export async function POST(request: NextRequest) {
       amount,
       planType: 'one_time',
     })
-    const { error: sessionError } = await admin.from('whop_checkout_sessions').insert({
+    const { data: session, error: sessionError } = await admin.from('whop_checkout_sessions').insert({
       plan_id: planId, target_type: 'lead_pack', target_id: purchaseId, user_id: userId,
       expected_amount: amount, currency: 'USD', status: 'pending',
-    })
-    if (sessionError) return NextResponse.json({ error: 'CHECKOUT_SESSION_FAILED' }, { status: 500 })
+    }).select('id').single()
+    if (sessionError || !session) return NextResponse.json({ error: 'CHECKOUT_SESSION_FAILED' }, { status: 500 })
+    const { sessionId } = await createWhopCheckout(planId, session.id)
+    const { error: checkoutIdError } = await admin.from('whop_checkout_sessions')
+      .update({ checkout_id: sessionId }).eq('id', session.id)
+    if (checkoutIdError) return NextResponse.json({ error: 'CHECKOUT_SESSION_FAILED' }, { status: 500 })
 
     await audit({ actorId: userId, actorEmail: email, action: 'lead_checkout_started', entity: 'lead_pack_purchase', entityId: purchaseId, newValue: { packId, amount, provider: 'WHOP' } })
-    return NextResponse.json({ ok: true, purchaseId, planId, amount, currency: 'USD' })
+    return NextResponse.json({ ok: true, purchaseId, sessionId, amount, currency: 'USD' })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'INTERNAL'
     if (message === 'NOT_AUTHENTICATED') return NextResponse.json({ error: message }, { status: 401 })
