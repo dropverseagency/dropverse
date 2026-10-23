@@ -23,3 +23,5 @@ For subscriptions, configure the pre-created monthly plan IDs in `NEXT_PUBLIC_WH
 5. Do not treat the checkout return URL or browser callback as proof of payment. Only the signed server webhook may mark a purchase paid. The embedded checkout must use the server-created checkout session ID; do not replace it with a raw browser-supplied plan ID.
 
 Dynamic one-time project and lead-pack pricing uses a server-created hidden Whop plan, so prices are sourced and validated by DropVerse on the server rather than trusted from browser input.
+
+**Subscription lifecycle limitation:** this branch upgrades the organization after a verified successful subscription checkout. Cancellation, refund, chargeback, and renewal-failure events are not yet synchronized back into DropVerse; do not enable Whop subscriptions for production customers until those lifecycle handlers are added and tested.
