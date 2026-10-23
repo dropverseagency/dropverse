@@ -6,7 +6,7 @@ Whop is an additional checkout provider. Existing SpaceRemit and PayPal flows mu
 
 Add these as **server-only** Vercel environment variables (never prefix secrets with NEXT_PUBLIC_):
 
-- `WHOP_COMPANY_API_KEY` (or `WHOP_API_KEY`) — company API key with `plan:create`, `plan:basic:read`, `checkout_configuration:create`, `payment:basic:read`, and `webhook_receive:payments` permissions.
+- `WHOP_COMPANY_API_KEY` (or `WHOP_API_KEY`) — company API key with `plan:create`, `plan:basic:read`, `checkout_configuration:create`, `checkout_configuration:basic:read`, `access_pass:create`, `access_pass:update`, `payment:basic:read`, and `webhook_receive:payments` permissions.
 - `WHOP_COMPANY_ID` — Whop company ID (`biz_...`).
 - `WHOP_PROJECT_PRODUCT_ID` — Whop product ID used for per-project one-time plans.
 - `WHOP_LEAD_PACK_PRODUCT_ID` — Whop product ID used for per-purchase lead-pack plans.
