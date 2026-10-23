@@ -45,7 +45,62 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'NOT_ALLOWED' }, { status: 403 })
     }
     if (purchase.status === 'paid') {
-      return NextResponse.json({ ok: true, alreadyConfirmed: true })
+      // Make confirmation retry-safe if a previous request marked the purchase paid
+      // but failed while writing the seller's ledger credit.
+      const { data: existingCredit, error: creditLookupError } = await admin
+        .from('lead_marketplace_ledger')
+        .select('id')
+        .eq('purchase_id', purchaseId)
+        .eq('event', 'sale_credit')
+        .maybeSingle()
+
+      if (creditLookupError) {
+        return NextResponse.json({ error: 'LEDGER_LOOKUP_FAILED' }, { status: 500 })
+      }
+      if (existingCredit) {
+        return NextResponse.json({ ok: true, alreadyConfirmed: true })
+      }
+
+      const { data: paidPack, error: paidPackError } = await admin
+        .from('lead_packs')
+        .select('id, seller_id')
+        .eq('id', purchase.pack_id)
+        .single()
+      if (paidPackError || !paidPack) {
+        return NextResponse.json({ error: 'PACK_NOT_FOUND' }, { status: 404 })
+      }
+
+      const recoveredRate = leadCommissionRateForPrice(Number(purchase.price_usd))
+      const recoveredSplit = splitCommission(Number(purchase.price_usd), recoveredRate)
+      const { data: priorCredits } = await admin
+        .from('lead_marketplace_ledger')
+        .select('amount')
+        .eq('seller_id', paidPack.seller_id)
+      const recoveredBalance = Math.round(
+        ((priorCredits ?? []).reduce((sum, row) => sum + Number(row.amount || 0), 0) +
+          recoveredSplit.sellerNet) * 100,
+      ) / 100
+
+      const { error: recoveryError } = await admin.from('lead_marketplace_ledger').insert({
+        seller_id: paidPack.seller_id,
+        purchase_id: purchaseId,
+        event: 'sale_credit',
+        amount: recoveredSplit.sellerNet,
+        balance_after: recoveredBalance,
+        note: `Recovered sale credit; platform commission ${recoveredRate * 100}%`,
+      })
+      if (recoveryError) {
+        console.error('[leads] ledger recovery failed', recoveryError.message)
+        return NextResponse.json({ error: 'LEDGER_CREDIT_FAILED' }, { status: 500 })
+      }
+
+      await admin.from('lead_pack_purchases').update({
+        commission_rate: recoveredRate,
+        platform_fee_usd: recoveredSplit.platformFee,
+        seller_net_usd: recoveredSplit.sellerNet,
+      }).eq('id', purchaseId).eq('status', 'paid')
+
+      return NextResponse.json({ ok: true, alreadyConfirmed: true, ledgerRecovered: true })
     }
     if (purchase.status !== 'pending_payment') {
       return NextResponse.json({ error: 'NOT_PAYABLE' }, { status: 409 })
