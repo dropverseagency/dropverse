@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const admin = adminClient()
     let query = admin
       .from('samples')
-      .select('id, owner_id, title, slug, category, description, status, price_usd, turnaround_days, rejection_reason, cover_path, created_at, sample_costs(cost_usd), sample_files(id, kind, mime, size_bytes, storage_path)')
+      .select('id, owner_id, title, slug, category, description, status, price_usd, commission_rate, turnaround_days, rejection_reason, cover_path, created_at, sample_costs(cost_usd), sample_files(id, kind, mime, size_bytes, storage_path)')
       .order('created_at', { ascending: true })
     if (status !== 'all') query = query.eq('status', status)
     const { data, error } = await query.limit(100)
