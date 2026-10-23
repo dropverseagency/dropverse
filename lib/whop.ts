@@ -46,7 +46,8 @@ export async function createWhopPlan(input: {
     ...(planType === 'renewal' ? { billing_period: input.billingPeriod ?? 30 } : {}),
     unlimited_stock: true,
   }
-  const response = await fetch('https://api.whop.com/api/v1/plans', {
+  const baseUrl = process.env.WHOP_SANDBOX === 'true' ? 'https://sandbox-api.whop.com/api/v1' : 'https://api.whop.com/api/v1'
+  const response = await fetch(`${baseUrl}/plans`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
