@@ -3,7 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { adminClient } from '@/lib/adminCore'
 import { PLAN_CONFIG } from '@/lib/planConfig'
-import { createWhopCheckout, whopClient } from '@/lib/whop'
+import { createWhopCheckout, retrieveWhopPlan } from '@/lib/whop'
 
 export const runtime = 'nodejs'
 
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, sessionId: priorSession.checkout_id, planKey, amount: plan.price, currency: 'USD' })
     }
 
-    const whopPlan = await whopClient().plans.retrieve(planId) as unknown as Record<string, unknown>
+    const whopPlan = await retrieveWhopPlan(planId)
     const recurringPrice = Number(whopPlan.renewal_price)
     if (whopPlan.id !== planId || whopPlan.plan_type !== 'renewal' ||
         !Number.isFinite(recurringPrice) || Math.abs(recurringPrice - plan.price) >= 0.01 ||
