@@ -27,36 +27,42 @@ import AcademyNotifyForm from '../../components/AcademyNotifyForm'
 const STAGES = [
   {
     n: '01',
+    slug: 'drop-servicing-basics',
     title: 'Understand Drop Servicing',
     desc: 'How the model works: connecting clients with providers, pricing, margins, costs, and your responsibilities as the operator.',
     icon: BookOpen,
   },
   {
     n: '02',
+    slug: 'choose-your-niche',
     title: 'Choose Your Niche',
     desc: 'Video editing, UGC, web design, Shopify development — pick based on demand, delivery capability, and realistic costs.',
     icon: Compass,
   },
   {
     n: '03',
+    slug: 'build-your-offer',
     title: 'Build Your Service Offer',
     desc: 'Define packages, price points, deliverables, revisions, deadlines, and clear client expectations.',
     icon: Package,
   },
   {
     n: '04',
+    slug: 'find-your-first-client',
     title: 'Find Your First Client',
     desc: 'Identify prospects, write personalized outreach, follow up, and prepare a simple proposal — with lawful use of contact data.',
     icon: MessageSquare,
   },
   {
     n: '05',
+    slug: 'service-delivery',
     title: 'Deliver the Service',
     desc: 'Find freelancers, write briefs, review work, manage revisions, and protect client trust throughout delivery.',
     icon: Handshake,
   },
   {
     n: '06',
+    slug: 'seven-day-launch-plan',
     title: 'Your 7-Day Launch Plan',
     desc: 'A practical plan to turn learning into a first test of your offer — not a promise of clients, sales, or income.',
     icon: Rocket,
@@ -218,8 +224,7 @@ export default function AcademyPage() {
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#d8b45a]">Beginner curriculum</p>
             <h2 className="font-display mt-3 text-3xl font-extrabold text-white sm:text-4xl">Six stages. Clear progression.</h2>
             <p className="mt-4 text-[#8fa29c]">
-              Overview of the free path. Lesson pages will open as content is published — stages below describe the
-              planned structure, not fabricated completion stats.
+              Six free, practical lessons take you from understanding the model to launching a focused offer. Open any stage to study the lesson, use its examples, and complete the action exercise.
             </p>
           </div>
 
@@ -227,29 +232,31 @@ export default function AcademyPage() {
             {STAGES.map((stage) => {
               const Icon = stage.icon
               return (
-                <li
-                  key={stage.n}
-                  className="flex flex-col rounded-2xl border border-white/5 bg-[#0a2926] p-6 transition hover:border-[rgba(216,180,90,0.25)]"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[rgba(216,180,90,0.3)] bg-[rgba(216,180,90,0.08)] text-[#d8b45a]">
-                      <Icon size={20} />
+                <li key={stage.n}>
+                  <Link
+                    href={`/academy/beginner/${stage.slug}`}
+                    aria-label={`Open free lesson: ${stage.title}`}
+                    className="group flex h-full flex-col rounded-2xl border border-white/5 bg-[#0a2926] p-6 transition duration-200 hover:-translate-y-1 hover:border-[rgba(216,180,90,0.55)] hover:bg-[#0d302b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8b45a]"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[rgba(216,180,90,0.3)] bg-[rgba(216,180,90,0.08)] text-[#d8b45a] transition group-hover:bg-[rgba(216,180,90,0.16)]">
+                        <Icon size={22} />
+                      </div>
+                      <span className="font-display text-2xl font-extrabold text-white/20">{stage.n}</span>
                     </div>
-                    <span className="font-display text-2xl font-extrabold text-white/15">{stage.n}</span>
-                  </div>
-                  <h3 className="font-display mt-4 text-lg font-bold text-white">{stage.title}</h3>
-                  <p className="mt-2 flex-1 text-sm leading-6 text-[#849792]">{stage.desc}</p>
-                  <span className="mt-4 inline-flex w-fit items-center rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#7f918c]">
-                    Structure planned
-                  </span>
+                    <h3 className="font-display mt-4 text-lg font-bold text-white group-hover:text-[#e4c979]">{stage.title}</h3>
+                    <p className="mt-2 flex-1 text-sm leading-6 text-[#849792]">{stage.desc}</p>
+                    <span className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-[#d8b45a]">
+                      Open free lesson <ArrowRight size={16} className="transition group-hover:translate-x-1" />
+                    </span>
+                  </Link>
                 </li>
               )
             })}
           </ol>
 
           <div className="mx-auto mt-10 max-w-xl rounded-2xl border border-[rgba(216,180,90,0.25)] bg-[rgba(216,180,90,0.06)] px-5 py-4 text-center text-sm text-[#c9b06a]">
-            Full lesson pages are not published yet. This page shows the learning path so you can see what is being
-            built. When a lesson goes live, it will be clearly marked as available.
+            All six beginner lessons are free. Start with Stage 1, or open the stage that best matches what you need to work on today.
           </div>
         </div>
       </section>
