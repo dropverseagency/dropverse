@@ -22,7 +22,7 @@ export async function POST(
         ? null
         : Math.max(1, parseInt(String(body.adminMaxBuyers), 10) || 1)
 
-    if (!['approve', 'reject', 'suspend'].includes(action)) {
+    if (!['approve', 'reject', 'request_changes', 'suspend'].includes(action)) {
       return NextResponse.json({ error: 'INVALID_ACTION' }, { status: 400 })
     }
 
@@ -36,6 +36,14 @@ export async function POST(
     }
 
     if (action === 'approve') {
+      const preview = (pack.preview_meta && typeof pack.preview_meta === 'object' ? pack.preview_meta : {}) as Record<string, unknown>
+      const qualityScore = typeof preview.qualityScore === 'number' ? preview.qualityScore : null
+      if (qualityScore !== null && qualityScore < 65) {
+        return NextResponse.json({ error: 'QUALITY_SCORE_TOO_LOW', message: `Quality score ${qualityScore}/100 is below the 65-point minimum. Reject the pack or request corrections.` }, { status: 400 })
+      }
+      if (body?.qualityReviewConfirmed !== true) {
+        return NextResponse.json({ error: 'QUALITY_REVIEW_CONFIRMATION_REQUIRED', message: 'Confirm you reviewed service relevance, need evidence, data quality, freshness, duplicates, and data rights.' }, { status: 400 })
+      }
       if (adminMaxBuyers != null) {
         if (adminMaxBuyers > Number(pack.max_buyers)) {
           return NextResponse.json({ error: 'ADMIN_MAX_MUST_BE_LE_SELLER_MAX' }, { status: 400 })
@@ -47,10 +55,10 @@ export async function POST(
       }
       patch.status = 'approved'
       patch.reject_reason = null
-    } else if (action === 'reject') {
+    } else if (action === 'reject' || action === 'request_changes') {
       if (!rejectReason) return NextResponse.json({ error: 'REJECT_REASON_REQUIRED' }, { status: 400 })
       patch.status = 'rejected'
-      patch.reject_reason = rejectReason
+      patch.reject_reason = action === 'request_changes' ? `Changes requested: ${rejectReason}` : rejectReason
     } else {
       patch.status = 'suspended'
     }
