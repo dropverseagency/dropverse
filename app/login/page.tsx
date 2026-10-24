@@ -26,6 +26,7 @@ function LoginPageInner() {
   const [redirectTo] = useState(() => searchParams.get('redirect') || '/dashboard')
   const [mode, setMode] = useState<'login' | 'signup'>(() => (searchParams.get('ref') ? 'signup' : 'login'))
   const [referralPrefill] = useState(() => searchParams.get('ref') || '')
+  const [freelancerSelected, setFreelancerSelected] = useState(false)
   const [loading, setLoading] = useState(false)
   const [providerLoading, setProviderLoading] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -136,6 +137,8 @@ function LoginPageInner() {
         if (userTypes.length === 0) {
           throw new Error('Please select at least one: Lead Generator, Drop Servicer, or Freelancer.')
         }
+        const freelancerNiche = userTypes.includes('freelancer') ? String(form.get('freelancer_niche') || '').trim() : ''
+        if (userTypes.includes('freelancer') && !freelancerNiche) throw new Error('Please select your freelancer niche.')
         const telegramUsername = String(form.get('telegram_username') || '').trim()
         const referralCode = String(form.get('referral_code') || '').trim().toUpperCase()
         if (referralCode) {
@@ -158,6 +161,7 @@ function LoginPageInner() {
               telegram_username: telegramUsername,
               user_types: userTypes,
               user_type: userTypes[0],
+              ...(freelancerNiche ? { freelancer_niche: freelancerNiche } : {}),
             },
             ...(turnstileToken ? { captchaToken: turnstileToken } : {}),
           },
@@ -182,6 +186,10 @@ function LoginPageInner() {
             .from('profiles')
             .update({ user_types: userTypes, user_type: userTypes[0] })
             .eq('id', data.session.user.id)
+          if (freelancerNiche) {
+            const { error: nicheError } = await supabase.from('freelancer_profiles').upsert({ user_id: data.session.user.id, category: freelancerNiche }, { onConflict: 'user_id' })
+            if (nicheError) throw nicheError
+          }
           window.location.assign(redirectTo)
         } else {
           setMessage(
@@ -321,13 +329,22 @@ function LoginPageInner() {
                         key={opt.value}
                         className="cursor-pointer rounded-xl border border-white/10 bg-white/5 p-3 transition has-[:checked]:border-[rgba(216,180,90,0.55)] has-[:checked]:bg-[rgba(216,180,90,0.12)]"
                       >
-                        <input type="checkbox" name="user_types" value={opt.value} className="sr-only" />
+                        <input type="checkbox" name="user_types" value={opt.value} className="sr-only" onChange={(e) => { if (opt.value === 'freelancer') setFreelancerSelected(e.target.checked) }} />
                         <span className="block text-sm font-semibold text-[#f0f4f2]">{opt.label}</span>
                         <span className="mt-0.5 block text-[11px] leading-4 text-[#849792]">{opt.desc}</span>
                       </label>
                     ))}
                   </div>
                 </fieldset>
+                {freelancerSelected && (
+                  <label className="block text-sm font-medium text-[#d9e0dc]">
+                    Your freelancer niche
+                    <select name="freelancer_niche" required defaultValue="" className="mt-2 w-full rounded-xl border border-white/10 bg-[#10221f] px-4 py-3.5 text-white outline-none">
+                      <option value="" disabled>Select your niche</option>
+                      {['Video Editing', 'UGC Content', 'Graphic Design', 'Web Development', 'Social Media Management', 'Copywriting', 'Motion Graphics', 'Other'].map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </label>
+                )}
                 <label className="block text-sm font-medium text-[#d9e0dc]">
                   Mobile number{' '}
                   <span className="text-xs font-normal text-[#9aaca6]">(must work on WhatsApp or Telegram)</span>
