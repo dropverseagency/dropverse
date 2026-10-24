@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
       }
 
       case 'users': {
-        let query = select('profiles', 'id, full_name, username, phone, telegram_username, avatar_url, role, created_at').order('created_at', { ascending: false })
+        let query = select('profiles', 'id, full_name, username, phone, telegram_username, avatar_url, role, user_type, user_types, username_cooldown_at, created_at').order('created_at', { ascending: false })
         if (q) query = query.or(`full_name.ilike.%${q}%,username.ilike.%${q}%`)
         const { data, count, error } = await query.range(offset, offset + limit - 1)
         if (error) throw error
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
         if (!detailId) return { error: 'MISSING_ID', section: 'user_detail' }
         const { data: prof, error: profError } = await admin
           .from('profiles')
-          .select('id, full_name, username, phone, telegram_username, avatar_url, role, created_at')
+          .select('id, full_name, username, phone, telegram_username, avatar_url, role, user_type, user_types, username_cooldown_at, created_at')
           .eq('id', detailId)
           .maybeSingle()
         if (profError) throw profError
@@ -110,10 +110,12 @@ export async function GET(request: NextRequest) {
           .select('id, email, email_confirmed_at')
           .eq('id', detailId)
           .maybeSingle()
-        const [projects, orgs] = await Promise.all([
+        const [projects, orgs, freelancerProfile, freelancerLinks] = await Promise.all([
           admin.from('projects').select('id, title, project_type, billing_interval, client_price, fulfillment_cost, seller_profit, payment_status, status, created_at')
             .eq('user_id', detailId).order('created_at', { ascending: false }).limit(50),
           admin.from('organizations').select('id, name, status').eq('owner_id', detailId).limit(20),
+          admin.from('freelancer_profiles').select('user_id, display_name, category, bio, created_at, updated_at').eq('user_id', detailId).maybeSingle(),
+          admin.from('freelancer_links').select('id, platform, url, created_at').eq('user_id', detailId).order('created_at', { ascending: true }),
         ])
         const { data: codes } = await admin
           .from('referral_codes')
@@ -135,6 +137,8 @@ export async function GET(request: NextRequest) {
           profile: { ...prof, email: emailRow?.email ?? null, email_confirmed_at: emailRow?.email_confirmed_at ?? null },
           projects: projects.data ?? [],
           organizations: orgs.data ?? [],
+          freelancerProfile: freelancerProfile.data ?? null,
+          freelancerLinks: freelancerLinks.data ?? [],
           referralCodes: codes ?? [],
           referralsMade: refs,
           referralCommissionEarned: Math.round(totalCommission * 100) / 100,
