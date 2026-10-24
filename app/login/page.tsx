@@ -187,7 +187,7 @@ function LoginPageInner() {
             .update({ user_types: userTypes, user_type: userTypes[0] })
             .eq('id', data.session.user.id)
           if (freelancerNiche) {
-            const { error: nicheError } = await supabase.from('freelancer_profiles').upsert({ user_id: data.session.user.id, category: freelancerNiche }, { onConflict: 'user_id' })
+            const { error: nicheError } = await supabase.from('freelancer_profiles').upsert({ user_id: data.session.user.id, display_name: fullName, category: freelancerNiche }, { onConflict: 'user_id' })
             if (nicheError) throw nicheError
           }
           window.location.assign(redirectTo)
@@ -341,7 +341,7 @@ function LoginPageInner() {
                     Your freelancer niche
                     <select name="freelancer_niche" required defaultValue="" className="mt-2 w-full rounded-xl border border-white/10 bg-[#10221f] px-4 py-3.5 text-white outline-none">
                       <option value="" disabled>Select your niche</option>
-                      {['Video Editing', 'UGC Content', 'Graphic Design', 'Web Development', 'Social Media Management', 'Copywriting', 'Motion Graphics', 'Other'].map(n => <option key={n} value={n}>{n}</option>)}
+                      {['Video Editing', 'Graphic Design', 'Web Design', 'Social Media Content', 'UGC Content', 'Copywriting', 'Branding', 'Motion Graphics'].map(n => <option key={n} value={n}>{n}</option>)}
                     </select>
                   </label>
                 )}
