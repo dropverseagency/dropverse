@@ -84,12 +84,34 @@ export async function GET(request: NextRequest) {
         if (error) throw error
         const rows = (data ?? []) as unknown as { id: string; [k: string]: unknown }[]
         // Fetch email directly from Supabase Auth by matching profile UUID.
-        const rowsWithEmails = await Promise.all(rows.map(async (row) => {
-          const { data: authResult, error: authError } = await admin.auth.admin.getUserById(row.id)
-          if (authError) console.error('[admin/users] Auth email lookup failed', row.id, authError.message)
-          return { ...row, email: authResult?.user?.email ?? null }
-        }))
-        return { section: 'users', rows: rowsWithEmails, count: count ?? 0, offset, limit }
+        const [rowsWithEmails, freelancerProfiles] = await Promise.all([
+          Promise.all(rows.map(async (row) => {
+            const { data: authResult, error: authError } = await admin.auth.admin.getUserById(row.id)
+            if (authError) console.error('[admin/users] Auth email lookup failed', row.id, authError.message)
+            return { ...row, email: authResult?.user?.email ?? null }
+          })),
+          rows.length
+            ? admin.from('freelancer_profiles').select('user_id, category').in('user_id', rows.map((row) => row.id))
+            : Promise.resolve({ data: [], error: null }),
+        ])
+        if (freelancerProfiles.error) console.error('[admin/users] Freelancer profile lookup failed', freelancerProfiles.error.message)
+        const nicheByUserId = new Map((freelancerProfiles.data ?? []).map((profile: { user_id: string; category: string | null }) => [profile.user_id, profile.category]))
+        const roleLabels: Record<string, string> = {
+          freelancer: 'Freelancer',
+          drop_servicer: 'Drop Servicer',
+          dropservicer: 'Drop Servicer',
+          lead_generator: 'Lead Generator',
+          lead_gen: 'Lead Generator',
+        }
+        const enrichedRows = rowsWithEmails.map((row) => {
+          const selectedTypes = Array.isArray(row.user_types) ? row.user_types as string[] : []
+          const rawTypes = selectedTypes.length ? selectedTypes : (typeof row.user_type === 'string' && row.user_type ? [row.user_type] : [])
+          const registeredAs = rawTypes.map((type) => roleLabels[type.toLowerCase()] ?? type.replace(/[_-]+/g, ' ').replace(/\\b\\w/g, (char) => char.toUpperCase()))
+          const freelancerNiche = nicheByUserId.get(row.id) ?? null
+          if (!registeredAs.length && freelancerNiche) registeredAs.push('Freelancer')
+          return { ...row, registered_as: registeredAs, freelancer_niche: freelancerNiche }
+        })
+        return { section: 'users', rows: enrichedRows, count: count ?? 0, offset, limit }
       }
 
       case 'user_detail': {
