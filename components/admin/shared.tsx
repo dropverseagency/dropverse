@@ -109,7 +109,7 @@ export function useAdminData<T = any>(section: string, deps: (string | number)[]
     url.searchParams.set('section', section)
     url.searchParams.set('ts', String(Date.now()))
     deps.forEach((d, i) => {
-      const keys = ['page', 'limit', 'q', 'payment_status', 'status', 'entity']
+      const keys = section === 'user_detail' ? ['id'] : ['page', 'limit', 'q', 'payment_status', 'status', 'entity']
       url.searchParams.set(keys[i % keys.length], String(d))
     })
     fetch(url.href).then((r) => r.json()).then((j) => {
@@ -137,7 +137,7 @@ export function useAdminData<T = any>(section: string, deps: (string | number)[]
       url.searchParams.set('section', section)
       url.searchParams.set('ts', String(Date.now()))
       deps.forEach((d, i) => {
-        const keys = ['page', 'limit', 'q', 'payment_status', 'status', 'entity']
+        const keys = section === 'user_detail' ? ['id'] : ['page', 'limit', 'q', 'payment_status', 'status', 'entity']
         url.searchParams.set(keys[i % keys.length], String(d))
       })
       fetch(url.href).then((r) => r.json()).then((j) => {

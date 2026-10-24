@@ -170,6 +170,7 @@ export default function UsersSection() {
                       { icon: CheckCircle2, label: 'Email verified', value: p.email_confirmed_at ? fmtDate(p.email_confirmed_at) : 'No' },
                       { icon: Link2, label: 'Phone', value: p.phone || '—' },
                       { icon: Link2, label: 'Telegram', value: p.telegram_username ? `@${p.telegram_username}` : '—' },
+                      { icon: Users2, label: 'Account type', value: (p.user_types?.length ? p.user_types.join(', ') : p.user_type) || '—' },
                       { icon: Building2, label: 'Organizations owned', value: String(detail.organizations?.length ?? 0) },
                       { icon: Coins, label: 'Referral earnings', value: fmtUsd(detail.referralCommissionEarned) },
                     ].map((item) => (
@@ -182,6 +183,25 @@ export default function UsersSection() {
                       </div>
                     ))}
                   </div>
+
+                  {/* Freelancer profile */}
+                  {detail.freelancerProfile ? (
+                    <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3">
+                      <h4 className="mb-2 text-sm font-bold text-[#f0d98b]">Freelancer profile</h4>
+                      <div className="text-sm font-semibold text-[#f0f4f2]">{detail.freelancerProfile.display_name}</div>
+                      <div className="mt-1 text-xs text-[#7f918c]">{detail.freelancerProfile.category}</div>
+                      {detail.freelancerProfile.bio ? <p className="mt-2 whitespace-pre-wrap text-sm text-[#d9e0dc]">{detail.freelancerProfile.bio}</p> : null}
+                      {detail.freelancerLinks?.length ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {detail.freelancerLinks.map((link: any) => (
+                            <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-[#f0d98b] hover:bg-white/5">
+                              {link.platform}
+                            </a>
+                          ))}
+                        </div>
+                      ) : <p className="mt-2 text-xs text-[#7f918c]">No portfolio links added.</p>}
+                    </div>
+                  ) : null}
 
                   {/* Projects */}
                   <div>
