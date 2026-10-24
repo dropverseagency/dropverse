@@ -83,16 +83,13 @@ export async function GET(request: NextRequest) {
         const { data, count, error } = await query.range(offset, offset + limit - 1)
         if (error) throw error
         const rows = (data ?? []) as unknown as { id: string; [k: string]: unknown }[]
-        let emails: { id: string; email: string }[] = []
-        if (rows.length > 0) {
-          const { data: emailRows } = await admin
-            .from('users_view')
-            .select('id, email')
-            .in('id', rows.map((d) => d.id))
-          emails = (emailRows ?? []) as { id: string; email: string }[]
-        }
-        const byId = new Map(emails.map((e) => [e.id, e.email]))
-        return { section: 'users', rows: rows.map((d) => ({ ...d, email: byId.get(d.id) ?? null })), count: count ?? 0, offset, limit }
+        // Fetch email directly from Supabase Auth by matching profile UUID.
+        const rowsWithEmails = await Promise.all(rows.map(async (row) => {
+          const { data: authResult, error: authError } = await admin.auth.admin.getUserById(row.id)
+          if (authError) console.error('[admin/users] Auth email lookup failed', row.id, authError.message)
+          return { ...row, email: authResult?.user?.email ?? null }
+        }))
+        return { section: 'users', rows: rowsWithEmails, count: count ?? 0, offset, limit }
       }
 
       case 'user_detail': {
@@ -105,11 +102,11 @@ export async function GET(request: NextRequest) {
           .maybeSingle()
         if (profError) throw profError
         if (!prof) return { error: 'USER_NOT_FOUND', section: 'user_detail' }
-        const { data: emailRow } = await admin
-          .from('users_view')
-          .select('id, email, email_confirmed_at')
-          .eq('id', detailId)
-          .maybeSingle()
+        const { data: authResult, error: authError } = await admin.auth.admin.getUserById(detailId)
+        if (authError) console.error('[admin/user_detail] Auth user lookup failed', detailId, authError.message)
+        const emailRow = authResult?.user
+          ? { email: authResult.user.email ?? null, email_confirmed_at: authResult.user.email_confirmed_at ?? null }
+          : null
         const [projects, orgs, freelancerProfile, freelancerLinks] = await Promise.all([
           admin.from('projects').select('id, title, project_type, billing_interval, client_price, fulfillment_cost, seller_profit, payment_status, status, created_at')
             .eq('user_id', detailId).order('created_at', { ascending: false }).limit(50),
