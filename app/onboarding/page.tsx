@@ -112,7 +112,7 @@ function OnboardingInner() {
               <label className="block text-sm font-medium text-[#d9e0dc]">Your freelancer niche
                 <select required value={freelancerNiche} onChange={(e) => setFreelancerNiche(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-[#10221f] px-4 py-3.5 text-white">
                   <option value="" disabled>Select your niche</option>
-                  {['Video Editing', 'Graphic Design', 'Web Design', 'Social Media Content', 'UGC Content', 'Copywriting', 'Branding', 'Motion Graphics'].map(n => <option key={n} value={n}>{n}</option>)}
+                  {["Video Editing","Short-Form Video Editing","Long-Form Video Editing","UGC Content","Motion Graphics","2D Animation","3D Animation","Graphic Design","Branding","Logo Design","UI/UX Design","Web Design","Web Development","WordPress Development","Shopify Development","Mobile App Development","Software Development","AI Automation","Chatbot Development","No-Code Development","Social Media Content","Social Media Management","Content Creation","Copywriting","Content Writing","SEO","Paid Ads (Meta/Google)","Email Marketing","Lead Generation","Sales & Appointment Setting","Virtual Assistance","Data Entry","Data Analysis","Translation","Transcription","Voice Over","Podcast Editing","Photo Editing","Product Photography","Presentation Design","Other"].map(n => <option key={n} value={n}>{n}</option>)}
                 </select>
               </label>
             )}
