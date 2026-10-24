@@ -8,6 +8,8 @@ import ProviderButton from '../../components/ProviderButton'
 import { createClient } from '../../lib/supabase'
 import { COUNTRIES, type Country } from '../../lib/countries'
 import { applyPendingReferral } from '../../lib/attributeReferralAction'
+import { FreelancerDetails, validPortfolioLinks } from '../../components/FreelancerDetails'
+import { saveFreelancerDetails } from '../../lib/saveFreelancerDetails'
 
 /** Google shows unless NEXT_PUBLIC_GOOGLE_SIGN_IN=false. Apple stays off until configured. */
 const GOOGLE_SIGN_IN_ENABLED = process.env.NEXT_PUBLIC_GOOGLE_SIGN_IN !== 'false'
@@ -27,6 +29,9 @@ function LoginPageInner() {
   const [mode, setMode] = useState<'login' | 'signup'>(() => (searchParams.get('ref') ? 'signup' : 'login'))
   const [referralPrefill] = useState(() => searchParams.get('ref') || '')
   const [freelancerSelected, setFreelancerSelected] = useState(false)
+  const [freelancerNiches, setFreelancerNiches] = useState<string[]>([])
+  const [otherNiche, setOtherNiche] = useState('')
+  const [portfolioLinks, setPortfolioLinks] = useState<string[]>([''])
   const [loading, setLoading] = useState(false)
   const [providerLoading, setProviderLoading] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -58,6 +63,11 @@ function LoginPageInner() {
       Boolean(profile?.user_type) ||
       (Array.isArray(profile?.user_types) && profile.user_types.length > 0)
     if (!hasType) return `/onboarding?redirect=${encodeURIComponent(redirectTo)}`
+    if (profile?.user_type === 'freelancer' || profile?.user_types?.includes('freelancer')) {
+      const { data: details } = await supabase.from('freelancer_profiles').select('niches').eq('user_id', userId).maybeSingle()
+      const { data: links } = await supabase.from('freelancer_links').select('id').eq('user_id', userId).limit(1)
+      if (!details?.niches?.length || !links?.length) return `/onboarding?redirect=${encodeURIComponent(redirectTo)}`
+    }
     const { data } = await supabase.from('organizations').select('id').limit(1)
     if (data && data.length > 0) return redirectTo
     return '/pricing'
@@ -137,8 +147,10 @@ function LoginPageInner() {
         if (userTypes.length === 0) {
           throw new Error('Please select at least one: Lead Generator, Drop Servicer, or Freelancer.')
         }
-        const freelancerNiche = userTypes.includes('freelancer') ? String(form.get('freelancer_niche') || '').trim() : ''
-        if (userTypes.includes('freelancer') && !freelancerNiche) throw new Error('Please select your freelancer niche.')
+        const isFreelancer = userTypes.includes('freelancer')
+        if (isFreelancer && !freelancerNiches.length) throw new Error('Select at least one niche.')
+        if (isFreelancer && freelancerNiches.includes('Other') && !otherNiche.trim()) throw new Error('Please specify your other niche.')
+        if (isFreelancer && !validPortfolioLinks(portfolioLinks)) throw new Error('Add valid portfolio links.')
         const telegramUsername = String(form.get('telegram_username') || '').trim()
         const referralCode = String(form.get('referral_code') || '').trim().toUpperCase()
         if (referralCode) {
@@ -161,7 +173,7 @@ function LoginPageInner() {
               telegram_username: telegramUsername,
               user_types: userTypes,
               user_type: userTypes[0],
-              ...(freelancerNiche ? { freelancer_niche: freelancerNiche } : {}),
+              ...(isFreelancer ? { freelancer_niche: freelancerNiches[0], freelancer_niches: freelancerNiches, freelancer_other_niche: otherNiche.trim(), freelancer_portfolio_links: portfolioLinks } : {}),
             },
             ...(turnstileToken ? { captchaToken: turnstileToken } : {}),
           },
@@ -186,10 +198,7 @@ function LoginPageInner() {
             .from('profiles')
             .update({ user_types: userTypes, user_type: userTypes[0] })
             .eq('id', data.session.user.id)
-          if (freelancerNiche) {
-            const { error: nicheError } = await supabase.from('freelancer_profiles').upsert({ user_id: data.session.user.id, display_name: fullName, category: freelancerNiche }, { onConflict: 'user_id' })
-            if (nicheError) throw nicheError
-          }
+          if (isFreelancer) await saveFreelancerDetails(data.session.user.id, fullName, freelancerNiches, otherNiche, portfolioLinks)
           window.location.assign(redirectTo)
         } else {
           setMessage(
@@ -336,15 +345,7 @@ function LoginPageInner() {
                     ))}
                   </div>
                 </fieldset>
-                {freelancerSelected && (
-                  <label className="block text-sm font-medium text-[#d9e0dc]">
-                    Your freelancer niche
-                    <select name="freelancer_niche" required defaultValue="" className="mt-2 w-full rounded-xl border border-white/10 bg-[#10221f] px-4 py-3.5 text-white outline-none">
-                      <option value="" disabled>Select your niche</option>
-                      {["Video Editing","Short-Form Video Editing","Long-Form Video Editing","UGC Content","Motion Graphics","2D Animation","3D Animation","Graphic Design","Branding","Logo Design","UI/UX Design","Web Design","Web Development","WordPress Development","Shopify Development","Mobile App Development","Software Development","AI Automation","Chatbot Development","No-Code Development","Social Media Content","Social Media Management","Content Creation","Copywriting","Content Writing","SEO","Paid Ads (Meta/Google)","Email Marketing","Lead Generation","Sales & Appointment Setting","Virtual Assistance","Data Entry","Data Analysis","Translation","Transcription","Voice Over","Podcast Editing","Photo Editing","Product Photography","Presentation Design","Other"].map(n => <option key={n} value={n}>{n}</option>)}
-                    </select>
-                  </label>
-                )}
+                {freelancerSelected && <FreelancerDetails niches={freelancerNiches} setNiches={setFreelancerNiches} otherNiche={otherNiche} setOtherNiche={setOtherNiche} links={portfolioLinks} setLinks={setPortfolioLinks} />}
                 <label className="block text-sm font-medium text-[#d9e0dc]">
                   Mobile number{' '}
                   <span className="text-xs font-normal text-[#9aaca6]">(must work on WhatsApp or Telegram)</span>
