@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
           lead_generator: 'Lead Generator',
           lead_gen: 'Lead Generator',
         }
-        const enrichedRows = rowsWithEmails.map((row) => {
+        const enrichedRows = (rowsWithEmails as { id: string; user_types?: unknown; user_type?: unknown; [key: string]: unknown }[]).map((row) => {
           const selectedTypes = Array.isArray(row.user_types) ? row.user_types as string[] : []
           const rawTypes = selectedTypes.length ? selectedTypes : (typeof row.user_type === 'string' && row.user_type ? [row.user_type] : [])
           const registeredAs = rawTypes.map((type) => roleLabels[type.toLowerCase()] ?? type.replace(/[_-]+/g, ' ').replace(/\\b\\w/g, (char) => char.toUpperCase()))
