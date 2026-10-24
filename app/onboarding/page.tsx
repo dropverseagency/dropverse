@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import Brand from '../../components/Brand'
 import { createClient } from '../../lib/supabase'
+import { FreelancerDetails, validPortfolioLinks } from '../../components/FreelancerDetails'
+import { saveFreelancerDetails } from '../../lib/saveFreelancerDetails'
 
 const OPTIONS = [
   { value: 'lead_generator', label: 'Lead Generator', desc: 'I generate and sell leads' },
@@ -26,7 +28,9 @@ function OnboardingInner() {
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect') || '/dashboard'
   const [userTypes, setUserTypes] = useState<UserTypeValue[]>([])
-  const [freelancerNiche, setFreelancerNiche] = useState('')
+  const [freelancerNiches, setFreelancerNiches] = useState<string[]>([])
+  const [otherNiche, setOtherNiche] = useState('')
+  const [portfolioLinks, setPortfolioLinks] = useState<string[]>([''])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -41,8 +45,8 @@ function OnboardingInner() {
       setError('Please select at least one option.')
       return
     }
-    if (userTypes.includes('freelancer') && !freelancerNiche) {
-      setError('Please select your freelancer niche.')
+    if (userTypes.includes('freelancer') && (!freelancerNiches.length || (freelancerNiches.includes('Other') && !otherNiche.trim()) || !validPortfolioLinks(portfolioLinks))) {
+      setError('Select your niches, specify Other if selected, and add valid portfolio links.')
       return
     }
     setLoading(true)
@@ -53,7 +57,7 @@ function OnboardingInner() {
         window.location.assign(`/login?redirect=${encodeURIComponent(redirectTo)}`)
         return
       }
-      const { error: metaErr } = await supabase.auth.updateUser({ data: { user_types: userTypes, user_type: userTypes[0], ...(userTypes.includes('freelancer') ? { freelancer_niche: freelancerNiche } : {}) } })
+      const { error: metaErr } = await supabase.auth.updateUser({ data: { user_types: userTypes, user_type: userTypes[0], ...(userTypes.includes('freelancer') ? { freelancer_niche: freelancerNiches[0], freelancer_niches: freelancerNiches, freelancer_other_niche: otherNiche.trim(), freelancer_portfolio_links: portfolioLinks } : {}) } })
       if (metaErr) throw metaErr
       const { error: upErr } = await supabase
         .from('profiles')
@@ -61,8 +65,7 @@ function OnboardingInner() {
         .eq('id', user.id)
       if (upErr) throw upErr
       if (userTypes.includes('freelancer')) {
-        const { error: nicheErr } = await supabase.from('freelancer_profiles').upsert({ user_id: user.id, display_name: String(user.user_metadata?.full_name || user.email?.split('@')[0] || 'Freelancer').slice(0, 80), category: freelancerNiche }, { onConflict: 'user_id' })
-        if (nicheErr) throw nicheErr
+        await saveFreelancerDetails(user.id, String(user.user_metadata?.full_name || user.email?.split('@')[0] || 'Freelancer'), freelancerNiches, otherNiche, portfolioLinks)
       }
       window.location.assign(redirectTo)
     } catch (err) {
@@ -108,14 +111,7 @@ function OnboardingInner() {
                 </label>
               )
             })}
-            {userTypes.includes('freelancer') && (
-              <label className="block text-sm font-medium text-[#d9e0dc]">Your freelancer niche
-                <select required value={freelancerNiche} onChange={(e) => setFreelancerNiche(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-[#10221f] px-4 py-3.5 text-white">
-                  <option value="" disabled>Select your niche</option>
-                  {["Video Editing","Short-Form Video Editing","Long-Form Video Editing","UGC Content","Motion Graphics","2D Animation","3D Animation","Graphic Design","Branding","Logo Design","UI/UX Design","Web Design","Web Development","WordPress Development","Shopify Development","Mobile App Development","Software Development","AI Automation","Chatbot Development","No-Code Development","Social Media Content","Social Media Management","Content Creation","Copywriting","Content Writing","SEO","Paid Ads (Meta/Google)","Email Marketing","Lead Generation","Sales & Appointment Setting","Virtual Assistance","Data Entry","Data Analysis","Translation","Transcription","Voice Over","Podcast Editing","Photo Editing","Product Photography","Presentation Design","Other"].map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </label>
-            )}
+            {userTypes.includes('freelancer') && <FreelancerDetails niches={freelancerNiches} setNiches={setFreelancerNiches} otherNiche={otherNiche} setOtherNiche={setOtherNiche} links={portfolioLinks} setLinks={setPortfolioLinks} />}
             {error ? (
               <p className="rounded-lg border border-red-400/30 bg-red-400/10 px-4 py-2.5 text-sm text-red-200">{error}</p>
             ) : null}
