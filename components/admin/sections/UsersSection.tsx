@@ -290,6 +290,8 @@ export default function UsersSection() {
                       <th className="py-2 pr-3 font-semibold">Email</th>
                       <th className="py-2 pr-3 font-semibold">Phone</th>
                       <th className="py-2 pr-3 font-semibold">Username</th>
+                      <th className="py-2 pr-3 font-semibold">Registered As</th>
+                      <th className="py-2 pr-3 font-semibold">Freelancer Niche</th>
                       <th className="py-2 pr-3 font-semibold">Role</th>
                       <th className="py-2 font-semibold">Joined</th>
                       <th className="py-2 font-semibold">Actions</th>
@@ -310,6 +312,14 @@ export default function UsersSection() {
                         <td className="py-3 pr-3 text-[#c8d4d0]">{u.email || '—'}</td>
                         <td className="py-3 pr-3 text-[#c8d4d0]">{u.phone || '—'}</td>
                         <td className="py-3 pr-3 text-[#c8d4d0]">{u.username || '—'}</td>
+                        <td className="py-3 pr-3">
+                          <div className="flex max-w-[220px] flex-wrap gap-1">
+                            {(u.registered_as?.length ? u.registered_as : ['Not specified']).map((type: string) => (
+                              <span key={type} className="rounded-md border border-[rgba(216,180,90,0.25)] bg-[rgba(216,180,90,0.08)] px-2 py-1 text-[11px] text-[#f0d98b]">{type}</span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="py-3 pr-3 text-[#c8d4d0]">{u.freelancer_niche || '—'}</td>
                         <td className="py-3 pr-3"><Badge status={u.role ?? 'user'} label={u.role ?? 'user'} /></td>
                         <td className="py-3 pr-3 text-xs text-[#7f918c]">{fmtDate(u.created_at)}</td>
                         <td className="py-3">
