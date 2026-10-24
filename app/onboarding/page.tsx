@@ -61,7 +61,7 @@ function OnboardingInner() {
         .eq('id', user.id)
       if (upErr) throw upErr
       if (userTypes.includes('freelancer')) {
-        const { error: nicheErr } = await supabase.from('freelancer_profiles').upsert({ user_id: user.id, category: freelancerNiche }, { onConflict: 'user_id' })
+        const { error: nicheErr } = await supabase.from('freelancer_profiles').upsert({ user_id: user.id, display_name: String(user.user_metadata?.full_name || user.email?.split('@')[0] || 'Freelancer').slice(0, 80), category: freelancerNiche }, { onConflict: 'user_id' })
         if (nicheErr) throw nicheErr
       }
       window.location.assign(redirectTo)
@@ -112,7 +112,7 @@ function OnboardingInner() {
               <label className="block text-sm font-medium text-[#d9e0dc]">Your freelancer niche
                 <select required value={freelancerNiche} onChange={(e) => setFreelancerNiche(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-[#10221f] px-4 py-3.5 text-white">
                   <option value="" disabled>Select your niche</option>
-                  {['Video Editing', 'UGC Content', 'Graphic Design', 'Web Development', 'Social Media Management', 'Copywriting', 'Motion Graphics', 'Other'].map(n => <option key={n} value={n}>{n}</option>)}
+                  {['Video Editing', 'Graphic Design', 'Web Design', 'Social Media Content', 'UGC Content', 'Copywriting', 'Branding', 'Motion Graphics'].map(n => <option key={n} value={n}>{n}</option>)}
                 </select>
               </label>
             )}
