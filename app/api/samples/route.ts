@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createHash, randomUUID } from 'crypto'
 import { adminClient, audit } from '@/lib/adminCore'
+import { samplesSessionWritesEnabled } from '@/lib/samplesWriteMode'
+import { runSampleReviewAgent } from '@/lib/agents/sampleReviewAgent'
 import { requireUser } from '@/lib/leads/auth'
 import {
   isFreelancerProfile,
@@ -90,6 +92,8 @@ export async function GET(request: NextRequest) {
 
 /** POST /api/samples — freelancer uploads a sample and submits it for admin review. */
 export async function POST(request: NextRequest) {
+  // Flag is imported for rollout; full session-writes path is a follow-up enablement step.
+  void samplesSessionWritesEnabled
   const rl = await limitPublicForm(request)
   if (!rl.success) return rateLimitResponse(rl, 'Too many uploads. Please wait and try again.')
 
@@ -206,12 +210,10 @@ export async function POST(request: NextRequest) {
       .update({ status: 'pending_review', rights_attested_at: new Date().toISOString(), rights_terms_version: SAMPLE_RIGHTS_TERMS_VERSION })
       .eq('id', id)
       .eq('owner_id', userId)
-      .select('id, title, status, created_at')
+      .select('id, title, status, created_at, updated_at')
       .single()
     if (submitError || !submitted) throw new Error('SUBMISSION_FAILED')
 
-    // The sample is now successfully submitted. Audit logging is best-effort and
-    // must never turn a successful submission into a cleanup/delete path.
     try {
       await audit({
         actorId: userId,
@@ -224,6 +226,12 @@ export async function POST(request: NextRequest) {
     } catch (auditError) {
       console.error('[samples POST audit]', auditError)
     }
+
+    // Best-effort Agent A (no-op unless AGENTS_ENABLED=true)
+    void runSampleReviewAgent({ sampleId: id, updatedAt: (submitted as { updated_at?: string }).updated_at }).catch(
+      (e) => console.error('[samples POST agent]', e),
+    )
+
     return NextResponse.json({ ok: true, sample: submitted }, { status: 201 })
   } catch (e) {
     const code = (e as Error).message
