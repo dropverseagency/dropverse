@@ -14,6 +14,7 @@ import {
   type ProjectType, type PaymentMethod,
 } from '../../../lib/projectConfig'
 import { createProjectServer } from '../../../lib/createProject'
+import WhopCheckoutPanel from '../../../components/WhopCheckoutPanel'
 
 type Step = 'basics' | 'billing' | 'summary'
 
@@ -35,6 +36,7 @@ export default function CreateProjectPage() {
   const [invoiceId, setInvoiceId] = useState<string | null>(null)
   const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null)
   const [payError, setPayError] = useState<string | null>(null)
+  const [whopSessionId, setWhopSessionId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!auth.loading && !auth.user) window.location.assign('/login')
@@ -67,6 +69,26 @@ export default function CreateProjectPage() {
       return
     }
     const id = res.projectId ? String(res.projectId) : null
+    if (paymentMethod === 'WHOP' && id) {
+      setPendingProjectId(id)
+      try {
+        const checkoutRes = await fetch('/api/whop/project-checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ projectId: id }),
+        })
+        const checkoutJson = await checkoutRes.json().catch(() => ({})) as { sessionId?: string; error?: string }
+        if (!checkoutRes.ok || !checkoutJson.sessionId) {
+          setPayError(checkoutJson.error || 'Whop checkout could not be created. Please retry or choose another payment method.')
+          return
+        }
+        setWhopSessionId(checkoutJson.sessionId)
+      } catch {
+        setPayError('Whop checkout could not be created. Please retry or choose another payment method.')
+      }
+      return
+    }
     if (paymentMethod === 'SPACEREMIT') {
       if (id) setPendingProjectId(id)
       return
@@ -224,7 +246,7 @@ export default function CreateProjectPage() {
                       }
                     >
                       <div className="flex items-center gap-2">
-                        {m.id === 'CLIENT_PAYS_DROPVERSE' ? <CreditCard size={18} className="text-[#d8b45a]" /> : m.id === 'SPACEREMIT' ? <Wallet size={18} className="text-[#d8b45a]" /> : m.id === 'INVOICE_SEND' ? <FileText size={18} className="text-[#d8b45a]" /> : <HandCoins size={18} className="text-[#d8b45a]" />}
+                        {m.id === 'WHOP' || m.id === 'CLIENT_PAYS_DROPVERSE' ? <CreditCard size={18} className="text-[#d8b45a]" /> : m.id === 'SPACEREMIT' ? <Wallet size={18} className="text-[#d8b45a]" /> : m.id === 'INVOICE_SEND' ? <FileText size={18} className="text-[#d8b45a]" /> : <HandCoins size={18} className="text-[#d8b45a]" />}
                         <span className="font-semibold text-[#d9e0dc]">{m.label}</span>
                       </div>
                       <p className="mt-1 text-xs text-[#8f9f9a]">{m.description}</p>
@@ -248,6 +270,44 @@ export default function CreateProjectPage() {
               <div className="flex justify-between"><span className="text-[#8f9f9a]">Your profit</span><span className="font-semibold text-[#e4c979]">{formatUsd(profit)}</span></div>
             </div>
             {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
+            {pendingProjectId && paymentMethod === 'WHOP' && (
+              <div className="mt-6 space-y-3 rounded-2xl border border-white/10 bg-[#071f1d] p-5 text-sm text-[#c1cbc7]">
+                <p className="font-semibold text-[#e4c979]">Secure Whop checkout</p>
+                {whopSessionId ? (
+                  <WhopCheckoutPanel sessionId={whopSessionId} returnUrl={typeof window !== 'undefined' ? window.location.origin + '/dashboard?payment=whop' : '/dashboard?payment=whop'} />
+                ) : (
+                  <p>{payError || 'Preparing secure checkout…'}</p>
+                )}
+                {payError && <p className="text-sm text-red-300">{payError}</p>}
+                {!whopSessionId && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setPayError(null)
+                      try {
+                        const retryRes = await fetch('/api/whop/project-checkout', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          credentials: 'include',
+                          body: JSON.stringify({ projectId: pendingProjectId }),
+                        })
+                        const retryJson = await retryRes.json().catch(() => ({})) as { sessionId?: string; error?: string }
+                        if (!retryRes.ok || !retryJson.sessionId) {
+                          setPayError(retryJson.error || 'Could not retry Whop checkout.')
+                        } else {
+                          setWhopSessionId(retryJson.sessionId)
+                        }
+                      } catch {
+                        setPayError('Could not retry Whop checkout.')
+                      }
+                    }}
+                    className="rounded-xl border border-white/15 px-4 py-2 text-xs font-semibold text-[#e4c979]"
+                  >
+                    Retry Whop checkout
+                  </button>
+                )}
+              </div>
+            )}
             {pendingProjectId && paymentMethod === 'SPACEREMIT' && (
               <div className="mt-6 rounded-2xl border border-white/10 bg-[#071f1d] p-5 text-sm text-[#c1cbc7]">
                 <p className="font-semibold text-[#e4c979]">Local payment</p>

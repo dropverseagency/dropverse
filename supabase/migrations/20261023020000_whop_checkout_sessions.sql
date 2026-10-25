@@ -1,0 +1,36 @@
+-- Whop checkout mapping: binds a Whop checkout session to an internal DropVerse purchase.
+BEGIN;
+
+CREATE TABLE IF NOT EXISTS public.whop_checkout_sessions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  plan_id text NOT NULL,
+  checkout_id text UNIQUE,
+  target_type text NOT NULL CHECK (target_type IN ('project', 'lead_pack', 'subscription')),
+  target_id text NOT NULL,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  expected_amount numeric(12,2) NOT NULL CHECK (expected_amount > 0),
+  currency text NOT NULL DEFAULT 'USD' CHECK (currency = 'USD'),
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'failed', 'cancelled')),
+  provider_payment_id text UNIQUE,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  paid_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS idx_whop_checkout_target
+  ON public.whop_checkout_sessions (target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_whop_checkout_user
+  ON public.whop_checkout_sessions (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_whop_checkout_plan
+  ON public.whop_checkout_sessions (plan_id);
+
+ALTER TABLE public.whop_checkout_sessions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can read own Whop checkout sessions" ON public.whop_checkout_sessions;
+CREATE POLICY "Users can read own Whop checkout sessions"
+  ON public.whop_checkout_sessions FOR SELECT
+  USING (auth.uid() = user_id);
+
+-- Older project schemas may not have this optional provider column yet.
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS payment_provider text;
+
+COMMIT;

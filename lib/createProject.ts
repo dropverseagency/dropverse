@@ -47,8 +47,9 @@ export async function createProjectServer(draft: ProjectDraft) {
   // payment_method must match DB CHECK + TS PaymentMethod enum.
   // External gateways stay behind NEXT_PUBLIC_PAYMENTS_ENABLED at the UI/API layer.
   const requestedMethod = draft.paymentMethod
-  const storedMethod = requestedMethod
-  const paymentProvider = requestedMethod === 'SPACEREMIT' ? 'SPACEREMIT' : null
+  // Keep the existing payment_method DB enum compatible; provider identifies Whop.
+  const storedMethod = requestedMethod === 'WHOP' ? 'CLIENT_PAYS_DROPVERSE' : requestedMethod
+  const paymentProvider = requestedMethod === 'WHOP' ? 'WHOP' : requestedMethod === 'SPACEREMIT' ? 'SPACEREMIT' : null
 
   const baseRow: Record<string, unknown> = {
     user_id: user.id,
