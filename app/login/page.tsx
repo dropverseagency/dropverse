@@ -199,6 +199,8 @@ function LoginPageInner() {
             .update({ user_types: userTypes, user_type: userTypes[0] })
             .eq('id', data.session.user.id)
           if (isFreelancer) await saveFreelancerDetails(data.session.user.id, fullName, freelancerNiches, otherNiche, portfolioLinks)
+          // Best-effort admin Telegram notify (Agent A sibling)
+          void fetch('/api/agents/new-signup', { method: 'POST', credentials: 'include' }).catch(() => undefined)
           window.location.assign(redirectTo)
         } else {
           setMessage(
@@ -375,7 +377,7 @@ function LoginPageInner() {
                 </label>
                 <label className="block text-sm font-medium text-[#d9e0dc]">
                   Referral code{' '}
-                  <span className="text-xs font-normal text-[#9aaca6]">(optional — from a friend's invite link)</span>
+                  <span className="text-xs font-normal text-[#9aaca6]">(optional — from a friend\'s invite link)</span>
                   <input
                     name="referral_code"
                     id="referral_code"
@@ -413,163 +415,120 @@ function LoginPageInner() {
               />
             </label>
             {message && (
-              <p className="rounded-lg border border-[rgba(216,180,90,0.30)] bg-[rgba(216,180,90,0.10)] px-4 py-2.5 text-sm text-[#f0d98b]">
-                {message}
-              </p>
+              <p className="rounded-lg border border-[rgba(216,180,90,0.30)] bg-[rgba(216,180,90,0.10)] px-4 py-3 text-sm text-[#f0d98b]">{message}</p>
             )}
             {error && (
-              <p className="rounded-lg border border-red-400/30 bg-red-400/10 px-4 py-2.5 text-sm text-red-200">
-                {error}
-              </p>
+              <p className="rounded-lg border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-200">{error}</p>
             )}
             {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? (
-              <div className="flex justify-center">
-                <div
-                  className="cf-turnstile"
-                  data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
-                  data-theme="dark"
-                />
-              </div>
+              <div className="cf-turnstile" data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY} data-theme="dark" />
             ) : null}
             <button
-              disabled={loading || Boolean(providerLoading)}
+              type="submit"
+              disabled={loading}
               className="w-full rounded-xl bg-[#d8b45a] px-5 py-3.5 font-bold text-[#10221f] transition hover:bg-[#f0d98b] disabled:opacity-60"
             >
-              {loading ? 'Processing...' : mode === 'login' ? 'Sign In' : 'Create Account'}
+              {loading ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
             </button>
           </form>
-          {mode === 'signup' && (
-            <p className="mt-4 text-xs leading-5 text-[#81948e]">
-              Please make sure your phone number works on WhatsApp or Telegram so we can contact you when
-              needed.
-            </p>
-          )}
-          <button
-            type="button"
-            onClick={() => {
-              setMode(mode === 'login' ? 'signup' : 'login')
-              setError(null)
-              setMessage(null)
-            }}
-            className="mt-5 w-full text-sm text-[#9aaca6] hover:text-[#f0d98b]"
-          >
-            {mode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-          </button>
-          <Link href="/" className="mt-5 block text-center text-xs text-[#718781] hover:text-[#d8b45a]">
-            Back to home
-          </Link>
+
+          <p className="mt-6 text-center text-sm text-[#8fa29c]">
+            {mode === 'login' ? (
+              <>
+                New here?{' '}
+                <button type="button" className="font-semibold text-[#d8b45a]" onClick={() => setMode('signup')}>
+                  Create an account
+                </button>
+              </>
+            ) : (
+              <>
+                Already have an account?{' '}
+                <button type="button" className="font-semibold text-[#d8b45a]" onClick={() => setMode('login')}>
+                  Sign in
+                </button>
+              </>
+            )}
+          </p>
         </div>
+        <p className="mt-6 text-center text-xs text-[#718781]">
+          <Link href="/" className="hover:text-[#d8b45a]">
+            ← Back to home
+          </Link>
+        </p>
       </div>
     </main>
   )
 }
 
 function CountryPhoneField() {
-  const [country, setCountry] = useState<Country>(() => {
-    const lang = typeof navigator !== 'undefined' ? navigator.language : 'en'
-    const cc = lang.split('-').pop()?.toUpperCase() || 'US'
-    return COUNTRIES.find((c) => c.iso2 === cc) || COUNTRIES.find((c) => c.iso2 === 'US')!
-  })
+  const [country, setCountry] = useState<Country>(COUNTRIES.find((c) => c.code === 'EG') || COUNTRIES[0])
   const [number, setNumber] = useState('')
-  const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
-  const boxRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    function onClick(e: MouseEvent) {
-      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [open])
-
+  const [q, setQ] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return COUNTRIES
+    const s = q.trim().toLowerCase()
+    if (!s) return COUNTRIES
     return COUNTRIES.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.iso2.toLowerCase().includes(q) ||
-        c.dialCode.includes(q.replace(/\+/, '')),
+      (c) => c.name.toLowerCase().includes(s) || c.dialCode.includes(s) || c.code.toLowerCase().includes(s),
     )
-  }, [query])
-
-  function pick(c: Country) {
-    setCountry(c)
-    setQuery('')
-    setOpen(false)
-  }
-
+  }, [q])
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [])
   return (
-    <div className="mt-2 flex items-stretch gap-2">
-      <div ref={boxRef} className="relative w-[11rem] shrink-0">
+    <div className="relative mt-2" ref={ref}>
+      <div className="flex gap-2">
         <button
           type="button"
-          onClick={() => setOpen((o) => !o)}
-          className="flex h-full w-full items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2 py-3.5 text-sm outline-none focus:border-[rgba(216,180,90,0.50)]"
-          aria-label="Choose country code"
+          onClick={() => setOpen((v) => !v)}
+          className="flex shrink-0 items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-3.5 text-sm"
         >
-          <span className="text-base leading-none">{country.flag}</span>
-          <span className="font-semibold text-[#d9e0dc]">{country.iso2}</span>
-          <span className="text-[#9aaca6]">{country.dialCode}</span>
-          <svg
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            className="ml-auto h-4 w-4 text-[#718781]"
-            aria-hidden="true"
-          >
-            <path
-              fillRule="evenodd"
-              d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.09 1.03l-4.25 4.5a.75.75 0 01-1.09 0l-4.25-4.5a.75.75 0 01.02-1.06z"
-              clipRule="evenodd"
-            />
-          </svg>
+          <span>{country.flag}</span>
+          <span className="text-[#d9e0dc]">{country.dialCode}</span>
         </button>
-        {open && (
-          <div className="absolute left-0 top-full z-40 mt-1 w-[16rem] overflow-hidden rounded-xl border border-white/10 bg-[#122521] shadow-xl">
-            <div className="border-b border-white/10 p-2">
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search country or code..."
-                autoFocus
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-[rgba(216,180,90,0.50)]"
-              />
-            </div>
-            <ul className="max-h-56 overflow-y-auto">
-              {filtered.length === 0 && (
-                <li className="px-3 py-2 text-xs text-[#718781]">No country found</li>
-              )}
-              {filtered.map((c) => (
-                <li key={`${c.iso2}-${c.dialCode}-${c.name}`}>
-                  <button
-                    type="button"
-                    onClick={() => pick(c)}
-                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-white/10 ${
-                      c.iso2 === country.iso2 ? 'bg-[rgba(216,180,90,0.12)] text-[#f0d98b]' : 'text-[#d9e0dc]'
-                    }`}
-                  >
-                    <span className="text-base leading-none">{c.flag}</span>
-                    <span className="w-8 font-semibold">{c.iso2}</span>
-                    <span className="w-12 text-[#9aaca6]">{c.dialCode}</span>
-                    <span className="flex-1 truncate text-left">{c.name}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <input
+          className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]"
+          type="tel"
+          inputMode="tel"
+          placeholder="1XXXXXXXXX"
+          value={number}
+          onChange={(e) => setNumber(e.target.value.replace(/[^\d\s]/g, ''))}
+          required
+          autoComplete="tel-national"
+        />
       </div>
-      <input
-        className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 outline-none focus:border-[rgba(216,180,90,0.50)]"
-        type="tel"
-        inputMode="tel"
-        placeholder="555 123 4567"
-        required
-        value={number}
-        onChange={(e) => setNumber(e.target.value)}
-      />
+      {open ? (
+        <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-white/10 bg-[#0a2926] p-2 shadow-xl">
+          <input
+            className="mb-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none"
+            placeholder="Search country…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            autoFocus
+          />
+          {filtered.map((c) => (
+            <button
+              key={c.code}
+              type="button"
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-white/10"
+              onClick={() => {
+                setCountry(c)
+                setOpen(false)
+                setQ('')
+              }}
+            >
+              <span>{c.flag}</span>
+              <span className="flex-1 text-[#d9e0dc]">{c.name}</span>
+              <span className="text-[#849792]">{c.dialCode}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       <input type="hidden" name="phone" value={`${country.dialCode} ${number.trim()}`} />
     </div>
   )
