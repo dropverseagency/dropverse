@@ -1,51 +1,103 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Menu, X, LogOut, ShieldCheck } from 'lucide-react'
 import { createClient } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
 import Brand from './Brand'
 
-export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: boolean }) {
+export default function SiteHeader({
+  highlightEarn = true,
+  editorial = false,
+}: {
+  highlightEarn?: boolean
+  editorial?: boolean
+}) {
   const [menu, setMenu] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const auth = useAuth()
   const signedIn = !auth.loading && Boolean(auth.user)
+  const menuButton = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!menu) return
+    const close = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenu(false)
+        menuButton.current?.focus()
+      }
+    }
+    document.addEventListener('keydown', close)
+    return () => document.removeEventListener('keydown', close)
+  }, [menu])
 
   useEffect(() => {
     let cancelled = false
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) return
     const supa = createClient()
     supa.auth.getUser().then(({ data: { user } }) => {
       if (cancelled || !user) return
-      supa.from('profiles').select('role').eq('id', user.id).single().then(({ data: prof }) => {
-        if (!cancelled && prof && prof.role === 'admin') setIsAdmin(true)
-      })
+      supa
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+        .then(({ data: prof }) => {
+          if (!cancelled && prof && prof.role === 'admin') setIsAdmin(true)
+        })
     })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [signedIn])
 
   const nav = (
     <>
-      <a href="/#paths" className="hover:text-[#f0d98b]">Paths</a>
-      <a href="/#services" className="hover:text-[#f0d98b]">Services</a>
-      <Link href="/samples" className="hover:text-[#f0d98b]">Samples</Link>
-      <Link href="/leads" className="hover:text-[#f0d98b]">Leads</Link>
-      <Link href="/academy" className="hover:text-[#f0d98b]">Academy</Link>
-      <Link href="/pricing" className="hover:text-[#f0d98b]">Pricing</Link>
-      <Link href="/earn" className={highlightEarn ? 'font-semibold text-[#e4c979] hover:text-[#f0d98b]' : 'hover:text-[#f0d98b]'}>Partner</Link>
+      <a href="/#paths" className="hover:text-[#f0d98b]">
+        Paths
+      </a>
+      <a href="/#services" className="hover:text-[#f0d98b]">
+        Services
+      </a>
+      <Link href="/samples" className="hover:text-[#f0d98b]">
+        Samples
+      </Link>
+      <Link href="/leads" className="hover:text-[#f0d98b]">
+        Leads
+      </Link>
+      <Link href="/academy" className="hover:text-[#f0d98b]">
+        Academy
+      </Link>
+      <Link href="/pricing" className="hover:text-[#f0d98b]">
+        Pricing
+      </Link>
+      <Link
+        href="/earn"
+        className={
+          highlightEarn ? 'font-semibold text-[#e4c979] hover:text-[#f0d98b]' : 'hover:text-[#f0d98b]'
+        }
+      >
+        Partner
+      </Link>
     </>
   )
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 brand-header border-b border-white/5 bg-[rgba(7,31,29,0.80)] backdrop-blur-xl">
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 brand-header border-b border-white/5 bg-[rgba(7,31,29,0.80)] backdrop-blur-xl ${editorial ? 'editorial-header' : ''}`}
+    >
       <div className="container flex h-20 items-center justify-between">
-        <Brand />
+        <Brand editorial={editorial} />
         <nav className="hidden items-center gap-7 text-sm text-[#c1cbc7] lg:flex">{nav}</nav>
         <div className="hidden items-center gap-3 lg:flex">
           {signedIn && auth.user ? (
             <>
               {isAdmin && (
-                <Link href="/admin" className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] px-3.5 py-2 text-sm font-bold text-[#f0d98b] transition hover:bg-[rgba(216,180,90,0.22)]" title="Admin Panel">
+                <Link
+                  href="/admin"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] px-3.5 py-2 text-sm font-bold text-[#f0d98b] transition hover:bg-[rgba(216,180,90,0.22)]"
+                  title="Admin Panel"
+                >
                   <ShieldCheck size={16} className="shrink-0 lg:hidden" aria-label="Admin Panel" />
                   <span className="hidden lg:inline">Admin</span>
                 </Link>
@@ -58,45 +110,89 @@ export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: b
             </Link>
           )}
           {signedIn ? (
-            <Link href="/dashboard" className="brand-button-primary rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
+            <Link
+              href="/dashboard"
+              className="brand-button-primary rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]"
+            >
               Dashboard
             </Link>
           ) : (
-            <Link href="/login" className="brand-button-primary rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
+            <Link
+              href="/login"
+              className="brand-button-primary rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]"
+            >
               Get Started
             </Link>
           )}
         </div>
         <div className="flex items-center gap-2.5 lg:hidden">
           {isAdmin ? (
-            <Link href="/admin" className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] text-[#f0d98b] transition hover:bg-[rgba(216,180,90,0.22)]" aria-label="Admin Panel" title="Admin Panel">
+            <Link
+              href="/admin"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(216,180,90,0.40)] bg-[rgba(216,180,90,0.12)] text-[#f0d98b] transition hover:bg-[rgba(216,180,90,0.22)]"
+              aria-label="Admin Panel"
+              title="Admin Panel"
+            >
               <ShieldCheck size={17} />
             </Link>
           ) : null}
-          <button onClick={() => setMenu(!menu)} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-[#c1cbc7]" aria-label="Menu">
+          <button
+            ref={menuButton}
+            onClick={() => setMenu(!menu)}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-[#c1cbc7]"
+            aria-label={menu ? 'Close menu' : 'Open menu'}
+            aria-expanded={menu}
+            aria-controls="site-mobile-menu"
+          >
             {menu ? <X size={17} /> : <Menu size={17} />}
           </button>
         </div>
       </div>
       {menu && (
-        <div className="border-t border-white/5 bg-[#071f1d] p-5 lg:hidden">
+        <div id="site-mobile-menu" className="border-t border-white/5 bg-[#071f1d] p-5 lg:hidden">
           <div className="container flex flex-col gap-5 text-[#d9e0dc]">
-            <a href="/#paths" onClick={() => setMenu(false)}>Paths</a>
-            <a href="/#services" onClick={() => setMenu(false)}>Services</a>
-            <Link href="/samples" onClick={() => setMenu(false)}>Samples</Link>
-            <Link href="/leads" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Leads</Link>
-            <Link href="/academy" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Academy</Link>
-            <Link href="/pricing" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Pricing</Link>
-            <Link href="/earn" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Partner</Link>
+            <a href="/#paths" onClick={() => setMenu(false)}>
+              Paths
+            </a>
+            <a href="/#services" onClick={() => setMenu(false)}>
+              Services
+            </a>
+            <Link href="/samples" onClick={() => setMenu(false)}>
+              Samples
+            </Link>
+            <Link href="/leads" className="text-[#d8b45a]" onClick={() => setMenu(false)}>
+              Leads
+            </Link>
+            <Link href="/academy" className="text-[#d8b45a]" onClick={() => setMenu(false)}>
+              Academy
+            </Link>
+            <Link href="/pricing" className="text-[#d8b45a]" onClick={() => setMenu(false)}>
+              Pricing
+            </Link>
+            <Link href="/earn" className="text-[#d8b45a]" onClick={() => setMenu(false)}>
+              Partner
+            </Link>
             {isAdmin ? (
-              <Link href="/admin" className="inline-flex items-center gap-2 font-bold text-[#f0d98b]" onClick={() => setMenu(false)}><ShieldCheck size={15} /> Admin Panel →</Link>
+              <Link
+                href="/admin"
+                className="inline-flex items-center gap-2 font-bold text-[#f0d98b]"
+                onClick={() => setMenu(false)}
+              >
+                <ShieldCheck size={15} /> Admin Panel →
+              </Link>
             ) : null}
             {signedIn ? (
-              <Link href="/dashboard" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Dashboard</Link>
+              <Link href="/dashboard" className="text-[#d8b45a]" onClick={() => setMenu(false)}>
+                Dashboard
+              </Link>
             ) : (
               <>
-                <Link href="/login" onClick={() => setMenu(false)}>Sign in</Link>
-                <Link href="/login" className="text-[#d8b45a]" onClick={() => setMenu(false)}>Get Started</Link>
+                <Link href="/login" onClick={() => setMenu(false)}>
+                  Sign in
+                </Link>
+                <Link href="/login" className="text-[#d8b45a]" onClick={() => setMenu(false)}>
+                  Get Started
+                </Link>
               </>
             )}
           </div>
@@ -106,7 +202,13 @@ export default function SiteHeader({ highlightEarn = true }: { highlightEarn?: b
   )
 }
 
-function UserMenu({ user, isAdmin = false }: { user: { name?: string | null; email?: string }; isAdmin?: boolean }) {
+function UserMenu({
+  user,
+  isAdmin = false,
+}: {
+  user: { name?: string | null; email?: string }
+  isAdmin?: boolean
+}) {
   const [open, setOpen] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
   async function handleSignOut() {
@@ -131,11 +233,19 @@ function UserMenu({ user, isAdmin = false }: { user: { name?: string | null; ema
       {open && (
         <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#0a2926] shadow-xl">
           {isAdmin ? (
-            <Link href="/admin" onClick={() => setOpen(false)} className="block px-4 py-3 text-sm font-bold text-[#f0d98b] transition hover:bg-white/5">
+            <Link
+              href="/admin"
+              onClick={() => setOpen(false)}
+              className="block px-4 py-3 text-sm font-bold text-[#f0d98b] transition hover:bg-white/5"
+            >
               Admin Panel
             </Link>
           ) : null}
-          <Link href="/dashboard" onClick={() => setOpen(false)} className="block px-4 py-3 text-sm text-[#d9e0dc] transition hover:bg-white/5">
+          <Link
+            href="/dashboard"
+            onClick={() => setOpen(false)}
+            className="block px-4 py-3 text-sm text-[#d9e0dc] transition hover:bg-white/5"
+          >
             Dashboard
           </Link>
           <button

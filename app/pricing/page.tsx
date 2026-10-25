@@ -45,7 +45,7 @@ export default function PricingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#071f1d]">
+    <main className="direction-two-pricing min-h-screen bg-[#071f1d]">
       <SiteHeader highlightEarn={false} />
 
       <section className="container pb-20 pt-28">

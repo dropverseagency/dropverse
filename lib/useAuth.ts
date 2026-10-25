@@ -21,6 +21,10 @@ export function useAuth(retries = 5, delay = 600): AuthState {
 
   useEffect(() => {
     let cancelled = false
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      setState({ loading: false, user: null })
+      return
+    }
     const supabase = createClient()
     ;(async () => {
       let user: AuthState['user'] = null

@@ -143,7 +143,7 @@ export default function DashboardShell({
               </button>
               <Link href="/dashboard" className="inline-flex shrink-0 items-center gap-2" aria-label="DropVerse dashboard">
                 <Image
-                  src="/dropverse-icon.svg"
+                  src="/editorial/dropverse-mark-dark.png"
                   alt="DropVerse"
                   width={36}
                   height={36}

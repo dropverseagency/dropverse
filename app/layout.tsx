@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import './direction-two.css'
 import Motion from '../components/Motion'
 import VisitBeacon from '../components/VisitBeacon'
 
@@ -30,5 +31,5 @@ export const metadata: Metadata = {
 export const viewport = { width: 'device-width', initialScale: 1, themeColor: '#061916' }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body><Motion /><VisitBeacon />{children}</body></html>
+  return <html lang="en"><body className="direction-two-theme"><Motion /><VisitBeacon />{children}</body></html>
 }

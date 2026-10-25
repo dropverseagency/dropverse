@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import SiteHeader from '../../components/SiteHeader'
 
 type Sample = { id:string; title:string; category:string; description:string; price_usd:number|null; turnaround_days:number; cover_url:string|null; freelancer_display_name:string|null }
 
@@ -18,11 +19,8 @@ export default function SamplesPage() {
   const categories=['All',...Array.from(new Set(items.map(x=>x.category))).sort()]
   const filtered=category==='All'?items:items.filter(x=>x.category===category)
   return <main className="min-h-screen bg-[#071b19] text-[#f4f7f5]">
-    <header className="border-b border-white/10"><div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5">
-      <Link href="/" className="text-lg font-extrabold">DropVerse<span className="text-[#d8b45a]">.</span></Link>
-      <nav className="flex items-center gap-3 text-sm"><Link href="/login?redirect=/dashboard/samples" className="text-[#b8c8c2]">Freelancer login</Link><Link href="/login?redirect=/dashboard/samples" className="rounded-full bg-[#d8b45a] px-4 py-2 font-bold text-[#10221f]">Submit a sample</Link></nav>
-    </div></header>
-    <section className="mx-auto max-w-7xl px-5 pb-12 pt-16 sm:pt-24">
+    <SiteHeader />
+    <section className="mx-auto max-w-7xl px-5 pb-12 pt-28 sm:pt-32">
       <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#d8b45a]">The Samples Vault</p>
       <div className="mt-4 grid gap-8 md:grid-cols-[1.4fr_0.6fr] md:items-end"><div>
         <h1 className="max-w-3xl text-4xl font-black leading-tight sm:text-6xl">Real work. Reviewed before it goes live.</h1>
