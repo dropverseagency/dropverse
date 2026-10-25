@@ -289,6 +289,10 @@
   color: #65736c !important;
 }
 
+.direction-two-pricing > header + section > .mt-14 > div > div:nth-of-type(2) span.pricing-price {
+  color: var(--dv-ink) !important;
+}
+
 .direction-two-pricing > header + section > .mt-14 ul {
   margin-top: 24px !important;
 }
