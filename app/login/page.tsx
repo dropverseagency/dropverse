@@ -414,19 +414,19 @@ function LoginPageInner() {
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               />
             </label>
-            {message && (
-              <p className="rounded-lg border border-[rgba(216,180,90,0.30)] bg-[rgba(216,180,90,0.10)] px-4 py-3 text-sm text-[#f0d98b]">{message}</p>
-            )}
-            {error && (
-              <p className="rounded-lg border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-200">{error}</p>
-            )}
             {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? (
-              <div className="cf-turnstile" data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY} data-theme="dark" />
+              <div
+                className="cf-turnstile"
+                data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+                data-theme="dark"
+              />
             ) : null}
+            {error ? <p className="text-sm text-red-400">{error}</p> : null}
+            {message ? <p className="text-sm text-[#d8b45a]">{message}</p> : null}
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-[#d8b45a] px-5 py-3.5 font-bold text-[#10221f] transition hover:bg-[#f0d98b] disabled:opacity-60"
+              className="btn-primary w-full rounded-xl py-3.5 text-sm font-semibold disabled:opacity-60"
             >
               {loading ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
             </button>
@@ -461,7 +461,7 @@ function LoginPageInner() {
 }
 
 function CountryPhoneField() {
-  const [country, setCountry] = useState<Country>(COUNTRIES.find((c) => c.code === 'EG') || COUNTRIES[0])
+  const [country, setCountry] = useState<Country>(COUNTRIES.find((c) => c.iso2 === 'EG') || COUNTRIES[0])
   const [number, setNumber] = useState('')
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
@@ -470,7 +470,7 @@ function CountryPhoneField() {
     const s = q.trim().toLowerCase()
     if (!s) return COUNTRIES
     return COUNTRIES.filter(
-      (c) => c.name.toLowerCase().includes(s) || c.dialCode.includes(s) || c.code.toLowerCase().includes(s),
+      (c) => c.name.toLowerCase().includes(s) || c.dialCode.includes(s) || c.iso2.toLowerCase().includes(s),
     )
   }, [q])
   useEffect(() => {
@@ -513,7 +513,7 @@ function CountryPhoneField() {
           />
           {filtered.map((c) => (
             <button
-              key={c.code}
+              key={c.iso2}
               type="button"
               className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-white/10"
               onClick={() => {
