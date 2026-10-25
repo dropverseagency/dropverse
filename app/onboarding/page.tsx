@@ -67,6 +67,8 @@ function OnboardingInner() {
       if (userTypes.includes('freelancer')) {
         await saveFreelancerDetails(user.id, String(user.user_metadata?.full_name || user.email?.split('@')[0] || 'Freelancer'), freelancerNiches, otherNiche, portfolioLinks)
       }
+      // Best-effort admin Telegram notify after role/niche selection
+      void fetch('/api/agents/new-signup', { method: 'POST', credentials: 'include' }).catch(() => undefined)
       window.location.assign(redirectTo)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save. Please try again.')
