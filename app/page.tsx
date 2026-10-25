@@ -156,6 +156,16 @@ export default function Home() {
                 <br className="desktop-break" /> your portfolio, and your
                 <br className="desktop-break" /> next client project.
               </p>
+              <div className="hero-paths" aria-label="Choose how you work">
+                <Link href={entryHref} className="editorial-button">
+                  For Drop Servicers
+                  <ArrowUpRight size={18} />
+                </Link>
+                <Link href={entryHref} className="editorial-button editorial-button-ghost">
+                  For Freelancers
+                  <ArrowUpRight size={18} />
+                </Link>
+              </div>
               <Link href={entryHref} className="editorial-button">
                 {signedIn ? 'Open your workspace' : 'Create your workspace'}
                 <ArrowUpRight size={18} />
@@ -188,25 +198,25 @@ export default function Home() {
                   <span className="drop-step-number">01</span>
                   <span className="drop-step-icon"><ClipboardList size={20} /></span>
                   <strong>Client brief</strong>
-                  <small>You receive the order and goals.</small>
+                  <small>Receive goals and files.</small>
                 </li>
                 <li style={{ '--step-delay': '1.6s' } as CSSProperties}>
                   <span className="drop-step-number">02</span>
                   <span className="drop-step-icon"><Users size={20} /></span>
                   <strong>You manage</strong>
-                  <small>Scope, price, and assign the work.</small>
+                  <small>Price it and assign it.</small>
                 </li>
                 <li style={{ '--step-delay': '3.2s' } as CSSProperties}>
                   <span className="drop-step-number">03</span>
                   <span className="drop-step-icon"><Sparkles size={20} /></span>
                   <strong>Expert creates</strong>
-                  <small>A trusted specialist does the work.</small>
+                  <small>A specialist completes the work.</small>
                 </li>
                 <li style={{ '--step-delay': '4.8s' } as CSSProperties}>
                   <span className="drop-step-number">04</span>
                   <span className="drop-step-icon"><PackageCheck size={20} /></span>
                   <strong>You deliver</strong>
-                  <small>Review, deliver, and keep the margin.</small>
+                  <small>Review and send to your client.</small>
                 </li>
               </ol>
               <div className="drop-process-footer">

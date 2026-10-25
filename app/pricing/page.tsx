@@ -87,7 +87,7 @@ export default function PricingPage() {
                   <span className="font-display text-lg font-bold text-[#e8efe9]">{plan.displayName}</span>
                 </div>
                 <div className="mt-4 flex items-end gap-1">
-                  <span className="font-display text-3xl font-extrabold text-[#e8efe9]">{priceFor(plan)}</span>
+                  <span className="pricing-price font-display text-3xl font-extrabold text-[var(--dv-ink)]">{priceFor(plan)}</span>
                   {!plan.enterprise && plan.price > 0 && (
                     <span className="mb-1 text-sm text-[#849792]">/mo</span>
                   )}

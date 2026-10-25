@@ -86,9 +86,9 @@ export default async function LeadsCatalogPage() {
                 Browse lead packs
               </h1>
               <p className="mt-4 max-w-xl text-base leading-7 text-[#8fa29c]">
-                A lead pack is a seller-submitted file (CSV or spreadsheet) with the niche, countries, price, and buyer limit they chose.
-                Admin approval means the listing can go public — it is not a certificate that every contact is verified or sales-qualified.
-                Sign in to buy or sell. Browsing stays open.
+                Sellers submit a file with their niche, countries, price, and seat limit.
+                Admin approval allows it to go public; it does not certify contact quality.
+                Browsing stays open without signing in.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
@@ -134,7 +134,8 @@ export default async function LeadsCatalogPage() {
               <p className="font-display mt-3 text-3xl font-extrabold text-white">{lead.figure}</p>
               <p className="mt-1 text-sm text-[#9aa8a3]">{lead.figureLabel}</p>
               <p className="mt-4 max-w-3xl text-sm leading-6 text-[#c5d0cb]">
-                Use this only as category context. It does not describe the value of files listed on DropVerse, and it is not a forecast of what a pack will sell for.
+                This is category context, not a forecast of what a pack will sell for.
+                It does not describe the value of any DropVerse listing.
               </p>
               <MarketCite sourceName={lead.sourceName} sourceUrl={lead.sourceUrl} sourceDate={lead.sourceDate} scope={lead.scope} />
             </div>
