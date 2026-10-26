@@ -7,6 +7,7 @@ import {
   methodById,
   nextScheduledProcessingDate,
 } from '@/lib/payoutConfig'
+import { notifyAdminEvent } from '@/lib/agents/adminNotify'
 
 async function resolveUser(request: NextRequest) {
   const bearer = (request.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
@@ -103,8 +104,6 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // One database transaction checks balance and reserves it. Read errors fail
-  // the RPC instead of being mistaken for a zero/empty balance.
   const admin = adminClient()
   const { data: result, error } = await admin.rpc('create_payout_request_atomic', {
     p_user_id: user.id,
@@ -170,12 +169,27 @@ export async function POST(request: NextRequest) {
       newValue: {
         amount: Number(saved.amount),
         method: saved.method,
-        // Do not duplicate payout destination PII in audit logs.
         dropverseFee: Number(saved.dropverse_fee),
         estimatedNet: Number(saved.estimated_net),
         idempotencyKey,
         transferActivated: false,
       },
+    })
+  }
+
+  if (!result.duplicate) {
+    void notifyAdminEvent({
+      agent: 'payout_request',
+      idempotencyKey: `payout_request:${saved.id}`,
+      entityId: String(saved.id),
+      title: 'New payout request',
+      lines: [
+        `Amount: $${Number(saved.amount).toFixed(2)}`,
+        `Method: ${saved.method}`,
+        `Status: ${saved.status}`,
+        `User: ${user.id}`,
+      ],
+      adminPath: '/admin',
     })
   }
 
