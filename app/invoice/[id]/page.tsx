@@ -22,8 +22,8 @@ export default async function InvoicePage({
   const preferredMethod =
     methodRaw === 'local' || methodRaw === 'spaceremit'
       ? 'local' as const
-      : methodRaw === 'international' || methodRaw === 'paddle'
-        ? 'international' as const
+      : methodRaw === 'paypal' || methodRaw === 'international' || methodRaw === 'paddle'
+        ? 'paypal' as const
         : null
 
   const data = await loadInvoice(id)

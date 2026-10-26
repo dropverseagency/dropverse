@@ -54,7 +54,7 @@ export const PAYMENT_METHODS: { id: PaymentMethod; label: string; description: s
   {
     id: 'INVOICE_SEND',
     label: 'Send Invoice to Client',
-    description: 'Create a payment link for your client to pay securely.',
+    description: 'Create a full invoice your client can review and pay securely.',
   },
   {
     id: 'SELLER_COLLECTED',
