@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient, audit, requireAdmin, AdminOnlyError } from '@/lib/adminCore'
+import { notifyAdminEvent } from '@/lib/agents/adminNotify'
 
 export const runtime = 'nodejs'
 
@@ -73,6 +74,18 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       entityId: id,
       oldValue: { status: sample.status, price_usd: sample.price_usd, commission_rate: sample.commission_rate },
       newValue: updated,
+    })
+    void notifyAdminEvent({
+      agent: 'sample_moderation',
+      idempotencyKey: `sample_${action}:${id}:${updated.reviewed_at || updated.status}`,
+      entityId: id,
+      title: `Sample ${action}`,
+      lines: [
+        `Title: ${updated.title || sample.title}`,
+        `Status: ${updated.status}`,
+        action === 'reject' ? `Reason: ${updated.rejection_reason || '—'}` : `Price: ${updated.price_usd ?? '—'}`,
+      ],
+      adminPath: '/admin/samples',
     })
     return NextResponse.json({ ok: true, sample: updated })
   } catch (e) {
