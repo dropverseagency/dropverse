@@ -8,6 +8,7 @@ import {
   STATUS_TRANSITIONS,
   type ProjectStatus,
 } from '../../../../lib/projectConfig'
+import { notifyAdminEvent } from '@/lib/agents/adminNotify'
 
 /**
  * Confirms a SpaceRemit payment and promotes the project status —
@@ -96,6 +97,14 @@ export async function POST(request: NextRequest) {
   const expected = Number(project.fulfillment_cost || 0)
   const paid = Number(tx.total_amount || 0)
   if (tx.currency !== 'USD' || !(Math.abs(paid - expected) < 0.01)) {
+    void notifyAdminEvent({
+      agent: 'payment_failed',
+      idempotencyKey: `payment_fail:spaceremit:mismatch:${projectId}:${paymentId}`,
+      entityId: projectId,
+      title: 'Payment verify failed (amount mismatch)',
+      lines: [`Project: ${projectId}`, `Expected: $${expected}`, `Paid: $${paid} ${tx.currency}`],
+      adminPath: '/admin',
+    })
     return NextResponse.json({ error: 'SP_AMOUNT_MISMATCH' }, { status: 422 })
   }
 
@@ -141,6 +150,19 @@ export async function POST(request: NextRequest) {
       amount_usd: tx.total_amount,
       sp_status: tx.status,
     }),
+  })
+
+  void notifyAdminEvent({
+    agent: 'payment_confirmed',
+    idempotencyKey: `payment:spaceremit:${projectId}:${paymentId}`,
+    entityId: projectId,
+    title: 'Payment confirmed (SpaceRemit)',
+    lines: [
+      `Project: ${projectId}`,
+      `Amount: $${tx.total_amount}`,
+      `Payment id: ${paymentId}`,
+    ],
+    adminPath: '/admin',
   })
 
   return NextResponse.json({ success: true })

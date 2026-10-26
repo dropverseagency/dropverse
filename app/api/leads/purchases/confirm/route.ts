@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminClient, audit } from '@/lib/adminCore'
 import { requireUser } from '@/lib/leads/auth'
 import { effectiveMaxBuyers, leadCommissionRateForPrice, splitCommission } from '@/lib/leads/types'
+import { notifyAdminEvent } from '@/lib/agents/adminNotify'
 
 export const runtime = 'nodejs'
 
@@ -45,8 +46,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'NOT_ALLOWED' }, { status: 403 })
     }
     if (purchase.status === 'paid') {
-      // Make confirmation retry-safe if a previous request marked the purchase paid
-      // but failed while writing the seller's ledger credit.
       const { data: existingCredit, error: creditLookupError } = await admin
         .from('lead_marketplace_ledger')
         .select('id')
@@ -163,8 +162,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'SOLD_OUT' }, { status: 409 })
     }
 
-    // Recalculate immediately before crediting the seller so stale client data or
-    // legacy pending purchases cannot bypass the current commission tiers.
     const commissionRate = leadCommissionRateForPrice(expected)
     const { platformFee, sellerNet } = splitCommission(expected, commissionRate)
 
@@ -228,6 +225,20 @@ export async function POST(request: NextRequest) {
         seller_net: credit,
         platform_fee: platformFee,
       },
+    })
+
+    void notifyAdminEvent({
+      agent: 'lead_purchase_paid',
+      idempotencyKey: `lead_purchase_paid:${purchaseId}`,
+      entityId: purchaseId,
+      title: 'Lead pack purchase paid',
+      lines: [
+        `Purchase: ${purchaseId}`,
+        `Amount: $${expected}`,
+        `Platform fee: $${platformFee}`,
+        `Seller net: $${credit}`,
+      ],
+      adminPath: '/admin/leads',
     })
 
     return NextResponse.json({ ok: true, confirmed: true })

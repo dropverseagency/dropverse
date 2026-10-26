@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient, audit, requireAdmin } from '@/lib/adminCore'
+import { notifyAdminEvent } from '@/lib/agents/adminNotify'
 
 export const runtime = 'nodejs'
 
@@ -95,6 +96,19 @@ export async function POST(
       entity: 'lead_pack_purchase',
       entityId: purchaseId,
       newValue: { reason, restoreSeat, debit },
+    })
+
+    void notifyAdminEvent({
+      agent: 'lead_refund',
+      idempotencyKey: `lead_refund:${purchaseId}`,
+      entityId: purchaseId,
+      title: 'Lead purchase refunded',
+      lines: [
+        `Purchase: ${purchaseId}`,
+        `Reason: ${reason}`,
+        `Debit: $${Math.abs(debit)}`,
+      ],
+      adminPath: '/admin/leads',
     })
 
     return NextResponse.json({ ok: true, refunded: true })

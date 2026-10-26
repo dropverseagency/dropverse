@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'crypto'
 import { adminClient, audit } from '@/lib/adminCore'
 import { samplesSessionWritesEnabled } from '@/lib/samplesWriteMode'
 import { runSampleReviewAgent } from '@/lib/agents/sampleReviewAgent'
+import { notifyAdminEvent } from '@/lib/agents/adminNotify'
 import { requireUser } from '@/lib/leads/auth'
 import {
   isFreelancerProfile,
@@ -92,7 +93,6 @@ export async function GET(request: NextRequest) {
 
 /** POST /api/samples — freelancer uploads a sample and submits it for admin review. */
 export async function POST(request: NextRequest) {
-  // Flag is imported for rollout; full session-writes path is a follow-up enablement step.
   void samplesSessionWritesEnabled
   const rl = await limitPublicForm(request)
   if (!rl.success) return rateLimitResponse(rl, 'Too many uploads. Please wait and try again.')
@@ -142,6 +142,14 @@ export async function POST(request: NextRequest) {
     if (!existingFreelancerProfile) {
       const { error: profileError } = await admin.from('freelancer_profiles').insert({ user_id: userId, display_name: displayName.length >= 2 ? displayName : 'Freelancer', category, bio: '' })
       if (profileError) throw new Error('FREELANCER_PROFILE_SAVE_FAILED')
+      void notifyAdminEvent({
+        agent: 'freelancer_profile',
+        idempotencyKey: `freelancer_profile:${userId}`,
+        entityId: userId,
+        title: 'Freelancer profile created',
+        lines: [`User: ${userId}`, `Category: ${category}`, `Name: ${displayName}`],
+        adminPath: '/admin/samples',
+      })
     }
 
     const id = randomUUID()
@@ -227,7 +235,6 @@ export async function POST(request: NextRequest) {
       console.error('[samples POST audit]', auditError)
     }
 
-    // Best-effort Agent A (no-op unless AGENTS_ENABLED=true)
     void runSampleReviewAgent({ sampleId: id, updatedAt: (submitted as { updated_at?: string }).updated_at }).catch(
       (e) => console.error('[samples POST agent]', e),
     )

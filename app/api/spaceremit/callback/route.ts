@@ -11,6 +11,7 @@ import { createClient } from '@supabase/supabase-js'
 
 import { type ProjectStatus } from '../../../../lib/projectConfig'
 
+import { notifyAdminEvent } from '@/lib/agents/adminNotify'
 const SPACEREMIT_INFO = 'https://spaceremit.com/api/v2/payment_info/'
 
 function serviceClient() {
@@ -144,6 +145,26 @@ export async function POST(request: NextRequest) {
     (await confirmProject(supabase, paymentId)) ||
     (await confirmInvoice(supabase, paymentId)) ||
     (await confirmOrgPlan(supabase, paymentId))
+
+  if (matched) {
+    void notifyAdminEvent({
+      agent: 'payment_confirmed',
+      idempotencyKey: `payment:spaceremit_callback:${paymentId}`,
+      entityId: paymentId,
+      title: 'Payment confirmed (SpaceRemit callback)',
+      lines: [`Payment id: ${paymentId}`, `SP status: ${tx.status}`],
+      adminPath: '/admin',
+    })
+  } else if (txStatus === 'SUCCESS' || txStatus === 'CONFIRMED' || txStatus === 'COMPLETED') {
+    void notifyAdminEvent({
+      agent: 'payment_failed',
+      idempotencyKey: `payment:spaceremit_callback_nomatch:${paymentId}`,
+      entityId: paymentId,
+      title: 'SpaceRemit callback: no matching open payment',
+      lines: [`Payment id: ${paymentId}`, `SP status: ${tx.status}`],
+      adminPath: '/admin',
+    })
+  }
 
   return NextResponse.json({
     status: matched ? 'confirmed' : 'no_match',

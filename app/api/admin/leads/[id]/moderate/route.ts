@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient, audit, requireAdmin } from '@/lib/adminCore'
+import { notifyAdminEvent } from '@/lib/agents/adminNotify'
 
 export const runtime = 'nodejs'
 
@@ -82,6 +83,19 @@ export async function POST(
       entityId: id,
       oldValue: { status: pack.status },
       newValue: updated,
+    })
+
+    void notifyAdminEvent({
+      agent: 'lead_pack_moderation',
+      idempotencyKey: `lead_pack_${action}:${id}:${updated.status}`,
+      entityId: id,
+      title: `Lead pack ${action}`,
+      lines: [
+        `Pack id: ${id}`,
+        `Status: ${updated.status}`,
+        updated.reject_reason ? `Reason: ${updated.reject_reason}` : '—',
+      ],
+      adminPath: '/admin/leads',
     })
 
     return NextResponse.json({ ok: true, pack: updated })
