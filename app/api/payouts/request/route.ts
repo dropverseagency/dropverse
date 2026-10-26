@@ -8,6 +8,7 @@ import {
   nextScheduledProcessingDate,
 } from '@/lib/payoutConfig'
 import { notifyAdminEvent } from '@/lib/agents/adminNotify'
+import { createUserNotification } from '@/lib/userNotifications'
 
 async function resolveUser(request: NextRequest) {
   const bearer = (request.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
@@ -178,6 +179,15 @@ export async function POST(request: NextRequest) {
   }
 
   if (!result.duplicate) {
+    void createUserNotification({
+      userId: user.id,
+      type: 'payout_requested',
+      title: 'Payout request submitted',
+      body: `$${Number(saved.amount).toFixed(2)} reserved. We will process it according to the schedule.`,
+      href: '/dashboard/payouts',
+      entityType: 'payout_request',
+      entityId: String(saved.id),
+    })
     void notifyAdminEvent({
       agent: 'payout_request',
       idempotencyKey: `payout_request:${saved.id}`,
