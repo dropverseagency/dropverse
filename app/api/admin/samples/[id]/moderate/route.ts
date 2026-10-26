@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient, audit, requireAdmin, AdminOnlyError } from '@/lib/adminCore'
 import { notifyAdminEvent } from '@/lib/agents/adminNotify'
+import { createUserNotification } from '@/lib/userNotifications'
 
 export const runtime = 'nodejs'
 
@@ -74,6 +75,25 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       entityId: id,
       oldValue: { status: sample.status, price_usd: sample.price_usd, commission_rate: sample.commission_rate },
       newValue: updated,
+    })
+    void createUserNotification({
+      userId: sample.owner_id,
+      type: `sample_${action}`,
+      title:
+        action === 'approve'
+          ? 'Your sample was approved'
+          : action === 'reject'
+            ? 'Your sample needs changes'
+            : 'Your sample was unpublished',
+      body:
+        action === 'reject'
+          ? String(updated.rejection_reason || 'Please review the feedback and resubmit.')
+          : action === 'approve'
+            ? `“${updated.title || sample.title}” is now live.`
+            : `“${updated.title || sample.title}” is no longer public.`,
+      href: '/dashboard/samples',
+      entityType: 'sample',
+      entityId: id,
     })
     void notifyAdminEvent({
       agent: 'sample_moderation',
