@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { clientIp, limitAuth, rateLimitResponse } from '@/lib/rateLimit'
 import { verifyTurnstile } from '@/lib/turnstile'
+import { notifyAdminEvent } from '@/lib/agents/adminNotify'
 
 export const runtime = 'nodejs'
 
@@ -10,7 +11,18 @@ export const runtime = 'nodejs'
  */
 export async function POST(request: Request) {
   const rl = await limitAuth(request)
-  if (!rl.success) return rateLimitResponse(rl, 'Too many sign-in attempts. Please wait a minute and try again.')
+  if (!rl.success) {
+    const ip = clientIp(request)
+    void notifyAdminEvent({
+      agent: 'auth_rate_limit',
+      idempotencyKey: `auth_rl:${ip}:${Math.floor(Date.now() / 60000)}`,
+      entityId: ip || 'unknown',
+      title: 'Auth rate limit hit',
+      lines: [`IP: ${ip || 'unknown'}`, 'Endpoint: /api/auth/guard'],
+      adminPath: '/admin',
+    })
+    return rateLimitResponse(rl, 'Too many sign-in attempts. Please wait a minute and try again.')
+  }
 
   let token: string | null = null
   try {
