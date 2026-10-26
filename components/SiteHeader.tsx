@@ -68,6 +68,9 @@ export default function SiteHeader({
       <Link href="/academy" className="hover:text-[#f0d98b]">
         Academy
       </Link>
+      <Link href="/tools" className="hover:text-[#f0d98b]">
+        Tools
+      </Link>
       <Link href="/pricing" className="hover:text-[#f0d98b]">
         Pricing
       </Link>
@@ -165,6 +168,9 @@ export default function SiteHeader({
             </Link>
             <Link href="/academy" className="text-[#d8b45a]" onClick={() => setMenu(false)}>
               Academy
+            </Link>
+            <Link href="/tools" className="text-[#d8b45a]" onClick={() => setMenu(false)}>
+              Tools
             </Link>
             <Link href="/pricing" className="text-[#d8b45a]" onClick={() => setMenu(false)}>
               Pricing
