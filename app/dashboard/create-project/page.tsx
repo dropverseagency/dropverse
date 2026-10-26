@@ -4,28 +4,40 @@ import { motion } from 'framer-motion'
 import Link from 'next/link'
 import Brand from '../../../components/Brand'
 import {
-  ArrowRight, Rocket, CreditCard,
-  HandCoins, Wallet, FileText, Link2, Copy, ExternalLink, Mail,
+  ArrowRight, Rocket, Wallet, FileText, Link2, Copy, ExternalLink, Mail,
 } from 'lucide-react'
 import { useAuth } from '../../../lib/useAuth'
 import {
-  PROJECT_TYPES, PAYMENT_METHODS, moneyLabels,
+  PROJECT_TYPES, moneyLabels,
   formatUsd, computeSellerProfit, FULFILLMENT_RATES,
   type ProjectType, type PaymentMethod,
 } from '../../../lib/projectConfig'
 import { createProjectServer } from '../../../lib/createProject'
 
 type Step = 'basics' | 'billing' | 'summary'
-type PaymentChoice = PaymentMethod | 'PAYPAL_LINK'
+type PaymentChoice = 'LOCAL_PAYMENT' | 'PAYPAL_PAYMENT' | 'PAYPAL_INVOICE' | 'LOCAL_INVOICE'
 
 const paymentChoices: { id: PaymentChoice; label: string; description: string }[] = [
   {
-    id: 'PAYPAL_LINK',
-    label: 'Send PayPal Payment Link',
-    description: 'Create a client link that opens with PayPal selected and ready to pay.',
+    id: 'LOCAL_PAYMENT',
+    label: 'Local Payment',
+    description: 'Pay with wallets, bank transfer, and supported local methods.',
   },
-  ...PAYMENT_METHODS.filter((method) => method.id === 'INVOICE_SEND'),
-  ...PAYMENT_METHODS.filter((method) => method.id !== 'INVOICE_SEND'),
+  {
+    id: 'PAYPAL_PAYMENT',
+    label: 'PayPal',
+    description: 'Continue directly to secure PayPal checkout after creating the project.',
+  },
+  {
+    id: 'PAYPAL_INVOICE',
+    label: 'Send PayPal Invoice',
+    description: 'Create an invoice link for your client with PayPal selected.',
+  },
+  {
+    id: 'LOCAL_INVOICE',
+    label: 'Send Local Payment Invoice',
+    description: 'Create an invoice link for your client with local payment selected.',
+  },
 ]
 
 export default function CreateProjectPage() {
@@ -36,7 +48,7 @@ export default function CreateProjectPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [clientPrice, setClientPrice] = useState('')
-  const [paymentChoice, setPaymentChoice] = useState<PaymentChoice>('PAYPAL_LINK')
+  const [paymentChoice, setPaymentChoice] = useState<PaymentChoice>('LOCAL_PAYMENT')
   const [clientContactEmail, setClientContactEmail] = useState('')
   const [deliveryNotes, setDeliveryNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -59,7 +71,7 @@ export default function CreateProjectPage() {
   const typeBlocked = projectType === 'CUSTOM_RECURRING'
   const basicsValid = title.trim().length >= 3 && description.trim().length >= 5
   const billingValid = cp > 0
-  const paymentMethod: PaymentMethod = paymentChoice === 'PAYPAL_LINK' ? 'INVOICE_SEND' : paymentChoice
+  const paymentMethod: PaymentMethod = paymentChoice === 'LOCAL_PAYMENT' ? 'SPACEREMIT' : 'INVOICE_SEND'
 
   async function createInvoiceLink(projectId: string) {
     setPayError(null)
@@ -75,13 +87,16 @@ export default function CreateProjectPage() {
         setPayError('Project saved, but the payment link could not be created. Try again below.')
         return false
       }
-      const suffix = paymentChoice === 'PAYPAL_LINK' ? '?method=paypal' : ''
+      const suffix = paymentChoice === 'LOCAL_INVOICE' ? '?method=local' : '?method=paypal'
       const url = `${window.location.origin}/invoice/${invJson.invoiceId}${suffix}`
       setInvoiceId(invJson.invoiceId)
       setInvoiceUrl(url)
       setPendingProjectId(null)
       setCreated(true)
       setStep('summary')
+      if (paymentChoice === 'PAYPAL_PAYMENT') {
+        window.location.assign(url)
+      }
       return true
     } catch {
       setPayError('Project saved, but the payment link could not be created. Check your connection and try again.')
@@ -188,7 +203,7 @@ export default function CreateProjectPage() {
           {created && invoiceUrl && (
             <div className="mb-8 rounded-3xl border border-[rgba(216,180,90,0.45)] bg-[rgba(216,180,90,0.10)] p-6">
               <p className="font-display text-xl font-extrabold text-[#f0d98b]">
-                {paymentChoice === 'PAYPAL_LINK' ? 'PayPal payment link ready' : 'Invoice ready'}
+                {paymentChoice === 'PAYPAL_INVOICE' ? 'PayPal invoice ready' : 'Local payment invoice ready'}
               </p>
               <p className="mt-2 text-sm text-[#c1cbc7]">
                 Share this secure link with your client. No DropVerse account is required to pay.
@@ -202,7 +217,7 @@ export default function CreateProjectPage() {
                   <ExternalLink size={15} /> Open
                 </a>
                 <a
-                  href={`mailto:${clientContactEmail.trim()}?subject=${encodeURIComponent(paymentChoice === 'PAYPAL_LINK' ? `PayPal payment for ${title}` : `Invoice for ${title}`)}&body=${encodeURIComponent(`Hi,\n\nYou can review and pay for ${title} here:\n${invoiceUrl}\n\nThank you.`)}`}
+                  href={`mailto:${clientContactEmail.trim()}?subject=${encodeURIComponent(`Invoice for ${title}`)}&body=${encodeURIComponent(`Hi,\n\nYou can review and pay for ${title} here:\n${invoiceUrl}\n\nThank you.`)}`}
                   className="inline-flex items-center gap-2 rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-[#d9e0dc]"
                 >
                   <Mail size={15} /> Send by email
@@ -280,7 +295,7 @@ export default function CreateProjectPage() {
                       }
                     >
                       <div className="flex items-center gap-2">
-                        {m.id === 'PAYPAL_LINK' ? <Link2 size={18} className="text-[#d8b45a]" /> : m.id === 'CLIENT_PAYS_DROPVERSE' ? <CreditCard size={18} className="text-[#d8b45a]" /> : m.id === 'SPACEREMIT' ? <Wallet size={18} className="text-[#d8b45a]" /> : m.id === 'INVOICE_SEND' ? <FileText size={18} className="text-[#d8b45a]" /> : <HandCoins size={18} className="text-[#d8b45a]" />}
+                        {m.id === 'LOCAL_PAYMENT' ? <Wallet size={18} className="text-[#d8b45a]" /> : m.id === 'PAYPAL_PAYMENT' ? <Link2 size={18} className="text-[#d8b45a]" /> : <FileText size={18} className="text-[#d8b45a]" />}
                         <span className="font-semibold text-[#d9e0dc]">{m.label}</span>
                       </div>
                       <p className="mt-1 text-xs text-[#8f9f9a]">{m.description}</p>
@@ -309,12 +324,6 @@ export default function CreateProjectPage() {
                 <p className="font-semibold text-[#e4c979]">Local payment</p>
                 <p className="mt-2">Project saved as Payment Pending. Complete payment from the dashboard when ready.</p>
                 <Link href="/dashboard" className="mt-4 inline-flex rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f]">Go to Dashboard</Link>
-              </div>
-            )}
-            {pendingProjectId && paymentMethod === 'CLIENT_PAYS_DROPVERSE' && (
-              <div className="mt-6 rounded-2xl border border-white/10 bg-[#071f1d] p-4 text-sm text-[#8fa29c]">
-                Card checkout is unavailable. Choose <span className="font-semibold text-[#d8b45a]">Local payment (SpaceRemit)</span> or send an invoice to continue.
-                {payError && <p className="mt-2 text-sm text-red-300">{payError}</p>}
               </div>
             )}
             {pendingProjectId && paymentMethod === 'INVOICE_SEND' && !invoiceUrl && (
