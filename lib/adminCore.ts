@@ -140,8 +140,8 @@ export async function adminJson(handler: (ctx: { userId: string; email: string |
 
 /** Paginated list helper: validates page/limit server-side. */
 export function parsePage(searchParams: URLSearchParams) {
-  let page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10) || 1)
-  let limit = Math.min(100, Math.max(5, parseInt(searchParams.get('limit') ?? '25', 10) || 25))
+  const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10) || 1)
+  const limit = Math.min(100, Math.max(5, parseInt(searchParams.get('limit') ?? '25', 10) || 25))
   return { offset: (page - 1) * limit, limit }
 }
 
