@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient, audit, requireAdmin } from '@/lib/adminCore'
 import { notifyAdminEvent } from '@/lib/agents/adminNotify'
+import { createUserNotification } from '@/lib/userNotifications'
 
 export const runtime = 'nodejs'
 
@@ -18,18 +19,17 @@ export async function POST(
     const body = await request.json().catch(() => ({}))
     const action = String(body?.action || '').trim()
     const rejectReason = String(body?.rejectReason || '').trim()
-    const adminMaxBuyers =
-      body?.adminMaxBuyers === null || body?.adminMaxBuyers === undefined || body?.adminMaxBuyers === ''
-        ? null
-        : Math.max(1, parseInt(String(body.adminMaxBuyers), 10) || 1)
 
-    if (!['approve', 'reject', 'request_changes', 'suspend'].includes(action)) {
+    if (!['approve', 'reject', 'suspend'].includes(action)) {
       return NextResponse.json({ error: 'INVALID_ACTION' }, { status: 400 })
+    }
+    if ((action === 'reject' || action === 'suspend') && rejectReason.length < 3) {
+      return NextResponse.json({ error: 'REJECT_REASON_REQUIRED' }, { status: 400 })
     }
 
     const admin = adminClient()
-    const { data: pack, error } = await admin.from('lead_packs').select('*').eq('id', id).single()
-    if (error || !pack) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
+    const { data: pack, error: loadError } = await admin.from('lead_packs').select('*').eq('id', id).single()
+    if (loadError || !pack) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
 
     const patch: Record<string, unknown> = {
       reviewed_by: adminUser.userId,
@@ -37,41 +37,31 @@ export async function POST(
     }
 
     if (action === 'approve') {
-      const preview = (pack.preview_meta && typeof pack.preview_meta === 'object' ? pack.preview_meta : {}) as Record<string, unknown>
-      const qualityScore = typeof preview.qualityScore === 'number' ? preview.qualityScore : null
-      if (qualityScore !== null && qualityScore < 65) {
-        return NextResponse.json({ error: 'QUALITY_SCORE_TOO_LOW', message: `Quality score ${qualityScore}/100 is below the 65-point minimum. Reject the pack or request corrections.` }, { status: 400 })
-      }
-      if (body?.qualityReviewConfirmed !== true) {
-        return NextResponse.json({ error: 'QUALITY_REVIEW_CONFIRMATION_REQUIRED', message: 'Confirm you reviewed service relevance, need evidence, data quality, freshness, duplicates, and data rights.' }, { status: 400 })
-      }
-      if (adminMaxBuyers != null) {
-        if (adminMaxBuyers > Number(pack.max_buyers)) {
-          return NextResponse.json({ error: 'ADMIN_MAX_MUST_BE_LE_SELLER_MAX' }, { status: 400 })
-        }
-        if (adminMaxBuyers < Number(pack.sold_count)) {
-          return NextResponse.json({ error: 'ADMIN_MAX_BELOW_SOLD' }, { status: 400 })
-        }
-        patch.admin_max_buyers = adminMaxBuyers
-      }
       patch.status = 'approved'
       patch.reject_reason = null
-    } else if (action === 'reject' || action === 'request_changes') {
-      if (!rejectReason) return NextResponse.json({ error: 'REJECT_REASON_REQUIRED' }, { status: 400 })
+      if (body?.adminMaxBuyers !== undefined && body?.adminMaxBuyers !== null && String(body.adminMaxBuyers).trim() !== '') {
+        const n = Number(body.adminMaxBuyers)
+        if (!Number.isFinite(n) || n < 1 || n > 100000) {
+          return NextResponse.json({ error: 'INVALID_ADMIN_MAX_BUYERS' }, { status: 400 })
+        }
+        patch.admin_max_buyers = Math.floor(n)
+      }
+    } else if (action === 'reject') {
       patch.status = 'rejected'
-      patch.reject_reason = action === 'request_changes' ? `Changes requested: ${rejectReason}` : rejectReason
+      patch.reject_reason = rejectReason
     } else {
       patch.status = 'suspended'
+      patch.reject_reason = rejectReason
     }
 
-    const { data: updated, error: upErr } = await admin
+    const { data: updated, error: updateError } = await admin
       .from('lead_packs')
       .update(patch)
       .eq('id', id)
-      .select('id, status, admin_max_buyers, reject_reason')
+      .select('*')
       .single()
-
-    if (upErr || !updated) {
+    if (updateError || !updated) {
+      console.error('[admin leads moderate]', updateError)
       return NextResponse.json({ error: 'UPDATE_FAILED' }, { status: 500 })
     }
 
@@ -82,28 +72,44 @@ export async function POST(
       entity: 'lead_pack',
       entityId: id,
       oldValue: { status: pack.status },
-      newValue: updated,
+      newValue: { status: updated.status, reject_reason: updated.reject_reason },
     })
 
+    if (pack.seller_id) {
+      void createUserNotification({
+        userId: String(pack.seller_id),
+        type: `lead_pack_${action}`,
+        title:
+          action === 'approve'
+            ? 'Your lead pack was approved'
+            : action === 'reject' || action === 'request_changes'
+              ? 'Your lead pack was rejected'
+              : 'Your lead pack was suspended',
+        body: updated.reject_reason ? String(updated.reject_reason) : `Status is now ${updated.status}.`,
+        href: '/dashboard/leads',
+        entityType: 'lead_pack',
+        entityId: id,
+      })
+    }
     void notifyAdminEvent({
       agent: 'lead_pack_moderation',
-      idempotencyKey: `lead_pack_${action}:${id}:${updated.status}`,
+      idempotencyKey: `lead_pack_${action}:${id}:${updated.reviewed_at || updated.status}`,
       entityId: id,
       title: `Lead pack ${action}`,
       lines: [
-        `Pack id: ${id}`,
+        `Title: ${updated.title || pack.title || id}`,
         `Status: ${updated.status}`,
-        updated.reject_reason ? `Reason: ${updated.reject_reason}` : '—',
-      ],
+        updated.reject_reason ? `Reason: ${updated.reject_reason}` : null,
+      ].filter(Boolean) as string[],
       adminPath: '/admin/leads',
     })
 
     return NextResponse.json({ ok: true, pack: updated })
-  } catch (e) {
-    const code = (e as { code?: string }).code
-    if (code === 'NOT_AUTHENTICATED') return NextResponse.json({ error: code }, { status: 401 })
-    if (code === 'ADMIN_ONLY') return NextResponse.json({ error: code }, { status: 403 })
-    console.error('[admin/leads/moderate]', e)
-    return NextResponse.json({ error: 'INTERNAL' }, { status: 500 })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'ERROR'
+    if (msg === 'NOT_AUTHENTICATED') return NextResponse.json({ error: msg }, { status: 401 })
+    if (msg === 'FORBIDDEN' || msg === 'NOT_ADMIN') return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
+    console.error('[admin leads moderate]', e)
+    return NextResponse.json({ error: 'MODERATE_FAILED' }, { status: 500 })
   }
 }
