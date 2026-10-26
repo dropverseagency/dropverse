@@ -1,7 +1,8 @@
 'use server'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
 import {
   STATUS_TRANSITIONS,
@@ -14,10 +15,17 @@ import {
  * directly with the SpaceRemit API before touching the database.
  */
 export async function POST(request: NextRequest) {
-  const supabase = createClient(
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { global: { fetch: fetch as unknown as typeof globalThis.fetch } },
+    {
+      cookies: {
+        get(name) {
+          return cookieStore.get(name)?.value
+        },
+      },
+    },
   )
 
   const {

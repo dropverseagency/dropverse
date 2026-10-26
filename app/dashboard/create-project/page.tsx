@@ -13,6 +13,7 @@ import {
   type ProjectType, type PaymentMethod,
 } from '../../../lib/projectConfig'
 import { createProjectServer } from '../../../lib/createProject'
+import SpaceRemitPayForm from '../../../components/SpaceRemitPayForm'
 
 type Step = 'basics' | 'billing' | 'summary'
 type PaymentChoice = 'LOCAL_PAYMENT' | 'PAYPAL_PAYMENT' | 'PAYPAL_INVOICE' | 'LOCAL_INVOICE'
@@ -59,6 +60,7 @@ export default function CreateProjectPage() {
   const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null)
   const [payError, setPayError] = useState<string | null>(null)
   const [linkCopied, setLinkCopied] = useState(false)
+  const [paymentBusy, setPaymentBusy] = useState(false)
 
   useEffect(() => {
     if (!auth.loading && !auth.user) window.location.assign('/login')
@@ -112,6 +114,33 @@ export default function CreateProjectPage() {
       window.setTimeout(() => setLinkCopied(false), 1800)
     } catch {
       setPayError('Could not copy automatically. Select and copy the link above.')
+    }
+  }
+
+  async function confirmLocalPayment(paymentId: string) {
+    if (!pendingProjectId || paymentBusy) return
+    setPaymentBusy(true)
+    setPayError(null)
+    try {
+      const response = await fetch('/api/spaceremit/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ paymentId, projectId: pendingProjectId }),
+      })
+      const json = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        setPayError(json.error === 'SP_KEYS_MISSING'
+          ? 'Local payment is not configured yet. Contact support before trying again.'
+          : 'We could not verify this payment. Please try again.')
+        return
+      }
+      setPendingProjectId(null)
+      setCreated(true)
+    } catch {
+      setPayError('We could not verify this payment. Check your connection and try again.')
+    } finally {
+      setPaymentBusy(false)
     }
   }
 
@@ -321,9 +350,22 @@ export default function CreateProjectPage() {
             {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
             {pendingProjectId && paymentMethod === 'SPACEREMIT' && (
               <div className="mt-6 rounded-2xl border border-white/10 bg-[#071f1d] p-5 text-sm text-[#c1cbc7]">
-                <p className="font-semibold text-[#e4c979]">Local payment</p>
-                <p className="mt-2">Project saved as Payment Pending. Complete payment from the dashboard when ready.</p>
-                <Link href="/dashboard" className="mt-4 inline-flex rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f]">Go to Dashboard</Link>
+                <p className="font-semibold text-[#e4c979]">Complete local payment</p>
+                <p className="mt-2">Pay the DropVerse fulfillment amount of {formatUsd(fc)} to activate this project.</p>
+                {payError && <p className="mt-3 rounded-xl border border-red-400/20 bg-red-400/10 px-3 py-2 text-red-200">{payError}</p>}
+                <div className="mt-5">
+                  <SpaceRemitPayForm
+                    amount={fc}
+                    fullName={String(auth.user?.name || auth.user?.email || 'Project owner')}
+                    email={String(auth.user?.email || '')}
+                    phone="+0000000000"
+                    publicKey={process.env.NEXT_PUBLIC_SPACEREMIT_PUBLIC_KEY ?? ''}
+                    submitLabel={`Pay ${formatUsd(fc)} locally →`}
+                    disabled={paymentBusy}
+                    onPaid={(paymentId) => void confirmLocalPayment(paymentId)}
+                    onMessage={(message) => setPayError(message)}
+                  />
+                </div>
               </div>
             )}
             {pendingProjectId && paymentMethod === 'INVOICE_SEND' && !invoiceUrl && (
