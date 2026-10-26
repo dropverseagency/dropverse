@@ -2,7 +2,7 @@
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 
-const SKIP = [/^\/admin(?:\/|$)/, /^\/dashboard(?:\/|$)/, /^\/login(?:\/|$)/, /^\/signup(?:\/|$)/, /^\/register(?:\/|$)/, /^\/auth(?:\/|$)/, /^\/api(?:\/|$)/, /^\/pay(?:\/|$)/, /^\/invoice(?:\/|$)/]
+const SKIP = [/^\/admin(?:\/|$)/, /^\/dashboard(?:\/|$)/, /^\/login(?:\/|$)/, /^\/signup(?:\/|$)/, /^\/register(?:\/|$)/, /^\/auth(?:\/|$)/, /^\/api(?:\/|$)/, /^\/pay(?:\/|$)/, /^\/invoice(?:\/|$)/, /^\/tools(?:\/|$)/]
 
 export default function VisitBeacon() {
   const path = usePathname()
