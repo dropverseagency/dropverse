@@ -11,6 +11,7 @@ import {
   Users,
   Receipt,
   Settings,
+  Bell,
   LogOut,
   Menu,
   X,
@@ -18,6 +19,7 @@ import {
   Building2,
   Plus,
 } from 'lucide-react'
+import NotificationBell from '@/components/NotificationBell'
 import { createClient } from '@/lib/supabase'
 
 export const DASHBOARD_SECTIONS = [
@@ -29,6 +31,7 @@ export const DASHBOARD_SECTIONS = [
   { id: 'affiliate', label: 'Affiliate', href: '/dashboard/affiliate', group: 'Money', icon: Link2 },
   { id: 'billing', label: 'Billing', href: '/dashboard/billing', group: 'Money', icon: Receipt },
   { id: 'team', label: 'Team', href: '/dashboard/team', group: 'Account', icon: Users },
+  { id: 'notifications', label: 'Notifications', href: '/dashboard/notifications', group: 'Account', icon: Bell },
   { id: 'settings', label: 'Settings', href: '/dashboard/settings', group: 'Account', icon: Settings },
 ] as const
 
@@ -158,6 +161,7 @@ export default function DashboardShell({
               </Link>
             </div>
             <div className="flex items-center gap-2">
+              <NotificationBell />
               <Link
                 href="/dashboard/payouts"
                 className="hidden rounded-full border border-[rgba(216,180,90,0.4)] bg-[rgba(216,180,90,0.12)] px-3 py-2 text-xs font-bold text-[#f0d98b] sm:inline-flex"
