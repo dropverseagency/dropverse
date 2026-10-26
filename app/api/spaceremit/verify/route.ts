@@ -9,6 +9,7 @@ import {
   type ProjectStatus,
 } from '../../../../lib/projectConfig'
 import { notifyAdminEvent } from '@/lib/agents/adminNotify'
+import { createUserNotification } from '@/lib/userNotifications'
 
 /**
  * Confirms a SpaceRemit payment and promotes the project status —
@@ -152,6 +153,15 @@ export async function POST(request: NextRequest) {
     }),
   })
 
+  void createUserNotification({
+    userId: project.user_id || user.id,
+    type: 'project_payment_confirmed',
+    title: 'Project payment confirmed',
+    body: `Payment received for your project ($${tx.total_amount}).`,
+    href: '/dashboard',
+    entityType: 'project',
+    entityId: projectId,
+  })
   void notifyAdminEvent({
     agent: 'payment_confirmed',
     idempotencyKey: `payment:spaceremit:${projectId}:${paymentId}`,
