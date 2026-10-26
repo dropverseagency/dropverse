@@ -4,6 +4,7 @@ import {
   STATUS_TRANSITIONS,
   type ProjectStatus,
 } from '../../../../lib/projectConfig'
+import { notifyAdminEvent } from '@/lib/agents/adminNotify'
 
 /**
  * Public invoice payment verification — NO authentication required.
@@ -63,8 +64,6 @@ async function getPayPalAccessToken() {
 async function verifyWithPayPal(orderId: string, expectedAmount: number, expectedCurrency: string) {
   const token = await getPayPalAccessToken()
   if (!token) {
-    // Credentials missing: accept client-reported capture id (already captured in browser).
-    // Still require a non-empty order id.
     if (!orderId || orderId.length < 8) {
       return { ok: false as const, error: 'PAYPAL_VERIFY_FAILED' }
     }
@@ -131,7 +130,6 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // The client must have affirmatively accepted the current terms before the payment API can confirm an invoice.
   const { data: consent } = await getServiceSupabase()
     .from('audit_logs')
     .select('id, new_value')
@@ -250,6 +248,20 @@ export async function POST(request: NextRequest) {
       }
     })()
   }
+
+  void notifyAdminEvent({
+    agent: 'invoice_payment',
+    idempotencyKey: `invoice_pay:${invoiceId}:${paymentId}`,
+    entityId: invoiceId,
+    title: 'Invoice / project payment confirmed',
+    lines: [
+      `Invoice: ${invoiceId}`,
+      `Provider: ${paymentMethod}`,
+      `Amount: $${verifiedAmount ?? '—'}`,
+      `Payment id: ${paymentId}`,
+    ],
+    adminPath: '/admin',
+  })
 
   return NextResponse.json({ success: true, paymentId, provider: paymentMethod })
 }
