@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { runNewSignupAgent } from '@/lib/agents/newSignupAgent'
 
 /**
  * OAuth callback for Google / Apple (and any Supabase provider).
@@ -46,6 +47,21 @@ export async function GET(request: Request) {
       return NextResponse.redirect(
         `${origin}/login?error=${encodeURIComponent('OAuth sign-in failed. Please try again.')}`,
       )
+    }
+
+    // Best-effort admin notify (idempotent per user via agent_events).
+    // First OAuth arrival notifies; later logins are skipped as DUPLICATE.
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (user?.id) {
+        void runNewSignupAgent({ userId: user.id, email: user.email ?? null }).catch((e) => {
+          console.error('[auth/callback] new-signup agent', e)
+        })
+      }
+    } catch (e) {
+      console.error('[auth/callback] new-signup agent setup', e)
     }
   }
 
