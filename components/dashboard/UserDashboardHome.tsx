@@ -246,10 +246,11 @@ export default function UserDashboardHome() {
                 {projects.slice(0, 10).map((p) => (
                   <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-[#1e3d36] px-4 py-3.5 last:border-b-0">
                     <div className="min-w-0">
-                      <button type="button" onClick={() => setSelectedProject(p)} className="font-semibold text-[#f0f4f2] hover:text-[#e4c979]">{p.title}</button>
+                      <Link href={`/dashboard/projects/${p.id}`} className="font-semibold text-[#f0f4f2] hover:text-[#e4c979]">{p.title}</Link>
                       <p className="text-xs text-[#81948e]">{p.project_type.replace(/_/g, ' ')} · {formatUsd(Number(p.seller_profit || 0))} profit · {p.payment_status.replace(/_/g, ' ').toLowerCase()}</p>
                     </div>
                     <div className="flex gap-2">
+                      <Link href={`/dashboard/projects/${p.id}`} aria-label={`Open ${p.title} operations`} className="rounded-lg border border-white/10 p-2 text-[#9aaca6]"><ArrowRight size={14} /></Link>
                       <button type="button" onClick={() => setSelectedProject(p)} className="rounded-lg border border-white/10 p-2 text-[#9aaca6]"><Eye size={14} /></button>
                     </div>
                   </div>
