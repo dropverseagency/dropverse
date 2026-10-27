@@ -2,10 +2,12 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import SiteHeader from '../../components/SiteHeader'
+import { useAuth } from '../../lib/useAuth'
 
 type Sample = { id:string; slug:string; title:string; category:string; description:string; price_usd:number|null; turnaround_days:number; revision_limit:number; revision_price_usd:number; cover_url:string|null; freelancer_display_name:string|null }
 
 export default function SamplesPage() {
+  const auth = useAuth()
   const [items,setItems] = useState<Sample[]>([])
   const [loading,setLoading] = useState(true)
   const [error,setError] = useState(false)
@@ -35,7 +37,10 @@ export default function SamplesPage() {
         <div className="p-5"><p className="text-[11px] font-bold uppercase tracking-wider text-[#d8b45a]">{s.category}</p><h2 className="mt-2 text-xl font-bold">{s.title}</h2><p className="mt-2 line-clamp-3 text-sm leading-6 text-[#a9bbb5]">{s.description||'A work sample submitted by a DropVerse freelancer.'}</p>
           <p className="mt-4 text-sm text-[#c7d3ce]">Included revisions: {s.revision_limit}. Extra revisions: ${Number(s.revision_price_usd).toFixed(2)} each.</p>
           <div className="mt-5 flex items-end justify-between gap-3 border-t border-white/10 pt-4"><div><p className="text-xs text-[#7f9890]">Created by</p><p className="mt-1 text-sm font-semibold">{s.freelancer_display_name||'DropVerse freelancer'}</p></div><div className="text-right"><p className="text-xs text-[#7f9890]">Turnaround</p><p className="mt-1 text-sm font-semibold">{s.turnaround_days} days</p>{s.price_usd!=null&&<p className="mt-1 text-sm font-bold text-[#e8cc7d]">${Number(s.price_usd).toFixed(2)}</p>}</div></div>
-          <Link href={`/samples/${s.slug}`} className="mt-5 inline-flex rounded-full border border-white/15 px-4 py-2 text-sm font-semibold">View sample</Link>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Link href={auth.user ? `/dashboard/create-project?sampleId=${s.id}` : `/login?redirect=${encodeURIComponent(`/dashboard/create-project?sampleId=${s.id}`)}`} className="inline-flex rounded-full bg-[#d8b45a] px-4 py-2 text-sm font-bold text-[#10221f]">Create a project with this sample</Link>
+            <Link href={`/samples/${s.slug}`} className="inline-flex rounded-full border border-white/15 px-4 py-2 text-sm font-semibold">View details</Link>
+          </div>
         </div></article>)}</div>
     </section><footer className="border-t border-white/10 px-5 py-8 text-center text-xs text-[#718780]">DropVerse · Work samples are published only after review.</footer>
   </main>
