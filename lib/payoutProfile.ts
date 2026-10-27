@@ -14,16 +14,20 @@ export async function payoutProfileStatus(userId: string) {
   const freelancer = profile?.user_type === 'freelancer' || roles.includes('freelancer')
   let niches: string[] = []
   if (freelancer) {
-    const { data, error } = await admin
+    const [{ data, error }, verification] = await Promise.all([admin
       .from('freelancer_profiles')
       .select('niches')
       .eq('user_id', userId)
-      .maybeSingle()
+      .maybeSingle(), admin.from('freelancer_verifications').select('identity_status').eq('user_id', userId).maybeSingle()])
     if (error) throw error
     niches = Array.isArray(data?.niches) ? data.niches.map(String).filter(Boolean) : []
+    if (verification.error && !/does not exist|relation/i.test(verification.error.message || '')) throw verification.error
+    if (verification.data?.identity_status !== 'verified') niches.push('__identity_not_verified__')
   }
 
-  const missing = missingPayoutProfileFields(profile, niches)
+  const identityMissing = niches.includes('__identity_not_verified__')
+  const missing = missingPayoutProfileFields(profile, niches.filter((n) => n !== '__identity_not_verified__'))
+  if (identityMissing) missing.push('identity_verification')
   return { complete: missing.length === 0, missing }
 }
 
