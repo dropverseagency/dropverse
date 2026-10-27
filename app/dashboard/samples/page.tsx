@@ -35,6 +35,13 @@ export default function FreelancerSamplesPage() {
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState(categories[0])
   const [description, setDescription] = useState('')
+  const [scope, setScope] = useState('')
+  const [deliverables, setDeliverables] = useState('')
+  const [clientRequirements, setClientRequirements] = useState('')
+  const [minimumResalePrice, setMinimumResalePrice] = useState('')
+  const [slaResponseHours, setSlaResponseHours] = useState('24')
+  const [serviceImportance, setServiceImportance] = useState('standard')
+  const [addonsText, setAddonsText] = useState('')
   const [price, setPrice] = useState('')
   const [cost, setCost] = useState('')
   const [turnaround, setTurnaround] = useState('3')
@@ -89,6 +96,14 @@ export default function FreelancerSamplesPage() {
     form.set('description', description)
     form.set('price_usd', price)
     form.set('cost_usd', cost)
+    form.set('scope', scope)
+    form.set('deliverables', deliverables)
+    form.set('client_requirements', clientRequirements)
+    form.set('minimum_resale_price_usd', minimumResalePrice)
+    form.set('sla_response_hours', slaResponseHours)
+    form.set('service_importance', serviceImportance)
+    const addons = addonsText.split('\n').map((line) => line.trim()).filter(Boolean).map((line) => { const [name, price, days, description=''] = line.split('|').map((part) => part.trim()); return { name, priceUsd:Number(price), extraDays:Number(days||0), description } })
+    form.set('addons', JSON.stringify(addons))
     form.set('turnaround_days', turnaround)
     form.set('revision_limit', revisionLimit)
     form.set('revision_price_usd', revisionPrice)
@@ -109,6 +124,7 @@ export default function FreelancerSamplesPage() {
     setDescription('')
     setPrice('')
     setCost('')
+    setScope(''); setDeliverables(''); setClientRequirements(''); setMinimumResalePrice(''); setSlaResponseHours('24'); setServiceImportance('standard'); setAddonsText('')
     setTurnaround('3')
     setRevisionLimit('2')
     setRevisionPrice('25')
@@ -175,6 +191,17 @@ export default function FreelancerSamplesPage() {
             <label className="block text-sm text-[#c7d3ce]">Description
               <textarea maxLength={1000} rows={4} value={description} onChange={(e) => setDescription(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-[#071b19] px-3 py-3 text-white" placeholder="Describe the work, tools, and deliverable." />
             </label>
+            <label className="block text-sm text-[#c7d3ce]">Scope of work
+              <textarea required minLength={10} maxLength={3000} rows={4} value={scope} onChange={(e) => setScope(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-[#071b19] px-3 py-3 text-white" placeholder="Exactly what is included and excluded." />
+            </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-sm text-[#c7d3ce]">Client deliverables
+                <textarea required minLength={5} maxLength={2000} rows={4} value={deliverables} onChange={(e) => setDeliverables(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-[#071b19] px-3 py-3 text-white" placeholder="Files, formats, sizes, source files." />
+              </label>
+              <label className="block text-sm text-[#c7d3ce]">What you need from the client
+                <textarea maxLength={2000} rows={4} value={clientRequirements} onChange={(e) => setClientRequirements(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-[#071b19] px-3 py-3 text-white" placeholder="Brand assets, footage, access, copy, examples." />
+              </label>
+            </div>
             <div className="grid gap-4 sm:grid-cols-3">
               <label className="block text-sm text-[#c7d3ce]">Client price (USD, optional)
                 <input type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-[#071b19] px-3 py-3 text-white" placeholder="Optional" />
@@ -186,6 +213,20 @@ export default function FreelancerSamplesPage() {
                 <input required type="number" min="1" max="30" value={turnaround} onChange={(e) => setTurnaround(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-[#071b19] px-3 py-3 text-white" />
               </label>
             </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <label className="block text-sm text-[#c7d3ce]">Minimum resale price (USD)
+                <input required type="number" min={cost || 1} step="0.01" value={minimumResalePrice} onChange={(e) => setMinimumResalePrice(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-[#071b19] px-3 py-3 text-white" />
+              </label>
+              <label className="block text-sm text-[#c7d3ce]">Response SLA (hours)
+                <input required type="number" min="1" max="168" value={slaResponseHours} onChange={(e) => setSlaResponseHours(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-[#071b19] px-3 py-3 text-white" />
+              </label>
+              <label className="block text-sm text-[#c7d3ce]">Service importance
+                <select value={serviceImportance} onChange={(e) => setServiceImportance(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-[#071b19] px-3 py-3 text-white"><option value="standard">Standard</option><option value="important">Important</option><option value="critical">Critical (backup required)</option></select>
+              </label>
+            </div>
+            <label className="block text-sm text-[#c7d3ce]">Add-ons (one per line: Name | Price | Extra days | Description)
+              <textarea rows={4} value={addonsText} onChange={(e) => setAddonsText(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-[#071b19] px-3 py-3 font-mono text-sm text-white" placeholder="Source files | 40 | 1 | Editable project files" />
+            </label>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block text-sm text-[#c7d3ce]">Free revisions included (0 to 5)
                 <input required type="number" min="0" max="5" step="1" value={revisionLimit} onChange={(e) => { const value = e.target.value; setRevisionLimit(value); setRevisionError(parseSampleRevisionTerms(value, revisionPrice).error || '') }} className="mt-2 w-full rounded-xl border border-white/10 bg-[#071b19] px-3 py-3 text-white" />

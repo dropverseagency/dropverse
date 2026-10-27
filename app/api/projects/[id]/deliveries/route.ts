@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { createServiceClient } from '../../../../../lib/supabaseService'
 import { createUserNotification } from '../../../../../lib/userNotifications'
+import { recordFunnelEvent } from '../../../../../lib/funnel'
 
 async function currentUser() {
   const jar = await cookies()
@@ -37,6 +38,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   await admin.from('project_revision_requests').update({ status: 'delivered' }).eq('project_id', id).in('status', ['open','in_progress'])
   await admin.from('project_events').insert({ project_id: id, actor_id: user.id, actor_kind: profile?.role === 'admin' ? 'admin' : 'freelancer', event_type: 'delivery_submitted', metadata: { deliveryId: row.id, version, fileName: safeName } })
   void createUserNotification({ userId: project.user_id, type: 'project_delivered', title: 'Project delivery ready', body: `${project.title} has a new delivery to review.`, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
+  await recordFunnelEvent('delivered',{userId:project.user_id,projectId:id,metadata:{version}})
   return NextResponse.json({ ok: true, deliveryId: row.id, version })
 }
 

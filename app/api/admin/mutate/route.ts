@@ -10,6 +10,7 @@ import { COMMISSION_STATUSES, REFERRAL_STATUSES } from '@/lib/referralConfig'
 import { decidePayoutStatusUpdate } from '@/lib/payoutStatus'
 import { PROJECT_TYPES, FULFILLMENT_RATES } from '@/lib/projectConfig'
 import { createUserNotification } from '@/lib/userNotifications'
+import { recordFunnelEvent } from '@/lib/funnel'
 
 /**
  * Unified admin write API (server-side only):
@@ -37,6 +38,12 @@ export async function POST(request: NextRequest) {
     const action = String(body.action ?? '')
 
     switch (action) {
+      case 'set_freelancer_verification': {
+        const userId=String(body.userId||'');const identityStatus=String(body.identityStatus||'');const specialtyStatus=String(body.specialtyStatus||'');const verifiedLevel=String(body.verifiedLevel||'');const note=String(body.note||'').trim().slice(0,2000)
+        if(!userId||!['unsubmitted','pending','verified','rejected','expired'].includes(identityStatus)||!['unreviewed','pending','passed','failed'].includes(specialtyStatus)||!['none','identity','specialist','pro'].includes(verifiedLevel))return {error:'INVALID_VERIFICATION'}
+        const admin=adminClient();const {error}=await admin.from('freelancer_verifications').upsert({user_id:userId,identity_status:identityStatus,specialty_status:specialtyStatus,verified_level:verifiedLevel,specialty_review_note:note||null,reviewed_by:ctx.userId,reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString()});if(error)return {error:'VERIFICATION_SAVE_FAILED'}
+        await audit({actorId:ctx.userId,actorEmail:ctx.email,action:'freelancer_verification_updated',entity:'freelancer_verifications',entityId:userId,newValue:{identityStatus,specialtyStatus,verifiedLevel,note}});return {ok:true}
+      }
       case 'release_project_earning': {
         const projectId = String(body.projectId ?? '')
         const reference = String(body.reference ?? '').trim().slice(0, 200)
@@ -129,6 +136,7 @@ export async function POST(request: NextRequest) {
           oldValue: { status: row.status },
           newValue: { status: decision.status, requested: requestedStatus },
         })
+        if (decision.status === 'paid') await recordFunnelEvent('payout_completed',{userId:row.user_id,amountUsd:Number(row.amount||0),metadata:{payoutId}})
         invalidate()
         return { ok: true, status: decision.status }
       }

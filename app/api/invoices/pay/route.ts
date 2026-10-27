@@ -5,6 +5,7 @@ import {
   type ProjectStatus,
 } from '../../../../lib/projectConfig'
 import { notifyAdminEvent } from '@/lib/agents/adminNotify'
+import { recordFunnelEvent } from '@/lib/funnel'
 
 /**
  * Public invoice payment verification — NO authentication required.
@@ -195,6 +196,7 @@ export async function POST(request: NextRequest) {
   }
 
   const projectId = (invoice as any).project_id
+  await recordFunnelEvent('payment_completed',{projectId,invoiceId,amountUsd:verifiedAmount,metadata:{provider:paymentMethod,kind:(invoice as any).kind||'project'}})
   if ((invoice as any).kind === 'revision' && (invoice as any).revision_request_id) {
     await getServiceSupabase().from('project_revision_requests').update({ payment_status: 'paid', status: 'in_progress' }).eq('id', (invoice as any).revision_request_id)
     await getServiceSupabase().from('projects').update({ operations_status: 'revision_requested' }).eq('id', projectId)
