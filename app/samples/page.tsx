@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import SiteHeader from '../../components/SiteHeader'
 
-type Sample = { id:string; title:string; category:string; description:string; price_usd:number|null; turnaround_days:number; cover_url:string|null; freelancer_display_name:string|null }
+type Sample = { id:string; slug:string; title:string; category:string; description:string; price_usd:number|null; turnaround_days:number; revision_limit:number; revision_price_usd:number; cover_url:string|null; freelancer_display_name:string|null }
 
 export default function SamplesPage() {
   const [items,setItems] = useState<Sample[]>([])
@@ -33,7 +33,9 @@ export default function SamplesPage() {
       <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{filtered.map(s=><article key={s.id} className="overflow-hidden rounded-3xl border border-white/10 bg-[#0b2824]">
         <div className="aspect-[16/10] bg-[#102f2a]">{s.cover_url?<img src={s.cover_url} alt="" className="h-full w-full object-cover"/>:<div className="flex h-full items-center justify-center text-4xl text-[#d8b45a]/70">✦</div>}</div>
         <div className="p-5"><p className="text-[11px] font-bold uppercase tracking-wider text-[#d8b45a]">{s.category}</p><h2 className="mt-2 text-xl font-bold">{s.title}</h2><p className="mt-2 line-clamp-3 text-sm leading-6 text-[#a9bbb5]">{s.description||'A work sample submitted by a DropVerse freelancer.'}</p>
+          <p className="mt-4 text-sm text-[#c7d3ce]">Included revisions: {s.revision_limit}. Extra revisions: ${Number(s.revision_price_usd).toFixed(2)} each.</p>
           <div className="mt-5 flex items-end justify-between gap-3 border-t border-white/10 pt-4"><div><p className="text-xs text-[#7f9890]">Created by</p><p className="mt-1 text-sm font-semibold">{s.freelancer_display_name||'DropVerse freelancer'}</p></div><div className="text-right"><p className="text-xs text-[#7f9890]">Turnaround</p><p className="mt-1 text-sm font-semibold">{s.turnaround_days} days</p>{s.price_usd!=null&&<p className="mt-1 text-sm font-bold text-[#e8cc7d]">${Number(s.price_usd).toFixed(2)}</p>}</div></div>
+          <Link href={`/samples/${s.slug}`} className="mt-5 inline-flex rounded-full border border-white/15 px-4 py-2 text-sm font-semibold">View sample</Link>
         </div></article>)}</div>
     </section><footer className="border-t border-white/10 px-5 py-8 text-center text-xs text-[#718780]">DropVerse · Work samples are published only after review.</footer>
   </main>

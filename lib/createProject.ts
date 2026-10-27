@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { computeSellerProfit, computeFulfillmentCost, billingIntervalFor, type ProjectDraft } from './projectConfig'
+import { adminClient } from './adminCore'
+import { projectRevisionColumns, type SampleRevisionRow } from './sampleProjectRevisions'
 
 /**
  * Creates a new client project.
@@ -34,6 +36,21 @@ export async function createProjectServer(draft: ProjectDraft) {
   } = await supabase.auth.getUser()
   if (authError || !user) {
     return { error: 'NOT_AUTHENTICATED' as const }
+  }
+
+  const sampleId = String(draft.sampleId || '').trim()
+  let sample: SampleRevisionRow | null = null
+  if (sampleId) {
+    const { data, error: sampleError } = await adminClient()
+      .from('samples')
+      .select('revision_limit, revision_price_usd, status')
+      .eq('id', sampleId)
+      .maybeSingle()
+    if (!sampleError && data) sample = data
+  }
+  const revisionTerms = projectRevisionColumns(sampleId, sample)
+  if (!revisionTerms.ok) {
+    return { error: revisionTerms.error, status: 409 as const }
   }
 
   const clientPrice = Math.round(Number(draft.clientPrice || 0) * 100) / 100
@@ -67,6 +84,7 @@ export async function createProjectServer(draft: ProjectDraft) {
     current_billing_period: 1,
     delivery_notes: String(draft.deliveryNotes || '').trim(),
     client_contact_email: draft.clientContactEmail?.trim() || null,
+    ...revisionTerms.columns,
   }
 
   // Prefer writing payment_provider when the column exists.
