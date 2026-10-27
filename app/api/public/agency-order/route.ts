@@ -56,11 +56,14 @@ export async function POST(request: NextRequest) {
     briefNotes: sanitizeText(String(body.briefNotes || ''), 4000),
     attachmentUrls,
     idempotencyKey: idempotencyKey ? String(idempotencyKey).slice(0, 80) : undefined,
+    scopeAccepted: body.scopeAccepted === true,
+    revisionTermsAccepted: body.revisionTermsAccepted === true,
   })
 
   if ('error' in result && result.error) {
     const map: Record<string, number> = {
       INVALID_INPUT: 400,
+      TERMS_REQUIRED: 400,
       INVALID_NAME: 400,
       INVALID_EMAIL: 400,
       INVALID_TITLE: 400,

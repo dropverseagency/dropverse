@@ -1,12 +1,13 @@
 'use client'
 import { useState } from 'react'
-import { Card, LoadingOrError, TableControls, truncateId, fmtDate, emptyNote, useAdminData } from '@/components/admin/shared'
+import { Card, LoadingOrError, TableControls, truncateId, fmtDate, emptyNote, useAdminData, adminMutate } from '@/components/admin/shared'
 
 export default function FreelancersSection() {
   const [page, setPage] = useState(1)
   const [q, setQ] = useState('')
   const limit = 20
   const { data, loading, error } = useAdminData('freelancers', [String(page), String(limit), q])
+  async function verify(userId:string){const note=prompt('Specialty review note:')||'';const res=await adminMutate('set_freelancer_verification',{userId,identityStatus:'verified',specialtyStatus:'passed',verifiedLevel:'specialist',note});if(res.error)alert(String(res.error));else window.location.reload()}
 
   return (
     <div>
@@ -30,6 +31,7 @@ export default function FreelancersSection() {
                       <th className="py-2 pr-3 font-semibold">Service</th>
                       <th className="py-2 pr-3 font-semibold">Rating</th>
                       <th className="py-2 font-semibold">Registered</th>
+                      <th className="py-2 font-semibold">Verification</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -42,6 +44,7 @@ export default function FreelancersSection() {
                         <td className="py-3 pr-3 text-[#c8d4d0]">{f.service_name ?? '—'}</td>
                         <td className="py-3 pr-3 text-[#c8d4d0]">{f.rating ?? '—'}</td>
                         <td className="py-3 text-xs text-[#7f918c]">{fmtDate(f.created_at)}</td>
+                        <td className="py-3 text-xs"><span className="me-2 text-[#e4c979]">{f.verification?.verified_level||'none'}</span><button onClick={()=>verify(f.id)} className="rounded-lg border border-white/15 px-2 py-1">Verify identity + specialty</button></td>
                       </tr>
                     ))}
                   </tbody>

@@ -29,6 +29,8 @@ export default function AgencyLandingDashboardPage() {
   const [published, setPublished] = useState(false)
   const [serviceIds, setServiceIds] = useState<string[]>([])
   const [catalog, setCatalog] = useState<Svc[]>([])
+  const [customDomain,setCustomDomain]=useState('')
+  const [domainStatus,setDomainStatus]=useState('')
 
   useEffect(() => {
     const supabase = createClient()
@@ -87,6 +89,7 @@ export default function AgencyLandingDashboardPage() {
         setSlug((org?.slug || org?.name || 'agency').toLowerCase().replace(/[^a-z0-9]+/g, '-'))
       }
       setServiceIds(json.serviceIds || [])
+      const domainRes=await fetch(`/api/agency/domain?organizationId=${encodeURIComponent(orgId)}`);const domainJson=await domainRes.json().catch(()=>({}));if(domainJson.domain){setCustomDomain(domainJson.domain.hostname||'');setDomainStatus(domainJson.domain.status||'')}
     })()
     return () => {
       cancelled = true
@@ -151,6 +154,8 @@ export default function AgencyLandingDashboardPage() {
     setPublished(Boolean(json.published))
     setMsg(json.published ? 'Published' : 'Unpublished')
   }
+
+  async function connectDomain(){if(!orgId||!customDomain)return;setSaving(true);setError(null);const response=await fetch('/api/agency/domain',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({organizationId:orgId,hostname:customDomain})});const json=await response.json();setSaving(false);if(!response.ok){setError(json.error||'DOMAIN_FAILED');return}setDomainStatus(json.status);setMsg(`Add CNAME ${json.dns?.name} → ${json.dns?.value}, then refresh this page.`)}
 
   if (loading) {
     return (
@@ -240,6 +245,7 @@ export default function AgencyLandingDashboardPage() {
                 </label>
               ))}
             </div>
+            <div className="card rounded-3xl p-6"><h2 className="font-display font-bold">Custom domain</h2><p className="mt-1 text-xs text-[#849792]">Connect a domain you own. DNS verification is required before traffic is routed.</p><div className="mt-3 flex flex-col gap-2 sm:flex-row"><input value={customDomain} onChange={e=>setCustomDomain(e.target.value.toLowerCase())} placeholder="services.example.com" className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-sm"/><button disabled={saving||!customDomain} onClick={connectDomain} className="rounded-full border border-[rgba(216,180,90,.4)] px-4 py-2 text-sm font-bold text-[#e4c979]">Connect domain</button></div>{domainStatus?<p className="mt-2 text-xs text-[#a9bbb5]">Status: <b className="text-white">{domainStatus}</b></p>:null}</div>
             <div className="flex flex-wrap gap-3">
               <button
                 type="button"

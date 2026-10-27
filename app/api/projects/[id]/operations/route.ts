@@ -5,6 +5,7 @@ import { createHash, randomBytes } from 'crypto'
 import { createServiceClient } from '../../../../../lib/supabaseService'
 import { revisionCharge, type ProjectOperationAction } from '../../../../../lib/projectOperations'
 import { createUserNotification } from '../../../../../lib/userNotifications'
+import { recordFunnelEvent } from '../../../../../lib/funnel'
 
 async function userForRequest() {
   const jar = await cookies()
@@ -75,6 +76,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await client.from('project_earnings').upsert({ project_id: id, freelancer_id: freelancerId, amount: Math.max(0, Number(body.payoutAmount || ctx.project.fulfillment_cost || 0)), status: 'held' })
     await event(id, user.id, ctx.actor, body.type === 'reassign' ? 'freelancer_reassigned' : 'freelancer_assigned', { freelancerId, dueAt: body.dueAt || null })
     void createUserNotification({ userId: freelancerId, type: 'project_assignment', title: 'New project assignment', body: `Review the assignment for ${ctx.project.title}.`, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
+    await recordFunnelEvent('freelancer_assigned',{userId:ctx.project.user_id,projectId:id,metadata:{freelancerId}})
   } else if (body.type === 'respond_assignment') {
     if (ctx.actor !== 'freelancer') return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
     const status = body.decision
@@ -99,6 +101,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await client.from('projects').update({ operations_status: 'approved', freelancer_payout_status: 'releasable' }).eq('id', id)
     await client.from('project_earnings').update({ status: 'releasable' }).eq('project_id', id).eq('status', 'held')
     await event(id, user.id, ctx.actor, 'delivery_approved')
+    await recordFunnelEvent('approved',{userId:ctx.project.user_id,projectId:id,amountUsd:Number(ctx.project.client_price||0)})
+    if(ctx.project.assigned_freelancer_id) await client.rpc('refresh_freelancer_metrics',{p_user_id:ctx.project.assigned_freelancer_id})
   } else if (body.type === 'open_dispute') {
     const reason = clean(body.reason, 3000)
     if (reason.length < 10) return NextResponse.json({ error: 'REASON_TOO_SHORT' }, { status: 400 })

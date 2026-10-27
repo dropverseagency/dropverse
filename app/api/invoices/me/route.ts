@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { createServiceClient } from '../../../../lib/supabaseService'
+import { recordFunnelEvent } from '../../../../lib/funnel'
 
 async function authedClient() {
   const cookieStore = await cookies()
@@ -175,6 +176,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'DB_ERROR' }, { status: 500 })
   }
 
+  await recordFunnelEvent('invoice_sent',{userId:user.id,projectId,invoiceId:(inserted as any).id,amountUsd:clientPrice})
   return NextResponse.json({ invoiceId: (inserted as any).id, reused: false })
 }
 

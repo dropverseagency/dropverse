@@ -17,9 +17,11 @@ import SamplesSection from '@/components/admin/sections/SamplesSection'
 import AcademyWaitlistSection from '@/components/admin/sections/AcademyWaitlistSection'
 import AuditSection from '@/components/admin/sections/AuditSection'
 import SettingsSection from '@/components/admin/sections/SettingsSection'
+import FunnelSection from '@/components/admin/sections/FunnelSection'
 
 const SECTION_TITLES: Record<string, string> = {
   overview: 'Admin Overview',
+  funnel: 'Growth Funnel',
   users: 'Users',
   agencies: 'Agencies',
   projects: 'Projects',
@@ -79,6 +81,7 @@ export default function AdminRouter({ page }: { page: string }) {
 
   let section: React.ReactNode = <OverviewSection />
   switch (key) {
+    case 'funnel': section = <FunnelSection />; break
     case 'users': section = <UsersSection />; break
     case 'agencies': section = <AgenciesSection />; break
     case 'projects': section = <ProjectsSection />; break

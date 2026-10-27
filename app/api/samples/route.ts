@@ -39,6 +39,18 @@ function publicSample(item: Record<string, any>, publicOnly = false) {
       turnaround_days: item.turnaround_days,
       revision_limit: item.revision_limit,
       revision_price_usd: item.revision_price_usd,
+      scope: item.scope,
+      deliverables: item.deliverables,
+      client_requirements: item.client_requirements,
+      minimum_resale_price_usd: item.minimum_resale_price_usd,
+      sla_response_hours: item.sla_response_hours,
+      sla_delivery_days: item.sla_delivery_days,
+      service_importance: item.service_importance,
+      freelancer_available: item.freelancer_available,
+      next_available_at: item.next_available_at,
+      verified_level: item.verified_level,
+      metrics: item.metrics || null,
+      addons: item.addons || [],
       created_at: item.created_at,
       freelancer_display_name: item.freelancer_display_name,
       freelancer_category: item.freelancer_category,
@@ -73,7 +85,7 @@ export async function GET(request: NextRequest) {
       await getProfile(userId)
       const { data, error } = await admin
         .from('samples')
-        .select('id, title, slug, category, description, status, price_usd, turnaround_days, revision_limit, revision_price_usd, rejection_reason, cover_path, created_at, updated_at, sample_costs(cost_usd), sample_files(id, kind, mime, size_bytes)')
+        .select('id, title, slug, category, description, scope, deliverables, client_requirements, minimum_resale_price_usd, sla_response_hours, sla_delivery_days, service_importance, status, price_usd, turnaround_days, revision_limit, revision_price_usd, rejection_reason, cover_path, created_at, updated_at, sample_costs(cost_usd), sample_addons(id,name,description,price_usd,extra_days,active), sample_files(id, kind, mime, size_bytes)')
         .eq('owner_id', userId)
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -83,7 +95,7 @@ export async function GET(request: NextRequest) {
     if (id || slug) {
       let query = admin
         .from('samples')
-        .select('id, owner_id, title, slug, category, description, status, price_usd, turnaround_days, revision_limit, revision_price_usd, cover_path, created_at')
+        .select('id, owner_id, title, slug, category, description, scope, deliverables, client_requirements, minimum_resale_price_usd, sla_response_hours, sla_delivery_days, service_importance, status, price_usd, turnaround_days, revision_limit, revision_price_usd, cover_path, created_at')
         .eq('status', 'approved')
       query = id ? query.eq('id', id) : query.eq('slug', slug!)
       const { data: sample, error: sampleError } = await query.maybeSingle()
@@ -94,11 +106,22 @@ export async function GET(request: NextRequest) {
         .select('display_name, category')
         .eq('user_id', sample.owner_id)
         .maybeSingle()
+      const [{ data: availability }, { data: verification }, { data: metrics }, { data: addons }] = await Promise.all([
+        admin.from('freelancer_availability').select('available,next_available_at').eq('user_id', sample.owner_id).maybeSingle(),
+        admin.from('freelancer_verifications').select('verified_level').eq('user_id', sample.owner_id).maybeSingle(),
+        admin.from('freelancer_metrics').select('on_time_delivery_rate,completion_rate,average_response_minutes,dispute_rate,average_rating,rating_count,paid_completed_projects').eq('user_id', sample.owner_id).maybeSingle(),
+        admin.from('sample_addons').select('id,name,description,price_usd,extra_days').eq('sample_id', sample.id).eq('active', true).order('sort_order'),
+      ])
       return NextResponse.json({
         sample: publicSample({
           ...sample,
           freelancer_display_name: freelancer?.display_name ?? null,
           freelancer_category: freelancer?.category ?? null,
+          freelancer_available: availability?.available ?? true,
+          next_available_at: availability?.next_available_at ?? null,
+          verified_level: verification?.verified_level ?? 'none',
+          metrics,
+          addons,
         }, true),
       })
     }
@@ -146,6 +169,14 @@ export async function POST(request: NextRequest) {
     const priceUsdRaw = String(form.get('price_usd') || '').trim()
     const priceUsd = priceUsdRaw ? Number(priceUsdRaw) : null
     const costUsd = Number(form.get('cost_usd') || 0)
+    const scope = String(form.get('scope') || '').trim()
+    const deliverables = String(form.get('deliverables') || '').trim()
+    const clientRequirements = String(form.get('client_requirements') || '').trim()
+    const minimumResalePrice = Number(form.get('minimum_resale_price_usd') || 0)
+    const slaResponseHours = Number(form.get('sla_response_hours') || 24)
+    const serviceImportance = String(form.get('service_importance') || 'standard')
+    let addons: Array<{name:string;description?:string;priceUsd:number;extraDays:number}> = []
+    try { addons = JSON.parse(String(form.get('addons') || '[]')) } catch { return NextResponse.json({ error: 'INVALID_ADDONS' }, { status: 400 }) }
     const revisionTerms = parseSampleRevisionTerms(form.get('revision_limit'), form.get('revision_price_usd'))
     const rightsConfirmed = form.get('rights_confirmed') === 'true'
     const files = form.getAll('files').filter((f): f is File => f instanceof File && f.size > 0)
@@ -157,6 +188,10 @@ export async function POST(request: NextRequest) {
     if (!Number.isInteger(turnaroundDays) || turnaroundDays < 1 || turnaroundDays > 30) return NextResponse.json({ error: 'INVALID_TURNAROUND' }, { status: 400 })
     if (priceUsd !== null && (!Number.isFinite(priceUsd) || priceUsd < 0 || priceUsd > 1000000)) return NextResponse.json({ error: 'INVALID_PRICE' }, { status: 400 })
     if (!Number.isFinite(costUsd) || costUsd < 1 || costUsd > 5000) return NextResponse.json({ error: 'INVALID_COST' }, { status: 400 })
+    if (scope.length < 10 || scope.length > 3000 || deliverables.length < 5 || deliverables.length > 2000 || clientRequirements.length > 2000) return NextResponse.json({ error: 'INVALID_SERVICE_DETAILS' }, { status: 400 })
+    if (!Number.isFinite(minimumResalePrice) || minimumResalePrice < costUsd || minimumResalePrice > 1000000) return NextResponse.json({ error: 'INVALID_MINIMUM_RESALE_PRICE' }, { status: 400 })
+    if (!Number.isInteger(slaResponseHours) || slaResponseHours < 1 || slaResponseHours > 168 || !['standard','important','critical'].includes(serviceImportance)) return NextResponse.json({ error: 'INVALID_SLA' }, { status: 400 })
+    if (!Array.isArray(addons) || addons.length > 8 || addons.some((a) => String(a.name||'').trim().length < 2 || !Number.isFinite(Number(a.priceUsd)) || Number(a.priceUsd)<0 || Number(a.extraDays)<0 || Number(a.extraDays)>30)) return NextResponse.json({ error: 'INVALID_ADDONS' }, { status: 400 })
     if (!revisionTerms.value) return NextResponse.json({ error: 'INVALID_REVISION_TERMS', message: revisionTerms.error }, { status: 400 })
     if (!rightsConfirmed) return NextResponse.json({ error: 'RIGHTS_CONFIRMATION_REQUIRED' }, { status: 400 })
     if (files.length < 1 || files.length > SAMPLE_MAX_FILES) return NextResponse.json({ error: 'FILES_REQUIRED_OR_LIMIT_EXCEEDED' }, { status: 400 })
@@ -205,6 +240,10 @@ export async function POST(request: NextRequest) {
       revision_limit: revisionTerms.value.revisionLimit,
       revision_price_usd: revisionTerms.value.revisionPriceUsd,
       rights_terms_version: SAMPLE_RIGHTS_TERMS_VERSION,
+      scope, deliverables, client_requirements: clientRequirements,
+      minimum_resale_price_usd: Math.round(minimumResalePrice * 100) / 100,
+      sla_response_hours: slaResponseHours, sla_delivery_days: turnaroundDays,
+      service_importance: serviceImportance,
     })
     if (sampleError) throw new Error('SAMPLE_CREATE_FAILED')
 
@@ -213,6 +252,10 @@ export async function POST(request: NextRequest) {
       cost_usd: Math.round(costUsd * 100) / 100,
     })
     if (costError) throw new Error('SAMPLE_COST_SAVE_FAILED')
+    if (addons.length) {
+      const { error: addonError } = await admin.from('sample_addons').insert(addons.map((addon,index) => ({ sample_id:id, name:String(addon.name).trim().slice(0,100), description:String(addon.description||'').trim().slice(0,500), price_usd:Math.round(Number(addon.priceUsd)*100)/100, extra_days:Math.floor(Number(addon.extraDays)||0), sort_order:index })))
+      if (addonError) throw new Error('SAMPLE_ADDONS_SAVE_FAILED')
+    }
 
     for (let index = 0; index < files.length; index++) {
       const file = files[index]

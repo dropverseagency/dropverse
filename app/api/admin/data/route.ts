@@ -22,6 +22,16 @@ export async function GET(request: NextRequest) {
     const select = (table: string, columns: string) => admin.from(table).select(columns)
 
     switch (section) {
+      case 'funnel': {
+        const order=['visit','sign_up','profile_complete','sample_viewed','project_created','invoice_sent','payment_completed','freelancer_assigned','delivered','approved','payout_completed','repeat_project']
+        const {data:events}=await admin.from('funnel_events').select('event_name,amount_usd,project_id,occurred_at')
+        const counts=new Map<string,number>();for(const event of events||[])counts.set(event.event_name,(counts.get(event.event_name)||0)+1)
+        const funnel=order.map((name,index)=>{const count=counts.get(name)||0;const previous=index?counts.get(order[index-1])||0:0;return {event_name:name,count,rate:previous?Math.round(count*10000/previous)/100:null}})
+        const {data:projects}=await admin.from('projects').select('client_price,fulfillment_cost,seller_profit,payment_status,operations_status,created_at')
+        const paid=(projects||[]).filter(p=>p.payment_status==='PAYMENT_CONFIRMED');const gmv=paid.reduce((sum,p)=>sum+Number(p.client_price||0),0);const fulfillment=paid.reduce((sum,p)=>sum+Number(p.fulfillment_cost||0),0)
+        const disputes=(projects||[]).filter(p=>p.operations_status==='disputed').length;const refunds=(projects||[]).filter(p=>p.operations_status==='refunded').length
+        return {section:'funnel',funnel,kpis:{activation_rate:`${funnel.find(x=>x.event_name==='project_created')?.rate??0}%`,sample_to_project:`${counts.get('sample_viewed')?Math.round((counts.get('project_created')||0)*10000/(counts.get('sample_viewed')||1))/100:0}%`,invoice_paid:`${counts.get('invoice_sent')?Math.round((counts.get('payment_completed')||0)*10000/(counts.get('invoice_sent')||1))/100:0}%`,average_project_value:paid.length?Math.round(gmv*100/paid.length)/100:0,take_rate:`${gmv?Math.round(fulfillment*10000/gmv)/100:0}%`,contribution_margin:Math.round((gmv-fulfillment)*100)/100,dispute_refund_rate:`${projects?.length?Math.round((disputes+refunds)*10000/projects.length)/100:0}%`,repeat_projects:counts.get('repeat_project')||0}}
+      }
       case 'overview': {
         const [
           users, projects, agencies, paymentsConfirmed, paymentsPending,
@@ -325,12 +335,13 @@ export async function GET(request: NextRequest) {
       }
 
       case 'freelancers': {
-        let query = select('freelancers', 'id, name, avatar_url, bio, specialty, skills, tools, starting_price, delivery_time, active, created_at')
+        let query = select('freelancer_profiles', 'user_id, display_name, category, bio, created_at')
           .order('created_at', { ascending: false })
-        if (q) query = query.or(`name.ilike.%${q}%,specialty.ilike.%${q}%`)
+        if (q) query = query.or(`display_name.ilike.%${q}%,category.ilike.%${q}%`)
         const { data, count, error } = await query.range(offset, offset + limit - 1)
         if (error) throw error
-        return { section: 'freelancers', rows: data ?? [], count: count ?? 0, offset, limit }
+        const profiles=(data||[]) as any[];const ids=profiles.map(row=>row.user_id);const [{data:verifications},{data:metrics}]=ids.length?await Promise.all([admin.from('freelancer_verifications').select('*').in('user_id',ids),admin.from('freelancer_metrics').select('*').in('user_id',ids)]):[{data:[]},{data:[]}]
+        const v=new Map(((verifications||[]) as any[]).map(row=>[row.user_id,row]));const m=new Map(((metrics||[]) as any[]).map(row=>[row.user_id,row]));return { section: 'freelancers', rows: profiles.map(row=>({...row,id:row.user_id,full_name:row.display_name,service_name:row.category,verification:v.get(row.user_id)||null,metrics:m.get(row.user_id)||null,rating:(m.get(row.user_id) as any)?.average_rating||null})), count: count ?? 0, offset, limit }
       }
 
       case 'audit': {

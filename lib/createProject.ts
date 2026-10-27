@@ -6,6 +6,7 @@ import { cookies } from 'next/headers'
 import { computeSellerProfit, computeFulfillmentCost, billingIntervalFor, type ProjectDraft } from './projectConfig'
 import { adminClient } from './adminCore'
 import { projectRevisionColumns, type SampleRevisionRow } from './sampleProjectRevisions'
+import { recordFunnelEvent } from './funnel'
 
 /**
  * Creates a new client project.
@@ -118,6 +119,9 @@ export async function createProjectServer(draft: ProjectDraft) {
   }
 
   revalidatePath('/dashboard')
+  await recordFunnelEvent('project_created', { userId:user.id, projectId:data.id, sampleId:sampleId||undefined, amountUsd:clientPrice })
+  const { count: priorProjects } = await adminClient().from('projects').select('*',{count:'exact',head:true}).eq('user_id',user.id).neq('id',data.id)
+  if ((priorProjects||0)>0) await recordFunnelEvent('repeat_project',{userId:user.id,projectId:data.id,sampleId:sampleId||undefined,amountUsd:clientPrice})
   return {
     success: true as const,
     projectId: data.id as string,

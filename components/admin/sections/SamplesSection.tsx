@@ -11,6 +11,8 @@ type Sample = {
   status: string
   price_usd: number | null
   commission_rate: number | null
+  service_importance:string
+  backup_freelancer_id:string|null
   turnaround_days: number
   rejection_reason: string | null
   cover_url: string | null
@@ -28,6 +30,8 @@ export default function SamplesSection() {
   const [reason, setReason] = useState<Record<string, string>>({})
   const [price, setPrice] = useState<Record<string, string>>({})
   const [commission, setCommission] = useState<Record<string, string>>({})
+  const [backup, setBackup] = useState<Record<string,string>>({})
+  const [freelancers,setFreelancers]=useState<Array<{user_id:string;display_name:string;category:string}>>([])
 
   async function load() {
     setLoading(true)
@@ -43,7 +47,7 @@ export default function SamplesSection() {
     setItems(json.items || [])
   }
 
-  useEffect(() => { load() }, [status])
+  useEffect(() => { load();fetch('/api/freelancers/available').then(r=>r.json()).then(j=>setFreelancers(j.freelancers||[])).catch(()=>undefined) }, [status])
 
   async function moderate(sample: Sample, action: 'approve' | 'reject' | 'unpublish') {
     setBusyId(sample.id)
@@ -53,6 +57,7 @@ export default function SamplesSection() {
     if (action === 'approve') {
       body.priceUsd = (price[sample.id] ?? (sample.price_usd == null ? '' : String(sample.price_usd))).trim()
       body.commissionRate = (commission[sample.id] ?? (sample.commission_rate == null ? '' : String(sample.commission_rate))).trim()
+      body.backupFreelancerId=backup[sample.id]??sample.backup_freelancer_id??''
     }
     const response = await fetch(`/api/admin/samples/${sample.id}/moderate`, {
       method: 'POST',
@@ -122,6 +127,9 @@ export default function SamplesSection() {
                     {canPreviewSplit ? <p className="rounded-xl border border-white/10 bg-[#071f1d] px-3 py-2 text-xs text-[#c5d0cb]">At this price: DropVerse commission <strong className="text-[#e4c979]">${(Math.round(currentPrice * currentCommission) / 100).toFixed(2)}</strong> · Remaining for freelancer <strong className="text-white">${(Math.round(currentPrice * 100 - Math.round(currentPrice * currentCommission)) / 100).toFixed(2)}</strong></p> : null}
                     <label className="block text-xs text-[#a9bbb5]">Rejection reason (required when rejecting)
                       <input value={reason[sample.id] || ''} onChange={(e) => setReason((v) => ({ ...v, [sample.id]: e.target.value }))} className="mt-1 block w-full rounded-xl border border-white/10 bg-[#071f1d] px-3 py-2 text-sm text-white" placeholder="Explain what needs to change" />
+                    </label>
+                    <label className="block text-xs text-[#a9bbb5]">Backup freelancer {sample.service_importance==='critical'?'(required)':'(optional)'}
+                      <select value={backup[sample.id]??sample.backup_freelancer_id??''} onChange={e=>setBackup(v=>({...v,[sample.id]:e.target.value}))} className="mt-1 block w-full rounded-xl border border-white/10 bg-[#071f1d] px-3 py-2 text-sm text-white"><option value="">No backup selected</option>{freelancers.filter(f=>f.user_id!==sample.owner_id).map(f=><option key={f.user_id} value={f.user_id}>{f.display_name} · {f.category}</option>)}</select>
                     </label>
                   </div>
                   <div className="flex flex-wrap items-start gap-2 sm:flex-col">

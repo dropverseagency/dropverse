@@ -7,10 +7,12 @@ import Image from 'next/image'
 import {
   LayoutDashboard, Users, Briefcase, FolderKanban, CreditCard, Users2,
   Coins, Package, Wrench, ScrollText, Settings, LogOut, ShieldCheck, Menu, X, ListChecks, GraduationCap, FileCheck,
+  ChartNoAxesCombined,
 } from 'lucide-react'
 
 export const ADMIN_SECTIONS = [
   { id: 'overview', label: 'Overview', group: 'Work', icon: LayoutDashboard },
+  { id: 'funnel', label: 'Funnel', group: 'Work', icon: ChartNoAxesCombined },
   { id: 'projects', label: 'Projects', group: 'Work', icon: FolderKanban },
   { id: 'payments', label: 'Payments', group: 'Work', icon: CreditCard },
   { id: 'leads', label: 'Lead packs', group: 'Work', icon: ListChecks },

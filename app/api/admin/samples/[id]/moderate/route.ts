@@ -22,7 +22,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     const admin = adminClient()
     const { data: sample, error: loadError } = await admin
       .from('samples')
-      .select('id, title, owner_id, status, price_usd, commission_rate')
+      .select('id, title, owner_id, status, price_usd, commission_rate, service_importance, backup_freelancer_id')
       .eq('id', id)
       .single()
     if (loadError || !sample) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
@@ -55,6 +55,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       return NextResponse.json({ error: 'COMMISSION_REQUIRED_BEFORE_APPROVAL' }, { status: 400 })
     }
     if (action === 'approve') {
+      const backupFreelancerId=String(body?.backupFreelancerId||sample.backup_freelancer_id||'').trim()||null
+      if(sample.service_importance==='critical'&&!backupFreelancerId)return NextResponse.json({error:'BACKUP_REQUIRED'},{status:400})
+      if(backupFreelancerId){const {data:backup}=await admin.from('freelancer_profiles').select('user_id').eq('user_id',backupFreelancerId).maybeSingle();if(!backup||backup.user_id===sample.owner_id)return NextResponse.json({error:'INVALID_BACKUP'},{status:400});patch.backup_freelancer_id=backupFreelancerId}
       patch.price_usd = Math.round(priceUsd! * 100) / 100
       patch.commission_rate = Math.round(commissionRate! * 100) / 100
     }
