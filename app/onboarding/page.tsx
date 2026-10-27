@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, Suspense, useState } from 'react'
+import { FormEvent, Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import Brand from '../../components/Brand'
@@ -28,11 +28,47 @@ function OnboardingInner() {
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect') || '/dashboard'
   const [userTypes, setUserTypes] = useState<UserTypeValue[]>([])
+  const [fullName, setFullName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [username, setUsername] = useState('')
   const [freelancerNiches, setFreelancerNiches] = useState<string[]>([])
   const [otherNiche, setOtherNiche] = useState('')
   const [portfolioLinks, setPortfolioLinks] = useState<string[]>([''])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const supabase = createClient()
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || cancelled) return
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, phone, username, user_type, user_types')
+        .eq('id', user.id)
+        .maybeSingle()
+      if (cancelled) return
+      setFullName(String(profile?.full_name || user.user_metadata?.full_name || ''))
+      setPhone(String(profile?.phone || user.user_metadata?.phone || ''))
+      setUsername(String(profile?.username || user.user_metadata?.username || ''))
+      const roles = Array.isArray(profile?.user_types) && profile.user_types.length
+        ? profile.user_types
+        : profile?.user_type ? [profile.user_type] : []
+      setUserTypes(roles.filter((role): role is UserTypeValue => OPTIONS.some((option) => option.value === role)))
+      if (roles.includes('freelancer')) {
+        const [{ data: details }, { data: links }] = await Promise.all([
+          supabase.from('freelancer_profiles').select('niches, other_niche').eq('user_id', user.id).maybeSingle(),
+          supabase.from('freelancer_links').select('url').eq('user_id', user.id),
+        ])
+        if (cancelled) return
+        if (Array.isArray(details?.niches)) setFreelancerNiches(details.niches.map(String))
+        if (details?.other_niche) setOtherNiche(String(details.other_niche))
+        if (links?.length) setPortfolioLinks(links.map((link) => String(link.url)))
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   function toggle(value: UserTypeValue) {
     setUserTypes((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]))
@@ -43,6 +79,18 @@ function OnboardingInner() {
     setError(null)
     if (userTypes.length === 0) {
       setError('Please select at least one option.')
+      return
+    }
+    if (fullName.trim().length < 2) {
+      setError('Enter your full name (at least 2 characters).')
+      return
+    }
+    if (username.trim().length < 3) {
+      setError('Enter a username with at least 3 characters.')
+      return
+    }
+    if (phone.replace(/\D/g, '').length < 7) {
+      setError('Enter a valid mobile number.')
       return
     }
     if (userTypes.includes('freelancer') && (!freelancerNiches.length || (freelancerNiches.includes('Other') && !otherNiche.trim()) || !validPortfolioLinks(portfolioLinks))) {
@@ -57,15 +105,16 @@ function OnboardingInner() {
         window.location.assign(`/login?redirect=${encodeURIComponent(redirectTo)}`)
         return
       }
-      const { error: metaErr } = await supabase.auth.updateUser({ data: { user_types: userTypes, user_type: userTypes[0], ...(userTypes.includes('freelancer') ? { freelancer_niche: freelancerNiches[0], freelancer_niches: freelancerNiches, freelancer_other_niche: otherNiche.trim(), freelancer_portfolio_links: portfolioLinks } : {}) } })
+      const cleanUsername = username.trim().toLowerCase()
+      const { error: metaErr } = await supabase.auth.updateUser({ data: { full_name: fullName.trim(), phone: phone.trim(), username: cleanUsername, user_types: userTypes, user_type: userTypes[0], ...(userTypes.includes('freelancer') ? { freelancer_niche: freelancerNiches[0], freelancer_niches: freelancerNiches, freelancer_other_niche: otherNiche.trim(), freelancer_portfolio_links: portfolioLinks } : {}) } })
       if (metaErr) throw metaErr
       const { error: upErr } = await supabase
         .from('profiles')
-        .update({ user_types: userTypes, user_type: userTypes[0] })
+        .update({ full_name: fullName.trim(), phone: phone.trim(), username: cleanUsername, user_types: userTypes, user_type: userTypes[0] })
         .eq('id', user.id)
       if (upErr) throw upErr
       if (userTypes.includes('freelancer')) {
-        await saveFreelancerDetails(user.id, String(user.user_metadata?.full_name || user.email?.split('@')[0] || 'Freelancer'), freelancerNiches, otherNiche, portfolioLinks)
+        await saveFreelancerDetails(user.id, fullName.trim(), freelancerNiches, otherNiche, portfolioLinks)
       }
       // Best-effort admin Telegram notify after role/niche selection
       void fetch('/api/agents/new-signup', { method: 'POST', credentials: 'include' }).catch(() => undefined)
@@ -87,6 +136,15 @@ function OnboardingInner() {
             Select all that apply. This helps us personalize DropVerse for you.
           </p>
           <form onSubmit={handleSubmit} className="mt-6 space-y-3">
+            <label className="block text-sm text-[#d9e0dc]">Full name
+              <input required minLength={2} value={fullName} onChange={(event) => setFullName(event.target.value)} autoComplete="name" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white" />
+            </label>
+            <label className="block text-sm text-[#d9e0dc]">Mobile number
+              <input required value={phone} onChange={(event) => setPhone(event.target.value)} type="tel" autoComplete="tel" placeholder="+20 100 000 0000" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white" />
+            </label>
+            <label className="block text-sm text-[#d9e0dc]">Username
+              <input required minLength={3} value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white" />
+            </label>
             {OPTIONS.map((opt) => {
               const checked = userTypes.includes(opt.value)
               return (

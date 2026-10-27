@@ -8,6 +8,7 @@ import {
   PAYOUT_SCHEDULE_DAYS,
   nextScheduledProcessingDate,
 } from '@/lib/payoutConfig'
+import { payoutProfileStatus, profileIncompleteResponse } from '@/lib/payoutProfile'
 
 async function resolveUser(request: NextRequest) {
   const bearer = (request.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
@@ -38,6 +39,14 @@ function jsonError(error: string, status = 500) {
 export async function GET(request: NextRequest) {
   const user = await resolveUser(request)
   if (!user) return jsonError('NOT_AUTHENTICATED', 401)
+
+  try {
+    const profile = await payoutProfileStatus(user.id)
+    if (!profile.complete) return profileIncompleteResponse(profile.missing)
+  } catch (error) {
+    console.error('[payouts/me] profile check failed', error)
+    return jsonError('PAYOUT_DATA_UNAVAILABLE')
+  }
 
   const admin = adminClient()
 

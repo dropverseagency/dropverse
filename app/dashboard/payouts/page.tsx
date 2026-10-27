@@ -91,6 +91,7 @@ export default function PayoutsPage() {
   const [data, setData] = useState<PayoutPayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [profileMissing, setProfileMissing] = useState<string[]>([])
 
   const [method, setMethod] = useState<PayoutMethodId>('paypal')
   const [amount, setAmount] = useState('')
@@ -110,6 +111,7 @@ export default function PayoutsPage() {
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
+    setProfileMissing([])
     try {
       const [payoutRes, methodsRes] = await Promise.all([
         fetch('/api/payouts/me', { credentials: 'include' }),
@@ -122,6 +124,13 @@ export default function PayoutsPage() {
       }
 
       const json = await payoutRes.json()
+      const methodsJson = await methodsRes.json().catch(() => ({}))
+      if (json.error === 'PROFILE_INCOMPLETE' || methodsJson.error === 'PROFILE_INCOMPLETE') {
+        const missing = Array.isArray(json.missing) ? json.missing : Array.isArray(methodsJson.missing) ? methodsJson.missing : []
+        setProfileMissing(missing.map(String))
+        setData(null)
+        return
+      }
       if (!payoutRes.ok || json.error) {
         setError(json.error || 'Failed to load payouts')
         setData(null)
@@ -132,8 +141,7 @@ export default function PayoutsPage() {
       }
 
       if (methodsRes.ok) {
-        const mjson = await methodsRes.json()
-        const saved = mjson.methods as SavedMethods | undefined
+        const saved = methodsJson.methods as SavedMethods | undefined
         if (saved) {
           if (saved.paypalEmail) setPaypalEmail(saved.paypalEmail)
           if (saved.localDetails) setLocalDetails(saved.localDetails)
@@ -309,6 +317,13 @@ export default function PayoutsPage() {
         <div className="rounded-xl border border-white/5 bg-[rgba(255,255,255,0.02)] p-10 text-center text-sm text-[#81948e]">
           <Loader2 className="mx-auto mb-2 animate-spin text-[#d8b45a]" size={20} />
           Loading payouts…
+        </div>
+      ) : profileMissing.length ? (
+        <div className="rounded-2xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] p-6">
+          <h2 className="font-display text-xl font-bold text-[#f0f4f2]">Complete your profile to open payouts</h2>
+          <p className="mt-2 text-sm leading-6 text-[#c1cbc7]">Add the missing account details so payout requests and payment methods can be tied to the correct person.</p>
+          <ul className="mt-4 list-inside list-disc text-sm text-[#e4c979]">{profileMissing.map((field) => <li key={field}>{field}</li>)}</ul>
+          <Link href="/onboarding?redirect=%2Fdashboard%2Fpayouts" className="mt-5 inline-flex rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f]">Complete profile</Link>
         </div>
       ) : error ? (
         <div className="rounded-xl border border-[rgba(232,154,141,0.35)] bg-[rgba(232,154,141,0.08)] p-6 text-sm text-[#e89a8d]">

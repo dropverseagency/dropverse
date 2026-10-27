@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { adminClient, audit, sessionClient } from '@/lib/adminCore'
 import { methodById, type PayoutMethodId } from '@/lib/payoutConfig'
+import { payoutProfileStatus, profileIncompleteResponse } from '@/lib/payoutProfile'
 
 async function resolveUser(request: NextRequest) {
   const bearer = (request.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
@@ -49,6 +50,13 @@ export async function GET(request: NextRequest) {
       headers: { 'Content-Type': 'application/json' },
     })
   }
+  try {
+    const profile = await payoutProfileStatus(user.id)
+    if (!profile.complete) return profileIncompleteResponse(profile.missing)
+  } catch (error) {
+    console.error('[payouts/methods GET] profile check failed', error)
+    return new Response(JSON.stringify({ error: 'PAYOUT_DATA_UNAVAILABLE' }), { status: 500, headers: { 'Content-Type': 'application/json' } })
+  }
 
   return new Response(JSON.stringify({ ok: true, methods: readMeta(user) }), {
     headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
@@ -67,6 +75,13 @@ export async function POST(request: NextRequest) {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
     })
+  }
+  try {
+    const profile = await payoutProfileStatus(user.id)
+    if (!profile.complete) return profileIncompleteResponse(profile.missing)
+  } catch (error) {
+    console.error('[payouts/methods POST] profile check failed', error)
+    return new Response(JSON.stringify({ error: 'PAYOUT_DATA_UNAVAILABLE' }), { status: 500, headers: { 'Content-Type': 'application/json' } })
   }
 
   let body: {

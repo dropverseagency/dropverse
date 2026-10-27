@@ -56,13 +56,18 @@ function LoginPageInner() {
     if (!userId) return redirectTo
     const { data: profile } = await supabase
       .from('profiles')
-      .select('user_type, user_types')
+      .select('full_name, username, phone, user_type, user_types')
       .eq('id', userId)
       .maybeSingle()
     const hasType =
       Boolean(profile?.user_type) ||
       (Array.isArray(profile?.user_types) && profile.user_types.length > 0)
-    if (!hasType) return `/onboarding?redirect=${encodeURIComponent(redirectTo)}`
+    const profileComplete = Boolean(
+      profile?.full_name?.trim() && profile.full_name.trim().length >= 2 &&
+      profile?.username?.trim() && profile.username.trim().length >= 3 &&
+      profile?.phone?.replace(/\D/g, '').length >= 7,
+    )
+    if (!hasType || !profileComplete) return `/onboarding?redirect=${encodeURIComponent(redirectTo)}`
     if (profile?.user_type === 'freelancer' || profile?.user_types?.includes('freelancer')) {
       const { data: details } = await supabase.from('freelancer_profiles').select('niches').eq('user_id', userId).maybeSingle()
       const { data: links } = await supabase.from('freelancer_links').select('id').eq('user_id', userId).limit(1)
@@ -136,6 +141,12 @@ function LoginPageInner() {
         const fullName = String(form.get('full_name') || '').trim()
         const phone = String(form.get('phone') || '').trim()
         const username = String(form.get('username') || '').trim()
+        if (fullName.length < 2) {
+          throw new Error('Full name is required (at least 2 characters).')
+        }
+        if (phone.replace(/\D/g, '').length < 7) {
+          throw new Error('Enter a valid mobile number.')
+        }
         if (!username || username.length < 3) {
           throw new Error('Username is required (at least 3 characters).')
         }
@@ -196,7 +207,7 @@ function LoginPageInner() {
         if (data.session?.user?.id) {
           await supabase
             .from('profiles')
-            .update({ user_types: userTypes, user_type: userTypes[0] })
+            .update({ full_name: fullName, phone, username: username.toLowerCase(), user_types: userTypes, user_type: userTypes[0] })
             .eq('id', data.session.user.id)
           if (isFreelancer) await saveFreelancerDetails(data.session.user.id, fullName, freelancerNiches, otherNiche, portfolioLinks)
           // Best-effort admin Telegram notify (Agent A sibling)

@@ -9,6 +9,7 @@ import {
 } from '@/lib/payoutConfig'
 import { notifyAdminEvent } from '@/lib/agents/adminNotify'
 import { createUserNotification } from '@/lib/userNotifications'
+import { payoutProfileStatus, profileIncompleteResponse } from '@/lib/payoutProfile'
 
 async function resolveUser(request: NextRequest) {
   const bearer = (request.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
@@ -35,6 +36,17 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return new Response(JSON.stringify({ error: 'NOT_AUTHENTICATED' }), {
       status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  try {
+    const profile = await payoutProfileStatus(user.id)
+    if (!profile.complete) return profileIncompleteResponse(profile.missing)
+  } catch (error) {
+    console.error('[payouts/request] profile check failed', error)
+    return new Response(JSON.stringify({ error: 'PAYOUT_DATA_UNAVAILABLE' }), {
+      status: 500,
       headers: { 'Content-Type': 'application/json' },
     })
   }
