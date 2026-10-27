@@ -1,6 +1,8 @@
 -- Sellable samples, verified freelancer trust, agency branding and funnel analytics.
 
 alter table public.samples
+  add column if not exists revision_limit integer not null default 2 check (revision_limit between 0 and 5),
+  add column if not exists revision_price_usd numeric(10,2) not null default 25 check (revision_price_usd between 5 and 200),
   add column if not exists scope text not null default '' check (char_length(scope) <= 3000),
   add column if not exists deliverables text not null default '' check (char_length(deliverables) <= 2000),
   add column if not exists client_requirements text not null default '' check (char_length(client_requirements) <= 2000),
