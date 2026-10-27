@@ -72,6 +72,11 @@ alter table public.agency_landing_pages
   add column if not exists invoice_footer text,
   add column if not exists whatsapp_updates_enabled boolean not null default false;
 
+alter table public.agency_order_attributions
+  add column if not exists scope_accepted boolean not null default false,
+  add column if not exists revision_terms_accepted boolean not null default false,
+  add column if not exists accepted_at timestamptz;
+
 create table if not exists public.funnel_events (
   id bigint generated always as identity primary key,
   event_name text not null check (event_name in ('visit','sign_up','profile_complete','sample_viewed','project_created','invoice_sent','payment_completed','freelancer_assigned','delivered','approved','payout_completed','repeat_project','support_interaction')),

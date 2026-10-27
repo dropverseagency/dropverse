@@ -34,6 +34,8 @@ export default function AgencyPublicLandingPage() {
   const [payMsg, setPayMsg] = useState<string | null>(null)
   const [attachments, setAttachments] = useState<{ url: string; name: string }[]>([])
   const [uploading, setUploading] = useState(false)
+  const [scopeAccepted, setScopeAccepted] = useState(false)
+  const [revisionTermsAccepted, setRevisionTermsAccepted] = useState(false)
   const [orderResult, setOrderResult] = useState<{
     projectId: string
     amount: number
@@ -109,6 +111,8 @@ export default function AgencyPublicLandingPage() {
         briefNotes,
         attachmentUrls: attachments.map((a) => a.url),
         idempotencyKey,
+        scopeAccepted,
+        revisionTermsAccepted,
       }),
     })
     const json = await res.json()
@@ -245,6 +249,8 @@ export default function AgencyPublicLandingPage() {
                 value={briefNotes}
                 onChange={(e) => setBriefNotes(e.target.value)}
               />
+              <label className="flex items-start gap-3 text-xs leading-5 text-[#aebcb7] sm:col-span-2"><input required type="checkbox" checked={scopeAccepted} onChange={(e)=>setScopeAccepted(e.target.checked)} className="mt-1 accent-[#d8b45a]"/><span>I reviewed and accept the selected service scope, deliverables, exclusions, price, and delivery estimate.</span></label>
+              <label className="flex items-start gap-3 text-xs leading-5 text-[#aebcb7] sm:col-span-2"><input required type="checkbox" checked={revisionTermsAccepted} onChange={(e)=>setRevisionTermsAccepted(e.target.checked)} className="mt-1 accent-[#d8b45a]"/><span>I accept the included revision limit and understand that additional revisions may require a separate paid invoice.</span></label>
               <div className="sm:col-span-2 rounded-2xl border border-white/10 p-4">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-semibold">Work files (optional, max 5)</p>

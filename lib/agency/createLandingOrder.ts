@@ -19,6 +19,8 @@ export type LandingOrderInput = {
   /** Public URLs of brief files uploaded via /api/public/agency-order/upload */
   attachmentUrls?: string[]
   idempotencyKey?: string
+  scopeAccepted: boolean
+  revisionTermsAccepted: boolean
 }
 
 export async function createLandingPageOrder(input: LandingOrderInput) {
@@ -35,6 +37,7 @@ export async function createLandingPageOrder(input: LandingOrderInput) {
   const idempotencyKey = input.idempotencyKey?.trim() || null
 
   if (!slug || !packageId) return { error: 'INVALID_INPUT' as const }
+  if (!input.scopeAccepted || !input.revisionTermsAccepted) return { error: 'TERMS_REQUIRED' as const }
   if (!customerName || customerName.length < 2) return { error: 'INVALID_NAME' as const }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) return { error: 'INVALID_EMAIL' as const }
   if (!briefTitle || briefTitle.length < 3) return { error: 'INVALID_TITLE' as const }
@@ -198,6 +201,9 @@ export async function createLandingPageOrder(input: LandingOrderInput) {
     customer_name: customerName,
     customer_email: customerEmail,
     idempotency_key: idempotencyKey,
+    scope_accepted: true,
+    revision_terms_accepted: true,
+    accepted_at: new Date().toISOString(),
   })
 
   if (attrErr) {
@@ -217,6 +223,9 @@ export async function createLandingPageOrder(input: LandingOrderInput) {
       organization_id: org.id,
       package_id: pkg.id,
       retail_price: retailPrice,
+      scope_accepted: true,
+      revision_terms_accepted: true,
+      accepted_at: new Date().toISOString(),
     }),
   })
 
