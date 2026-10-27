@@ -65,12 +65,16 @@ create table if not exists public.agency_custom_domains (
   verified_at timestamptz,
   created_at timestamptz not null default now()
 );
+create or replace view public.agency_custom_domain_routes as select d.hostname,p.slug from public.agency_custom_domains d join public.agency_landing_pages p on p.id=d.landing_page_id where d.status='verified' and p.published=true;
+grant select on public.agency_custom_domain_routes to anon,authenticated;
 
 alter table public.agency_landing_pages
   add column if not exists email_from_name text,
   add column if not exists email_reply_to text,
   add column if not exists invoice_footer text,
   add column if not exists whatsapp_updates_enabled boolean not null default false;
+
+alter table public.profiles add column if not exists whatsapp_updates_opt_in boolean not null default false;
 
 alter table public.agency_order_attributions
   add column if not exists scope_accepted boolean not null default false,

@@ -44,8 +44,11 @@ function getSessionToken(request: NextRequest, baseName: string): string | undef
   return chunks.map((c) => c.value).join('')
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const host=(request.headers.get('host')||'').split(':')[0].toLowerCase()
+  const platformHosts=['dropverse10v.vercel.app','dropverse-nu.vercel.app','dropverse.js.org','localhost','127.0.0.1']
+  if(pathname==='/'&&host&&!platformHosts.includes(host)&&process.env.NEXT_PUBLIC_SUPABASE_URL&&process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY){try{const response=await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/agency_custom_domain_routes?hostname=eq.${encodeURIComponent(host)}&select=slug&limit=1`,{headers:{apikey:process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,Authorization:`Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`}});const rows=await response.json();if(rows?.[0]?.slug){const url=request.nextUrl.clone();url.pathname=`/a/${rows[0].slug}`;return NextResponse.rewrite(url)}}catch{}}
   if (!protectedPaths.some((p) => pathname.startsWith(p))) return NextResponse.next()
 
   const token = SESSION_COOKIE_PREFIXES.map((name) => getSessionToken(request, name)).find(Boolean)
@@ -60,4 +63,4 @@ export function middleware(request: NextRequest) {
   return NextResponse.next()
 }
 
-export const config = { matcher: ['/dashboard', '/dashboard/:path*', '/admin', '/admin/:path*'] }
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'] }
