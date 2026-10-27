@@ -13,6 +13,7 @@ import {
   type ProjectType, type PaymentMethod,
 } from '../../../lib/projectConfig'
 import { createProjectServer } from '../../../lib/createProject'
+import { serialiseBrief, type BriefInput } from '../../../lib/projectBrief'
 import SpaceRemitPayForm from '../../../components/SpaceRemitPayForm'
 
 type Step = 'basics' | 'billing' | 'summary'
@@ -48,6 +49,8 @@ export default function CreateProjectPage() {
   const [projectType, setProjectType] = useState<ProjectType>('ONE_TIME')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [brief, setBrief] = useState<BriefInput>({ goal: '', deadline: '', format: '', references: '', notes: '' })
+  const [briefAttempted, setBriefAttempted] = useState(false)
   const [clientPrice, setClientPrice] = useState('')
   const [paymentChoice, setPaymentChoice] = useState<PaymentChoice>('LOCAL_PAYMENT')
   const [clientContactEmail, setClientContactEmail] = useState('')
@@ -60,6 +63,7 @@ export default function CreateProjectPage() {
   const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null)
   const [payError, setPayError] = useState<string | null>(null)
   const [linkCopied, setLinkCopied] = useState(false)
+  const [briefCopied, setBriefCopied] = useState(false)
   const [paymentBusy, setPaymentBusy] = useState(false)
 
   useEffect(() => {
@@ -71,9 +75,46 @@ export default function CreateProjectPage() {
   const fc = useMemo(() => Math.round(cp * (FULFILLMENT_RATES[projectType] ?? 0) * 100) / 100, [cp, projectType])
   const profit = useMemo(() => computeSellerProfit(cp, fc), [cp, fc])
   const typeBlocked = projectType === 'CUSTOM_RECURRING'
-  const basicsValid = title.trim().length >= 3 && description.trim().length >= 5
+  const now = new Date()
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const goalValid = brief.goal.trim().length >= 10
+  const formatValid = brief.format.trim().length >= 5
+  const deadlineValid = !brief.deadline || brief.deadline >= today
+  const briefValid = goalValid && formatValid && deadlineValid
+  const basicsValid = title.trim().length >= 3 && description.trim().length >= 5 && briefValid
   const billingValid = cp > 0
   const paymentMethod: PaymentMethod = paymentChoice === 'LOCAL_PAYMENT' ? 'SPACEREMIT' : 'INVOICE_SEND'
+  const serialisedBrief = useMemo(() => serialiseBrief(brief), [brief])
+  const storedDescription = useMemo(
+    () => `${serialisedBrief}\n\n## Description\n${description}`.trim(),
+    [serialisedBrief, description],
+  )
+
+  function updateBrief(field: keyof BriefInput, value: string) {
+    setBrief((current) => ({ ...current, [field]: value }))
+  }
+
+  function continueToBilling() {
+    setBriefAttempted(true)
+    if (basicsValid) setStep('billing')
+  }
+
+  function navigateToStep(nextStep: Step) {
+    if (nextStep === 'basics') {
+      setStep(nextStep)
+      return
+    }
+    setBriefAttempted(true)
+    if (!basicsValid) {
+      setStep('basics')
+      return
+    }
+    if (nextStep === 'summary' && (!billingValid || typeBlocked)) {
+      setStep('billing')
+      return
+    }
+    setStep(nextStep)
+  }
 
   async function createInvoiceLink(projectId: string) {
     setPayError(null)
@@ -117,6 +158,16 @@ export default function CreateProjectPage() {
     }
   }
 
+  async function copyBrief() {
+    try {
+      await navigator.clipboard.writeText(serialisedBrief)
+      setBriefCopied(true)
+      window.setTimeout(() => setBriefCopied(false), 1800)
+    } catch {
+      setPayError('Could not copy the brief automatically.')
+    }
+  }
+
   async function confirmLocalPayment(paymentId: string) {
     if (!pendingProjectId || paymentBusy) return
     setPaymentBusy(true)
@@ -151,7 +202,7 @@ export default function CreateProjectPage() {
     let res: { error?: string; detail?: string; projectId?: string }
     try {
       res = await createProjectServer({
-        title, description, projectType, clientPrice: cp, fulfillmentCost: fc,
+        title, description: storedDescription, projectType, clientPrice: cp, fulfillmentCost: fc,
         paymentMethod, deliveryNotes, clientContactEmail,
       })
     } catch {
@@ -200,7 +251,7 @@ export default function CreateProjectPage() {
           {(['basics', 'billing', 'summary'] as Step[]).map((s, i) => (
             <button
               key={s}
-              onClick={() => setStep(s)}
+              onClick={() => navigateToStep(s)}
               className={
                 step === s
                   ? 'flex items-center gap-2 rounded-full px-4 py-2 transition bg-[#d8b45a] text-[#10221f] font-bold'
@@ -242,6 +293,9 @@ export default function CreateProjectPage() {
                 <button type="button" onClick={() => void copyPaymentLink()} className="inline-flex items-center gap-2 rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f]">
                   <Copy size={15} /> {linkCopied ? 'Copied' : 'Copy link'}
                 </button>
+                <button type="button" onClick={() => void copyBrief()} className="inline-flex items-center gap-2 rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-[#d9e0dc]">
+                  <Copy size={15} /> {briefCopied ? 'Brief copied' : 'Copy brief'}
+                </button>
                 <a href={invoiceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-[#d9e0dc]">
                   <ExternalLink size={15} /> Open
                 </a>
@@ -260,14 +314,43 @@ export default function CreateProjectPage() {
             <h2 className="font-display text-xl font-bold">1. Project Details</h2>
             <label className="mt-6 block text-sm font-semibold text-[#c1cbc7]">Project Title *</label>
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Video Editing Project" className="mt-2 w-full rounded-2xl border border-white/10 bg-[#071f1d] px-5 py-3.5 text-sm text-[#e7edea] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
+            {briefAttempted && title.trim().length < 3 && <p className="mt-2 text-xs text-red-300">Enter at least 3 characters for the project title.</p>}
             <label className="mt-5 block text-sm font-semibold text-[#c1cbc7]">Description *</label>
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe the scope..." rows={4} className="mt-2 w-full rounded-2xl border border-white/10 bg-[#071f1d] px-5 py-3.5 text-sm text-[#e7edea] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
+            {briefAttempted && description.trim().length < 5 && <p className="mt-2 text-xs text-red-300">Enter at least 5 characters for the description.</p>}
+            <div className="mt-8 border-t border-white/10 pt-8">
+              <h3 className="font-display text-lg font-bold text-[#e7edea]">Project brief</h3>
+              <p className="mt-2 text-sm leading-6 text-[#8f9f9a]">Give the freelancer the details needed to plan the delivery.</p>
+
+              <label className="mt-6 block text-sm font-semibold text-[#c1cbc7]">Goal *</label>
+              <p className="mt-1 text-xs text-[#8f9f9a]">What should the finished work achieve?</p>
+              <textarea maxLength={300} value={brief.goal} onChange={(e) => updateBrief('goal', e.target.value)} rows={3} className="mt-2 w-full rounded-2xl border border-white/10 bg-[#071f1d] px-5 py-3.5 text-sm text-[#e7edea] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
+              {briefAttempted && !goalValid && <p className="mt-2 text-xs text-red-300">Enter at least 10 characters for the project goal.</p>}
+
+              <label className="mt-5 block text-sm font-semibold text-[#c1cbc7]">Duration or deadline (optional)</label>
+              <p className="mt-1 text-xs text-[#8f9f9a]">When do you need it?</p>
+              <input type="date" min={today} value={brief.deadline} onChange={(e) => updateBrief('deadline', e.target.value)} className="mt-2 w-full rounded-2xl border border-white/10 bg-[#071f1d] px-5 py-3.5 text-sm text-[#e7edea] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
+              {briefAttempted && !deadlineValid && <p className="mt-2 text-xs text-red-300">Choose today or a future date.</p>}
+
+              <label className="mt-5 block text-sm font-semibold text-[#c1cbc7]">Format and deliverables *</label>
+              <p className="mt-1 text-xs text-[#8f9f9a]">What files or formats do you need? e.g. 9:16 MP4, 1080p</p>
+              <textarea maxLength={300} value={brief.format} onChange={(e) => updateBrief('format', e.target.value)} rows={3} className="mt-2 w-full rounded-2xl border border-white/10 bg-[#071f1d] px-5 py-3.5 text-sm text-[#e7edea] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
+              {briefAttempted && !formatValid && <p className="mt-2 text-xs text-red-300">Enter at least 5 characters for the required files or formats.</p>}
+
+              <label className="mt-5 block text-sm font-semibold text-[#c1cbc7]">References or examples (optional)</label>
+              <p className="mt-1 text-xs text-[#8f9f9a]">Links or descriptions of what you like</p>
+              <textarea maxLength={500} value={brief.references} onChange={(e) => updateBrief('references', e.target.value)} rows={3} className="mt-2 w-full rounded-2xl border border-white/10 bg-[#071f1d] px-5 py-3.5 text-sm text-[#e7edea] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
+
+              <label className="mt-5 block text-sm font-semibold text-[#c1cbc7]">Notes for the freelancer (optional)</label>
+              <p className="mt-1 text-xs text-[#8f9f9a]">Anything else the freelancer should know</p>
+              <textarea maxLength={500} value={brief.notes} onChange={(e) => updateBrief('notes', e.target.value)} rows={3} className="mt-2 w-full rounded-2xl border border-white/10 bg-[#071f1d] px-5 py-3.5 text-sm text-[#e7edea] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
+            </div>
             <label className="mt-5 block text-sm font-semibold text-[#c1cbc7]">Client Contact Email (optional)</label>
             <input type="email" value={clientContactEmail} onChange={(e) => setClientContactEmail(e.target.value)} placeholder="client@company.com" className="mt-2 w-full rounded-2xl border border-white/10 bg-[#071f1d] px-5 py-3.5 text-sm text-[#e7edea] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
             <label className="mt-5 block text-sm font-semibold text-[#c1cbc7]">Delivery Notes (optional)</label>
             <textarea value={deliveryNotes} onChange={(e) => setDeliveryNotes(e.target.value)} rows={3} className="mt-2 w-full rounded-2xl border border-white/10 bg-[#071f1d] px-5 py-3.5 text-sm text-[#e7edea] focus:border-[rgba(216,180,90,0.5)] focus:outline-none" />
             <div className="mt-8 flex justify-end">
-              <button disabled={!basicsValid} onClick={() => setStep('billing')} className="inline-flex items-center gap-2 rounded-full bg-[#d8b45a] px-7 py-3 font-bold text-[#10221f] disabled:opacity-40">Next: Billing <ArrowRight size={16} /></button>
+              <button onClick={continueToBilling} className="inline-flex items-center gap-2 rounded-full bg-[#d8b45a] px-7 py-3 font-bold text-[#10221f]">Next: Billing <ArrowRight size={16} /></button>
             </div>
           </motion.section>
 
@@ -346,6 +429,10 @@ export default function CreateProjectPage() {
               <div className="flex justify-between border-b border-white/5 pb-3"><span className="text-[#8f9f9a]">Type</span><span className="font-semibold text-[#d9e0dc]">{projectType}</span></div>
               <div className="flex justify-between border-b border-white/5 pb-3"><span className="text-[#8f9f9a]">Client price</span><span className="font-semibold text-[#d9e0dc]">{formatUsd(cp)}</span></div>
               <div className="flex justify-between"><span className="text-[#8f9f9a]">Your profit</span><span className="font-semibold text-[#e4c979]">{formatUsd(profit)}</span></div>
+            </div>
+            <div className="mt-6 rounded-2xl border border-white/10 bg-[#071f1d] p-5">
+              <h3 className="font-display text-base font-bold text-[#e7edea]">Project brief preview</h3>
+              <pre className="mt-4 whitespace-pre-wrap break-words font-sans text-sm leading-6 text-[#c1cbc7]">{storedDescription}</pre>
             </div>
             {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
             {pendingProjectId && paymentMethod === 'SPACEREMIT' && (
