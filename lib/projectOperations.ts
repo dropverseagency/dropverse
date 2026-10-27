@@ -8,6 +8,8 @@ export type ProjectOperationAction =
   | { type: 'approve_delivery' }
   | { type: 'open_dispute'; reason: string }
   | { type: 'reassign'; freelancerId: string; dueAt?: string; payoutAmount?: number }
+  | { type: 'create_client_portal' }
+  | { type: 'create_revision_invoice'; revisionId: string }
 
 export function revisionCharge(requestNumber: number, includedLimit: number, extraPrice: number) {
   const included = requestNumber <= Math.max(0, includedLimit)

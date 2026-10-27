@@ -9,6 +9,7 @@ import {
 import { COMMISSION_STATUSES, REFERRAL_STATUSES } from '@/lib/referralConfig'
 import { decidePayoutStatusUpdate } from '@/lib/payoutStatus'
 import { PROJECT_TYPES, FULFILLMENT_RATES } from '@/lib/projectConfig'
+import { createUserNotification } from '@/lib/userNotifications'
 
 /**
  * Unified admin write API (server-side only):
@@ -36,6 +37,39 @@ export async function POST(request: NextRequest) {
     const action = String(body.action ?? '')
 
     switch (action) {
+      case 'release_project_earning': {
+        const projectId = String(body.projectId ?? '')
+        const reference = String(body.reference ?? '').trim().slice(0, 200)
+        if (!projectId || !reference) return { error: 'PROJECT_AND_REFERENCE_REQUIRED' }
+        const admin = adminClient()
+        const { data: project } = await admin.from('projects').select('id,title,assigned_freelancer_id,freelancer_payout_status,operations_status,payment_status').eq('id', projectId).maybeSingle()
+        if (!project || project.freelancer_payout_status !== 'releasable' || project.operations_status !== 'approved' || project.payment_status !== 'PAYMENT_CONFIRMED' || !project.assigned_freelancer_id) return { error: 'EARNING_NOT_RELEASABLE' }
+        await admin.from('project_earnings').update({ status: 'released', released_at: new Date().toISOString() }).eq('project_id', projectId).eq('status', 'releasable')
+        await admin.from('projects').update({ freelancer_payout_status: 'released' }).eq('id', projectId)
+        await admin.from('project_events').insert({ project_id: projectId, actor_id: ctx.userId, actor_kind: 'admin', event_type: 'freelancer_payout_released', metadata: { reference } })
+        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'project_earning_released', entity: 'projects', entityId: projectId, newValue: { reference } })
+        void createUserNotification({ userId: project.assigned_freelancer_id, type: 'project_payout_released', title: 'Project payout released', body: `Your payout for ${project.title} was marked as sent. Reference: ${reference}`, href: `/dashboard/projects/${projectId}`, entityType: 'project', entityId: projectId })
+        return { ok: true }
+      }
+
+      case 'resolve_project_dispute': {
+        const disputeId = String(body.disputeId ?? '')
+        const resolution = String(body.resolution ?? '').trim().slice(0, 3000)
+        const outcome = String(body.outcome ?? '')
+        const refundReference = String(body.refundReference ?? '').trim().slice(0, 200)
+        const refundAmount = Math.max(0, Number(body.refundAmount ?? 0))
+        if (!disputeId || resolution.length < 3 || !['resolved','refunded','rejected'].includes(outcome)) return { error: 'INVALID_DISPUTE_RESOLUTION' }
+        if (outcome === 'refunded' && !refundReference) return { error: 'REFUND_REFERENCE_REQUIRED' }
+        const admin = adminClient()
+        const { data: dispute } = await admin.from('project_disputes').select('id,project_id,status').eq('id', disputeId).maybeSingle()
+        if (!dispute || !['open','under_review'].includes(dispute.status)) return { error: 'DISPUTE_NOT_OPEN' }
+        await admin.from('project_disputes').update({ status: outcome, resolution, refund_amount: outcome === 'refunded' ? refundAmount : null, refund_reference: outcome === 'refunded' ? refundReference : null, resolved_by: ctx.userId, resolved_at: new Date().toISOString() }).eq('id', disputeId)
+        await admin.from('projects').update(outcome === 'refunded' ? { operations_status: 'refunded', payment_status: 'PAYMENT_REFUNDED', freelancer_payout_status: 'reversed' } : { operations_status: outcome === 'resolved' ? 'approved' : 'delivered' }).eq('id', dispute.project_id)
+        if (outcome === 'refunded') await admin.from('project_earnings').update({ status: 'reversed' }).eq('project_id', dispute.project_id).neq('status','released')
+        await admin.from('project_events').insert({ project_id: dispute.project_id, actor_id: ctx.userId, actor_kind: 'admin', event_type: `dispute_${outcome}`, metadata: { disputeId, refundAmount, refundReference } })
+        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: `project_dispute_${outcome}`, entity: 'project_disputes', entityId: disputeId, newValue: { resolution, refundAmount, refundReference } })
+        return { ok: true }
+      }
       case 'confirm_payment': {
         const projectId = String(body.projectId ?? '')
         if (!projectId) return { error: 'MISSING_PROJECT_ID' }

@@ -16,6 +16,22 @@ export default function ProjectsSection() {
     else window.location.reload()
   }
 
+  async function releaseEarning(projectId: string) {
+    const reference = prompt('Enter the external payout transaction/reference ID:')?.trim()
+    if (!reference) return
+    const res = await adminMutate('release_project_earning', { projectId, reference })
+    if (res.error) alert(String(res.error)); else window.location.reload()
+  }
+
+  async function resolveDispute(disputeId: string, refunded: boolean) {
+    const resolution = prompt('Resolution notes:')?.trim(); if (!resolution) return
+    const refundReference = refunded ? prompt('Confirmed provider refund reference:')?.trim() : ''
+    if (refunded && !refundReference) return
+    const refundAmount = refunded ? Number(prompt('Refund amount in USD:') || 0) : 0
+    const res = await adminMutate('resolve_project_dispute', { disputeId, outcome: refunded ? 'refunded' : 'resolved', resolution, refundReference, refundAmount })
+    if (res.error) alert(String(res.error)); else window.location.reload()
+  }
+
   return (
     <div>
       {loading || error ? <LoadingOrError loading={loading} error={error} /> : null}
@@ -71,6 +87,8 @@ export default function ProjectsSection() {
                         <td className="py-3 pr-3"><Badge status={p.payment_status} /></td>
                         <td className="py-3 pr-3 text-xs text-[#7f918c]">{p.payment_method}</td>
                         <td className="py-3">
+                          {p.freelancer_payout_status === 'releasable' ? <button onClick={() => releaseEarning(p.id)} className="mb-1 block rounded-lg border border-emerald-400/30 px-3 py-1.5 text-xs font-bold text-emerald-300">Mark payout sent</button> : null}
+                          {p.open_dispute ? <div className="mb-1 flex gap-1"><button onClick={() => resolveDispute(p.open_dispute.id, false)} className="rounded-lg border border-white/15 px-2 py-1 text-xs">Resolve</button><button onClick={() => resolveDispute(p.open_dispute.id, true)} className="rounded-lg border border-red-400/30 px-2 py-1 text-xs text-red-200">Refund recorded</button></div> : null}
                           {p.payment_status !== 'PAYMENT_CONFIRMED' ? (
                             <button
                               onClick={() => confirmPayment(p.id)}

@@ -6,6 +6,7 @@ import { useAuth } from '../../../../lib/useAuth'
 
 type Row = Record<string, unknown> & { id: string; created_at?: string }
 type Data = { project: Row; actor: 'seller' | 'freelancer' | 'admin'; assignments: Row[]; messages: Row[]; deliveries: Row[]; revisions: Row[]; disputes: Row[]; events: Row[] }
+type Freelancer = { user_id:string; display_name:string; category:string; availability:{typical_turnaround_days?:number} }
 
 export default function ProjectOperationsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -17,6 +18,9 @@ export default function ProjectOperationsPage({ params }: { params: Promise<{ id
   const [details, setDetails] = useState('')
   const [freelancerId, setFreelancerId] = useState('')
   const [dueAt, setDueAt] = useState('')
+  const [freelancers, setFreelancers] = useState<Freelancer[]>([])
+  const [deliveryFile, setDeliveryFile] = useState<File | null>(null)
+  const [portalUrl, setPortalUrl] = useState('')
 
   const load = useCallback(async () => {
     const response = await fetch(`/api/projects/${id}/operations`, { credentials: 'include' })
@@ -27,6 +31,7 @@ export default function ProjectOperationsPage({ params }: { params: Promise<{ id
 
   useEffect(() => { if (!auth.loading && !auth.user) window.location.assign(`/login?redirect=${encodeURIComponent(`/dashboard/projects/${id}`)}`) }, [auth.loading, auth.user, id])
   useEffect(() => { if (auth.user) void load() }, [auth.user, load])
+  useEffect(() => { if (auth.user) fetch('/api/freelancers/available').then(r=>r.json()).then(j=>setFreelancers(j.freelancers||[])).catch(()=>undefined) }, [auth.user])
 
   async function act(payload: Record<string, unknown>) {
     setBusy(true); setError('')
@@ -35,6 +40,23 @@ export default function ProjectOperationsPage({ params }: { params: Promise<{ id
     setBusy(false)
     if (!response.ok) { setError(json.error || 'Action failed.'); return }
     setMessage(''); setDetails(''); await load()
+  }
+
+  async function uploadDelivery() {
+    if (!deliveryFile) return
+    setBusy(true); const form=new FormData(); form.set('file',deliveryFile)
+    const response=await fetch(`/api/projects/${id}/deliveries`,{method:'POST',body:form,credentials:'include'});const json=await response.json().catch(()=>({}));setBusy(false)
+    if(!response.ok){setError(json.error||'Upload failed.');return}setDeliveryFile(null);await load()
+  }
+
+  async function createPortal() {
+    setBusy(true);const response=await fetch(`/api/projects/${id}/operations`,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({type:'create_client_portal'})});const json=await response.json();setBusy(false)
+    if(!response.ok){setError(json.error||'Could not create portal.');return}setPortalUrl(`${window.location.origin}${json.portalPath}`)
+  }
+
+  async function createRevisionInvoice(revisionId:string) {
+    setBusy(true);const response=await fetch(`/api/projects/${id}/operations`,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({type:'create_revision_invoice',revisionId})});const json=await response.json();setBusy(false)
+    if(!response.ok){setError(json.error||'Could not create invoice.');return}window.open(json.invoicePath,'_blank','noopener,noreferrer')
   }
 
   if (!data) return <main className="mx-auto max-w-6xl p-6 text-sm text-[#a9bbb5]">{error || 'Loading project operations…'}</main>
@@ -65,11 +87,13 @@ export default function ProjectOperationsPage({ params }: { params: Promise<{ id
             {data.deliveries.length ? data.deliveries.map((row) => <div key={row.id} className="mb-2 rounded-xl bg-white/[.04] p-3 text-sm">Version {String(row.version)} · {String(row.file_name)}</div>) : <Empty text="No delivery has been submitted."/>}
             {canManage && project.operations_status === 'delivered' && <div className="mt-4 flex flex-wrap gap-2"><button disabled={busy} onClick={() => act({type:'approve_delivery'})} className="rounded-full bg-[#d8b45a] px-4 py-2 text-sm font-bold text-[#10221f]">Approve delivery</button></div>}
             {canManage && <div className="mt-4"><textarea value={details} onChange={(e) => setDetails(e.target.value)} maxLength={3000} placeholder="Describe the requested changes" className="min-h-24 w-full rounded-xl border border-white/10 bg-[#071b19] p-3 text-sm"/><button disabled={busy || !details.trim()} onClick={() => act({type:'request_revision', details})} className="mt-2 rounded-full border border-white/15 px-4 py-2 text-sm font-bold">Request revision</button></div>}
-            <div className="mt-4 space-y-2">{data.revisions.map((row) => <div key={row.id} className="rounded-xl border border-white/5 p-3 text-sm"><b>Revision {String(row.request_number)}</b> · {row.included ? 'Included' : `$${Number(row.price_usd).toFixed(2)} payment ${String(row.payment_status)}`}<p className="mt-1 text-[#a9bbb5]">{String(row.details)}</p></div>)}</div>
+            {data.actor === 'freelancer' && <div className="mt-4 flex flex-col gap-2 sm:flex-row"><input type="file" onChange={e=>setDeliveryFile(e.target.files?.[0]||null)} className="min-w-0 flex-1 rounded-xl border border-white/10 p-2 text-sm"/><button disabled={busy||!deliveryFile} onClick={uploadDelivery} className="rounded-full bg-[#d8b45a] px-4 py-2 text-sm font-bold text-[#10221f]">Upload delivery</button></div>}
+            <div className="mt-4 space-y-2">{data.revisions.map((row) => <div key={row.id} className="rounded-xl border border-white/5 p-3 text-sm"><b>Revision {String(row.request_number)}</b> · {row.included ? 'Included' : `$${Number(row.price_usd).toFixed(2)} payment ${String(row.payment_status)}`}<p className="mt-1 text-[#a9bbb5]">{String(row.details)}</p>{canManage&&!row.included&&row.payment_status==='pending'&&<button onClick={()=>createRevisionInvoice(row.id)} className="mt-2 rounded-full border border-[#5a4a28] px-3 py-1.5 text-xs font-bold text-[#e4c979]">Create payment link</button>}</div>)}</div>
           </Card>
         </div>
         <div className="space-y-5">
-          <Card title="Assignment" icon={<UserRound size={17}/>}><Info label="Status" value={String(project.assignment_status || 'unassigned')}/><Info label="Due" value={project.delivery_due_at ? date(String(project.delivery_due_at)) : 'Not set'}/>{canManage && <div className="mt-4 space-y-2"><input value={freelancerId} onChange={(e) => setFreelancerId(e.target.value)} placeholder="Freelancer user ID" className="w-full rounded-xl border border-white/10 bg-[#071b19] px-3 py-2.5 text-sm"/><input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} className="w-full rounded-xl border border-white/10 bg-[#071b19] px-3 py-2.5 text-sm"/><button disabled={busy || !freelancerId.trim()} onClick={() => act({type:project.assigned_freelancer_id ? 'reassign':'assign', freelancerId, dueAt: dueAt || undefined})} className="w-full rounded-full border border-[#5a4a28] px-4 py-2 text-sm font-bold text-[#e4c979]">{project.assigned_freelancer_id ? 'Reassign' : 'Send assignment'}</button></div>}</Card>
+          <Card title="Assignment" icon={<UserRound size={17}/>}><Info label="Status" value={String(project.assignment_status || 'unassigned')}/><Info label="Due" value={project.delivery_due_at ? date(String(project.delivery_due_at)) : 'Not set'}/>{canManage && <div className="mt-4 space-y-2"><select value={freelancerId} onChange={e=>setFreelancerId(e.target.value)} className="w-full rounded-xl border border-white/10 bg-[#071b19] px-3 py-2.5 text-sm"><option value="">Choose an available freelancer</option>{freelancers.map(f=><option key={f.user_id} value={f.user_id}>{f.display_name} · {f.category}{f.availability.typical_turnaround_days?` · ${f.availability.typical_turnaround_days}d`:''}</option>)}</select><input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} className="w-full rounded-xl border border-white/10 bg-[#071b19] px-3 py-2.5 text-sm"/><button disabled={busy || !freelancerId.trim()} onClick={() => act({type:project.assigned_freelancer_id ? 'reassign':'assign', freelancerId, dueAt: dueAt || undefined})} className="w-full rounded-full border border-[#5a4a28] px-4 py-2 text-sm font-bold text-[#e4c979]">{project.assigned_freelancer_id ? 'Reassign' : 'Send assignment'}</button></div>}</Card>
+          {canManage&&<Card title="Client portal"><button disabled={busy} onClick={createPortal} className="w-full rounded-full border border-[#5a4a28] px-4 py-2 text-sm font-bold text-[#e4c979]">Create or rotate secure link</button>{portalUrl&&<div className="mt-3"><input readOnly value={portalUrl} className="w-full rounded-xl border border-white/10 bg-[#071b19] px-3 py-2 text-xs"/><button onClick={()=>navigator.clipboard.writeText(portalUrl)} className="mt-2 text-xs font-bold text-[#e4c979]">Copy link</button></div>}</Card>}
           <Card title="Payout" icon={<CheckCircle2 size={17}/>}><Info label="Amount" value={`$${Number(project.freelancer_payout_amount || 0).toFixed(2)}`}/><Info label="State" value={String(project.freelancer_payout_status || 'not earned')}/><p className="mt-3 text-xs leading-5 text-[#81948e]">Approval makes earnings releasable. Transfer still requires the protected payout process.</p></Card>
           <Card title="Dispute" icon={<ShieldAlert size={17}/>}><textarea value={details} onChange={(e) => setDetails(e.target.value)} maxLength={3000} placeholder="Explain the issue (at least 10 characters)" className="min-h-24 w-full rounded-xl border border-white/10 bg-[#071b19] p-3 text-sm"/><button disabled={busy || details.trim().length < 10} onClick={() => act({type:'open_dispute', reason:details})} className="mt-2 rounded-full border border-red-400/30 px-4 py-2 text-sm font-bold text-red-200">Open dispute</button></Card>
           <Card title="Audit trail" icon={<Clock size={17}/>}><div className="space-y-3">{data.events.length ? data.events.map((row) => <div key={row.id} className="border-s border-white/10 ps-3"><p className="text-sm capitalize">{String(row.event_type).replaceAll('_',' ')}</p><p className="text-xs text-[#718781]">{date(row.created_at)}</p></div>) : <Empty text="No recorded events yet."/>}</div></Card>
