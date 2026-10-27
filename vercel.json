@@ -1,10 +1,4 @@
 {
   "framework": "nextjs",
-  "outputDirectory": ".next",
-  "crons": [
-    {
-      "path": "/api/cron/project-overdue",
-      "schedule": "0 * * * *"
-    }
-  ]
+  "outputDirectory": ".next"
 }
