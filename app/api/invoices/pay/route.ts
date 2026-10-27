@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
 
   const { data: invoice, error: getError } = await getServiceSupabase()
     .from('invoices')
-    .select('id, project_id, status, amount, currency, spaceremit_payment_id')
+    .select('id, project_id, status, amount, currency, spaceremit_payment_id, kind, revision_request_id')
     .eq('id', invoiceId)
     .single()
 
@@ -195,6 +195,12 @@ export async function POST(request: NextRequest) {
   }
 
   const projectId = (invoice as any).project_id
+  if ((invoice as any).kind === 'revision' && (invoice as any).revision_request_id) {
+    await getServiceSupabase().from('project_revision_requests').update({ payment_status: 'paid', status: 'in_progress' }).eq('id', (invoice as any).revision_request_id)
+    await getServiceSupabase().from('projects').update({ operations_status: 'revision_requested' }).eq('id', projectId)
+    await getServiceSupabase().from('project_events').insert({ project_id: projectId, actor_kind: 'client', event_type: 'revision_payment_confirmed', metadata: { invoiceId, revisionId: (invoice as any).revision_request_id, provider: paymentMethod, amount: verifiedAmount } })
+    return NextResponse.json({ success: true, kind: 'revision' })
+  }
   const { data: project } = await getServiceSupabase()
     .from('projects')
     .select('user_id, status, payment_status, spaceremit_payment_id')

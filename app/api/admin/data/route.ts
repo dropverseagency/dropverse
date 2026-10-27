@@ -174,14 +174,17 @@ export async function GET(request: NextRequest) {
       }
 
       case 'projects': {
-        let query = select('projects', 'id, title, project_type, billing_interval, currency, client_price, fulfillment_cost, seller_profit, payment_method, payment_status, status, created_at, user_id, organization_id')
+        let query = select('projects', 'id, title, project_type, billing_interval, currency, client_price, fulfillment_cost, seller_profit, payment_method, payment_status, status, operations_status, assignment_status, assigned_freelancer_id, freelancer_payout_status, freelancer_payout_amount, delivery_due_at, created_at, user_id, organization_id')
           .order('created_at', { ascending: false })
         if (q) query = query.or(`title.ilike.%${q}%,project_type.ilike.%${q}%,payment_status.ilike.%${q}%`)
         const ps = searchParams.get('payment_status')
         if (ps) query = query.eq('payment_status', ps)
         const { data, count, error } = await query.range(offset, offset + limit - 1)
         if (error) throw error
-        return { section: 'projects', rows: data ?? [], count: count ?? 0, offset, limit }
+        const ids = (data ?? []).map((row: any) => row.id)
+        const { data: disputes } = ids.length ? await admin.from('project_disputes').select('*').in('project_id', ids).in('status', ['open','under_review']) : { data: [] }
+        const disputeByProject = new Map((disputes ?? []).map((row: any) => [row.project_id, row]))
+        return { section: 'projects', rows: (data ?? []).map((row: any) => ({ ...row, open_dispute: disputeByProject.get(row.id) ?? null })), count: count ?? 0, offset, limit }
       }
 
       case 'payments': {

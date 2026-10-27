@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { createHash, randomBytes } from 'crypto'
 import { createServiceClient } from '../../../../../lib/supabaseService'
 import { revisionCharge, type ProjectOperationAction } from '../../../../../lib/projectOperations'
+import { createUserNotification } from '../../../../../lib/userNotifications'
 
 async function userForRequest() {
   const jar = await cookies()
@@ -72,6 +74,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await client.from('projects').update({ assigned_freelancer_id: freelancerId, assignment_status: body.type === 'reassign' ? 'reassigned' : 'offered', operations_status: 'assigned', delivery_due_at: body.dueAt || null, freelancer_payout_amount: Math.max(0, Number(body.payoutAmount || ctx.project.fulfillment_cost || 0)), freelancer_payout_status: 'held' }).eq('id', id)
     await client.from('project_earnings').upsert({ project_id: id, freelancer_id: freelancerId, amount: Math.max(0, Number(body.payoutAmount || ctx.project.fulfillment_cost || 0)), status: 'held' })
     await event(id, user.id, ctx.actor, body.type === 'reassign' ? 'freelancer_reassigned' : 'freelancer_assigned', { freelancerId, dueAt: body.dueAt || null })
+    void createUserNotification({ userId: freelancerId, type: 'project_assignment', title: 'New project assignment', body: `Review the assignment for ${ctx.project.title}.`, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
   } else if (body.type === 'respond_assignment') {
     if (ctx.actor !== 'freelancer') return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
     const status = body.decision
@@ -88,9 +91,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await client.from('project_revision_requests').insert({ project_id: id, requested_by: user.id, request_number: requestNumber, details, included: charge.included, price_usd: charge.priceUsd, payment_status: charge.paymentStatus })
     await client.from('projects').update({ operations_status: 'revision_requested' }).eq('id', id)
     await event(id, user.id, ctx.actor, 'revision_requested', { requestNumber, ...charge })
+    if (ctx.project.assigned_freelancer_id) void createUserNotification({ userId: ctx.project.assigned_freelancer_id, type: 'revision_requested', title: 'Project revision requested', body: details, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
   } else if (body.type === 'approve_delivery') {
     if (!['seller', 'admin'].includes(ctx.actor)) return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
     if (ctx.project.operations_status !== 'delivered') return NextResponse.json({ error: 'NOT_DELIVERED' }, { status: 409 })
+    if (ctx.project.payment_status !== 'PAYMENT_CONFIRMED') return NextResponse.json({ error: 'PAYMENT_NOT_CONFIRMED' }, { status: 409 })
     await client.from('projects').update({ operations_status: 'approved', freelancer_payout_status: 'releasable' }).eq('id', id)
     await client.from('project_earnings').update({ status: 'releasable' }).eq('project_id', id).eq('status', 'held')
     await event(id, user.id, ctx.actor, 'delivery_approved')
@@ -100,6 +105,23 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await client.from('project_disputes').insert({ project_id: id, opened_by: user.id, reason })
     await client.from('projects').update({ operations_status: 'disputed' }).eq('id', id)
     await event(id, user.id, ctx.actor, 'dispute_opened')
+  } else if (body.type === 'create_client_portal') {
+    if (!['seller', 'admin'].includes(ctx.actor)) return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
+    const token = randomBytes(32).toString('base64url')
+    const tokenHash = createHash('sha256').update(token).digest('hex')
+    await client.from('project_client_tokens').upsert({ project_id: id, token_hash: tokenHash, created_by: user.id, revoked_at: null })
+    await event(id, user.id, ctx.actor, 'client_portal_created')
+    return NextResponse.json({ ok: true, portalPath: `/client/project/${token}` })
+  } else if (body.type === 'create_revision_invoice') {
+    if (!['seller', 'admin'].includes(ctx.actor)) return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
+    const { data: revision } = await client.from('project_revision_requests').select('*').eq('id', clean(body.revisionId, 100)).eq('project_id', id).maybeSingle()
+    if (!revision || revision.included || Number(revision.price_usd) <= 0) return NextResponse.json({ error: 'REVISION_NOT_BILLABLE' }, { status: 409 })
+    const { data: existing } = await client.from('invoices').select('id').eq('revision_request_id', revision.id).maybeSingle()
+    if (existing) return NextResponse.json({ ok: true, invoicePath: `/invoice/${existing.id}` })
+    const { data: invoice, error } = await client.from('invoices').insert({ project_id: id, user_id: ctx.project.user_id, invoice_number: `REV-${String(revision.request_number).padStart(3,'0')}-${id.slice(0,6).toUpperCase()}`, client_name: ctx.project.client_contact_email || null, client_email: ctx.project.client_contact_email || null, currency: 'USD', amount: revision.price_usd, status: 'PENDING', kind: 'revision', revision_request_id: revision.id }).select('id').single()
+    if (error || !invoice) return NextResponse.json({ error: 'INVOICE_CREATE_FAILED' }, { status: 500 })
+    await event(id, user.id, ctx.actor, 'revision_invoice_created', { revisionId: revision.id, invoiceId: invoice.id })
+    return NextResponse.json({ ok: true, invoicePath: `/invoice/${invoice.id}` })
   } else {
     return NextResponse.json({ error: 'INVALID_ACTION' }, { status: 400 })
   }
