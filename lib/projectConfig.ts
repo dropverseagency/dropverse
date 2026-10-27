@@ -213,6 +213,7 @@ export interface ProjectDraft {
   deliveryNotes: string
   clientContactEmail: string
   spaceremitPaymentId?: string
+  sampleId?: string
 }
 
 export function paymentRequiredNow(d: ProjectDraft): number {

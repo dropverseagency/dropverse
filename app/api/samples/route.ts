@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createHash, randomUUID } from 'crypto'
-import { adminClient, audit } from '@/lib/adminCore'
+import { adminClient, audit, sessionClient } from '@/lib/adminCore'
 import { samplesSessionWritesEnabled } from '@/lib/samplesWriteMode'
 import { runSampleReviewAgent } from '@/lib/agents/sampleReviewAgent'
 import { notifyAdminEvent } from '@/lib/agents/adminNotify'
@@ -16,6 +16,7 @@ import {
   safeSampleFilename,
   sampleFileKind,
   slugifySample,
+  parseSampleRevisionTerms,
 } from '@/lib/samples'
 import { limitPublicForm, rateLimitResponse } from '@/lib/rateLimit'
 
@@ -36,6 +37,8 @@ function publicSample(item: Record<string, any>, publicOnly = false) {
       description: item.description,
       price_usd: item.price_usd,
       turnaround_days: item.turnaround_days,
+      revision_limit: item.revision_limit,
+      revision_price_usd: item.revision_price_usd,
       created_at: item.created_at,
       freelancer_display_name: item.freelancer_display_name,
       freelancer_category: item.freelancer_category,
@@ -61,6 +64,8 @@ async function getProfile(userId: string) {
 /** GET /api/samples — public approved catalogue, or own submissions with ?mine=1. */
 export async function GET(request: NextRequest) {
   const mine = request.nextUrl.searchParams.get('mine') === '1'
+  const id = request.nextUrl.searchParams.get('id')?.trim()
+  const slug = request.nextUrl.searchParams.get('slug')?.trim()
   const admin = adminClient()
   try {
     if (mine) {
@@ -68,11 +73,34 @@ export async function GET(request: NextRequest) {
       await getProfile(userId)
       const { data, error } = await admin
         .from('samples')
-        .select('id, title, slug, category, description, status, price_usd, turnaround_days, rejection_reason, cover_path, created_at, updated_at, sample_costs(cost_usd), sample_files(id, kind, mime, size_bytes)')
+        .select('id, title, slug, category, description, status, price_usd, turnaround_days, revision_limit, revision_price_usd, rejection_reason, cover_path, created_at, updated_at, sample_costs(cost_usd), sample_files(id, kind, mime, size_bytes)')
         .eq('owner_id', userId)
         .order('created_at', { ascending: false })
       if (error) throw error
       return NextResponse.json({ items: (data ?? []).map((item) => publicSample(item)) })
+    }
+
+    if (id || slug) {
+      let query = admin
+        .from('samples')
+        .select('id, owner_id, title, slug, category, description, status, price_usd, turnaround_days, revision_limit, revision_price_usd, cover_path, created_at')
+        .eq('status', 'approved')
+      query = id ? query.eq('id', id) : query.eq('slug', slug!)
+      const { data: sample, error: sampleError } = await query.maybeSingle()
+      if (sampleError) throw sampleError
+      if (!sample) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
+      const { data: freelancer } = await admin
+        .from('freelancer_profiles')
+        .select('display_name, category')
+        .eq('user_id', sample.owner_id)
+        .maybeSingle()
+      return NextResponse.json({
+        sample: publicSample({
+          ...sample,
+          freelancer_display_name: freelancer?.display_name ?? null,
+          freelancer_category: freelancer?.category ?? null,
+        }, true),
+      })
     }
 
     const { data, error } = await admin
@@ -80,7 +108,14 @@ export async function GET(request: NextRequest) {
       .select('id, title, slug, category, description, price_usd, turnaround_days, cover_path, created_at, freelancer_display_name, freelancer_category')
       .order('created_at', { ascending: false })
     if (error) throw error
-    return NextResponse.json({ items: (data ?? []).map((item) => publicSample(item, true)) })
+    const publicItems = data ?? []
+    const ids = publicItems.map((item) => item.id)
+    const { data: terms, error: termsError } = ids.length
+      ? await admin.from('samples').select('id, revision_limit, revision_price_usd').in('id', ids)
+      : { data: [], error: null }
+    if (termsError) throw termsError
+    const termsById = new Map((terms ?? []).map((item) => [item.id, item]))
+    return NextResponse.json({ items: publicItems.map((item) => publicSample({ ...item, ...termsById.get(item.id) }, true)) })
   } catch (e) {
     const code = (e as Error).message
     if (code === 'NOT_AUTHENTICATED') return NextResponse.json({ error: code }, { status: 401 })
@@ -111,6 +146,7 @@ export async function POST(request: NextRequest) {
     const priceUsdRaw = String(form.get('price_usd') || '').trim()
     const priceUsd = priceUsdRaw ? Number(priceUsdRaw) : null
     const costUsd = Number(form.get('cost_usd') || 0)
+    const revisionTerms = parseSampleRevisionTerms(form.get('revision_limit'), form.get('revision_price_usd'))
     const rightsConfirmed = form.get('rights_confirmed') === 'true'
     const files = form.getAll('files').filter((f): f is File => f instanceof File && f.size > 0)
     const cover = form.get('cover')
@@ -121,6 +157,7 @@ export async function POST(request: NextRequest) {
     if (!Number.isInteger(turnaroundDays) || turnaroundDays < 1 || turnaroundDays > 30) return NextResponse.json({ error: 'INVALID_TURNAROUND' }, { status: 400 })
     if (priceUsd !== null && (!Number.isFinite(priceUsd) || priceUsd < 0 || priceUsd > 1000000)) return NextResponse.json({ error: 'INVALID_PRICE' }, { status: 400 })
     if (!Number.isFinite(costUsd) || costUsd < 1 || costUsd > 5000) return NextResponse.json({ error: 'INVALID_COST' }, { status: 400 })
+    if (!revisionTerms.value) return NextResponse.json({ error: 'INVALID_REVISION_TERMS', message: revisionTerms.error }, { status: 400 })
     if (!rightsConfirmed) return NextResponse.json({ error: 'RIGHTS_CONFIRMATION_REQUIRED' }, { status: 400 })
     if (files.length < 1 || files.length > SAMPLE_MAX_FILES) return NextResponse.json({ error: 'FILES_REQUIRED_OR_LIMIT_EXCEEDED' }, { status: 400 })
     const totalBytes = files.reduce((sum, file) => sum + file.size, 0) + (cover instanceof File && cover.size > 0 ? cover.size : 0)
@@ -165,6 +202,8 @@ export async function POST(request: NextRequest) {
       status: 'draft',
       price_usd: priceUsd,
       turnaround_days: turnaroundDays,
+      revision_limit: revisionTerms.value.revisionLimit,
+      revision_price_usd: revisionTerms.value.revisionPriceUsd,
       rights_terms_version: SAMPLE_RIGHTS_TERMS_VERSION,
     })
     if (sampleError) throw new Error('SAMPLE_CREATE_FAILED')
@@ -252,5 +291,51 @@ export async function POST(request: NextRequest) {
     }
     console.error('[samples POST]', code)
     return NextResponse.json({ error: code || 'SUBMISSION_FAILED' }, { status: 500 })
+  }
+}
+
+/** PATCH /api/samples — owner updates revision terms while the existing edit window allows it. */
+export async function PATCH(request: NextRequest) {
+  try {
+    const { userId } = await requireUser()
+    const form = await request.formData()
+    const id = String(form.get('id') || '').trim()
+    if (!id) return NextResponse.json({ error: 'SAMPLE_REQUIRED' }, { status: 400 })
+    const revisionTerms = parseSampleRevisionTerms(form.get('revision_limit'), form.get('revision_price_usd'))
+    if (!revisionTerms.value) return NextResponse.json({ error: 'INVALID_REVISION_TERMS', message: revisionTerms.error }, { status: 400 })
+
+    const client = await sessionClient()
+    const { data, error } = await client
+      .from('samples')
+      .update({
+        revision_limit: revisionTerms.value.revisionLimit,
+        revision_price_usd: revisionTerms.value.revisionPriceUsd,
+        status: 'draft',
+      })
+      .eq('id', id)
+      .eq('owner_id', userId)
+      .select('id')
+      .maybeSingle()
+    if (error || !data) {
+      const locked = /FORBIDDEN|policy|permission/i.test(error?.message || '') || !data
+      return NextResponse.json(
+        { error: locked ? 'SAMPLE_EDIT_WINDOW_CLOSED' : 'SAMPLE_UPDATE_FAILED' },
+        { status: locked ? 409 : 500 },
+      )
+    }
+    return NextResponse.json({
+      ok: true,
+      sample: {
+        id: data.id,
+        status: 'draft',
+        revision_limit: revisionTerms.value.revisionLimit,
+        revision_price_usd: revisionTerms.value.revisionPriceUsd,
+      },
+    })
+  } catch (e) {
+    const code = (e as Error).message
+    if (code === 'NOT_AUTHENTICATED') return NextResponse.json({ error: code }, { status: 401 })
+    console.error('[samples PATCH]', code)
+    return NextResponse.json({ error: 'SAMPLE_UPDATE_FAILED' }, { status: 500 })
   }
 }

@@ -18,6 +18,7 @@ import SpaceRemitPayForm from '../../../components/SpaceRemitPayForm'
 
 type Step = 'basics' | 'billing' | 'summary'
 type PaymentChoice = 'LOCAL_PAYMENT' | 'PAYPAL_PAYMENT' | 'PAYPAL_INVOICE' | 'LOCAL_INVOICE'
+type SampleTerms = { revisionLimit: number; revisionPriceUsd: number }
 
 const paymentChoices: { id: PaymentChoice; label: string; description: string }[] = [
   {
@@ -65,10 +66,28 @@ export default function CreateProjectPage() {
   const [linkCopied, setLinkCopied] = useState(false)
   const [briefCopied, setBriefCopied] = useState(false)
   const [paymentBusy, setPaymentBusy] = useState(false)
+  const [sampleId, setSampleId] = useState('')
+  const [sampleTerms, setSampleTerms] = useState<SampleTerms | null>(null)
+  const [sampleError, setSampleError] = useState('')
 
   useEffect(() => {
     if (!auth.loading && !auth.user) window.location.assign('/login')
   }, [auth.loading, auth.user])
+
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('sampleId')?.trim() || ''
+    if (!id) return
+    setSampleId(id)
+    let cancelled = false
+    fetch(`/api/samples?id=${encodeURIComponent(id)}`)
+      .then(async (response) => {
+        const json = await response.json().catch(() => ({}))
+        if (!response.ok || !json.sample) throw new Error('SAMPLE_NOT_AVAILABLE')
+        if (!cancelled) setSampleTerms({ revisionLimit: Number(json.sample.revision_limit), revisionPriceUsd: Number(json.sample.revision_price_usd) })
+      })
+      .catch(() => { if (!cancelled) setSampleError('This sample is no longer available.') })
+    return () => { cancelled = true }
+  }, [])
 
   const labels = useMemo(() => moneyLabels(projectType), [projectType])
   const cp = Number(clientPrice) || 0
@@ -203,14 +222,14 @@ export default function CreateProjectPage() {
     try {
       res = await createProjectServer({
         title, description: storedDescription, projectType, clientPrice: cp, fulfillmentCost: fc,
-        paymentMethod, deliveryNotes, clientContactEmail,
+        paymentMethod, deliveryNotes, clientContactEmail, sampleId: sampleId || undefined,
       })
     } catch {
       res = { error: 'DB_ERROR', detail: 'unexpected_error' }
     }
     setSubmitting(false)
     if (res.error) {
-      setError(res.error === 'NOT_AUTHENTICATED' ? 'Please sign in again.' : 'Something went wrong. Please try again.')
+      setError(res.error === 'NOT_AUTHENTICATED' ? 'Please sign in again.' : res.error === 'SAMPLE_NOT_AVAILABLE' ? 'This sample is no longer available.' : 'Something went wrong. Please try again.')
       return
     }
     const id = res.projectId ? String(res.projectId) : null
@@ -430,6 +449,8 @@ export default function CreateProjectPage() {
               <div className="flex justify-between border-b border-white/5 pb-3"><span className="text-[#8f9f9a]">Client price</span><span className="font-semibold text-[#d9e0dc]">{formatUsd(cp)}</span></div>
               <div className="flex justify-between"><span className="text-[#8f9f9a]">Your profit</span><span className="font-semibold text-[#e4c979]">{formatUsd(profit)}</span></div>
             </div>
+            {sampleTerms ? <p className="mt-6 rounded-2xl border border-white/10 bg-[#071f1d] p-4 text-sm text-[#c1cbc7]">Included revisions: {sampleTerms.revisionLimit}. Extra revisions: ${sampleTerms.revisionPriceUsd.toFixed(2)} each.</p> : null}
+            {sampleId && sampleError ? <p className="mt-4 text-sm text-red-300">{sampleError}</p> : null}
             <div className="mt-6 rounded-2xl border border-white/10 bg-[#071f1d] p-5">
               <h3 className="font-display text-base font-bold text-[#e7edea]">Project brief preview</h3>
               <pre className="mt-4 whitespace-pre-wrap break-words font-sans text-sm leading-6 text-[#c1cbc7]">{storedDescription}</pre>

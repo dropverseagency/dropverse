@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { FormEvent, useEffect, useState } from 'react'
+import { parseSampleRevisionTerms } from '../../../lib/samples'
 
 type Sample = {
   id: string
@@ -10,6 +11,8 @@ type Sample = {
   status: string
   rejection_reason: string | null
   created_at: string
+  revision_limit: number
+  revision_price_usd: number
   sample_files?: { id: string; kind: string; size_bytes: number }[]
 }
 
@@ -35,6 +38,12 @@ export default function FreelancerSamplesPage() {
   const [price, setPrice] = useState('')
   const [cost, setCost] = useState('')
   const [turnaround, setTurnaround] = useState('3')
+  const [revisionLimit, setRevisionLimit] = useState('2')
+  const [revisionPrice, setRevisionPrice] = useState('25')
+  const [revisionError, setRevisionError] = useState('')
+  const [editingTermsId, setEditingTermsId] = useState<string | null>(null)
+  const [editRevisionLimit, setEditRevisionLimit] = useState('2')
+  const [editRevisionPrice, setEditRevisionPrice] = useState('25')
   const [rights, setRights] = useState(false)
   const [files, setFiles] = useState<FileList | null>(null)
   const [cover, setCover] = useState<File | null>(null)
@@ -68,6 +77,12 @@ export default function FreelancerSamplesPage() {
       setError('Keep the combined upload under 100 MB.')
       return
     }
+    const revisionTerms = parseSampleRevisionTerms(revisionLimit, revisionPrice)
+    if (revisionTerms.error) {
+      setRevisionError(revisionTerms.error)
+      return
+    }
+    setRevisionError('')
     const form = new FormData()
     form.set('title', title)
     form.set('category', category)
@@ -75,6 +90,8 @@ export default function FreelancerSamplesPage() {
     form.set('price_usd', price)
     form.set('cost_usd', cost)
     form.set('turnaround_days', turnaround)
+    form.set('revision_limit', revisionLimit)
+    form.set('revision_price_usd', revisionPrice)
     form.set('rights_confirmed', String(rights))
     Array.from(files).forEach((file) => form.append('files', file))
     if (cover) form.set('cover', cover)
@@ -84,7 +101,7 @@ export default function FreelancerSamplesPage() {
     const json = await response.json().catch(() => ({}))
     setBusy(false)
     if (!response.ok) {
-      setError(json.error === 'FREELANCER_ONLY' ? 'Your account is not registered as a freelancer. Switch your account type in profile settings first.' : json.error || 'Submission failed. Please try again.')
+      setError(json.error === 'FREELANCER_ONLY' ? 'Your account is not registered as a freelancer. Switch your account type in profile settings first.' : json.message || json.error || 'Submission failed. Please try again.')
       return
     }
     setSuccess('Submitted successfully. Your sample is hidden until an admin reviews it.')
@@ -93,6 +110,8 @@ export default function FreelancerSamplesPage() {
     setPrice('')
     setCost('')
     setTurnaround('3')
+    setRevisionLimit('2')
+    setRevisionPrice('25')
     setRights(false)
     setFiles(null)
     setCover(null)
@@ -100,6 +119,30 @@ export default function FreelancerSamplesPage() {
     if (fileInput) fileInput.value = ''
     const coverInput = document.getElementById('sample-cover') as HTMLInputElement | null
     if (coverInput) coverInput.value = ''
+    await load()
+  }
+
+  async function saveRevisionTerms(id: string) {
+    const terms = parseSampleRevisionTerms(editRevisionLimit, editRevisionPrice)
+    if (terms.error) {
+      setError(terms.error)
+      return
+    }
+    setBusy(true)
+    setError('')
+    const form = new FormData()
+    form.set('id', id)
+    form.set('revision_limit', editRevisionLimit)
+    form.set('revision_price_usd', editRevisionPrice)
+    const response = await fetch('/api/samples', { method: 'PATCH', body: form })
+    const json = await response.json().catch(() => ({}))
+    setBusy(false)
+    if (!response.ok) {
+      setError(json.message || (json.error === 'SAMPLE_EDIT_WINDOW_CLOSED' ? 'This sample can no longer be edited.' : 'Could not update revision terms.'))
+      return
+    }
+    setEditingTermsId(null)
+    setSuccess('Revision terms updated. The sample is now a draft.')
     await load()
   }
 
@@ -143,6 +186,16 @@ export default function FreelancerSamplesPage() {
                 <input required type="number" min="1" max="30" value={turnaround} onChange={(e) => setTurnaround(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-[#071b19] px-3 py-3 text-white" />
               </label>
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-sm text-[#c7d3ce]">Free revisions included (0 to 5)
+                <input required type="number" min="0" max="5" step="1" value={revisionLimit} onChange={(e) => { const value = e.target.value; setRevisionLimit(value); setRevisionError(parseSampleRevisionTerms(value, revisionPrice).error || '') }} className="mt-2 w-full rounded-xl border border-white/10 bg-[#071b19] px-3 py-3 text-white" />
+              </label>
+              <label className="block text-sm text-[#c7d3ce]">Price per extra revision (USD, 5 to 200)
+                <input required type="number" min="5" max="200" step="0.01" value={revisionPrice} onChange={(e) => { const value = e.target.value; setRevisionPrice(value); setRevisionError(parseSampleRevisionTerms(revisionLimit, value).error || '') }} className="mt-2 w-full rounded-xl border border-white/10 bg-[#071b19] px-3 py-3 text-white" />
+              </label>
+            </div>
+            <p className="text-xs leading-5 text-[#a9bbb5]">Set these once. The Drop Servicer sees them when they choose this sample. They cannot be changed after approval.</p>
+            {revisionError ? <p className="text-xs text-red-200">{revisionError}</p> : null}
             <label className="block text-sm text-[#c7d3ce]">Work files (1–10, up to 100 MB combined)
               <input id="sample-files" required multiple type="file" accept="image/jpeg,image/png,image/webp,application/pdf,video/mp4,video/quicktime" onChange={(e) => setFiles(e.target.files)} className="mt-2 block w-full rounded-xl border border-white/10 bg-[#071b19] p-3 text-xs text-[#a9bbb5] file:mr-3 file:rounded-full file:border-0 file:bg-[#d8b45a] file:px-3 file:py-2 file:font-bold file:text-[#10221f]" />
             </label>
@@ -179,6 +232,24 @@ export default function FreelancerSamplesPage() {
                       <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${item.status === 'approved' ? 'bg-emerald-400/10 text-emerald-200' : item.status === 'rejected' ? 'bg-red-400/10 text-red-200' : 'bg-[#d8b45a]/10 text-[#e8cc7d]'}`}>{statusLabels[item.status] || item.status}</span>
                     </div>
                     {item.rejection_reason ? <p className="mt-3 text-xs leading-5 text-red-200">Review note: {item.rejection_reason}</p> : null}
+                    <p className="mt-3 text-xs text-[#a9bbb5]">Included revisions: {item.revision_limit}. Extra revisions: ${Number(item.revision_price_usd).toFixed(2)} each.</p>
+                    {(item.status === 'draft' || item.status === 'rejected') && editingTermsId !== item.id ? (
+                      <button type="button" onClick={() => { setEditingTermsId(item.id); setEditRevisionLimit(String(item.revision_limit)); setEditRevisionPrice(String(item.revision_price_usd)) }} className="mt-3 rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold">Edit revision terms</button>
+                    ) : null}
+                    {editingTermsId === item.id ? (
+                      <div className="mt-3 grid gap-3 rounded-xl border border-white/10 p-3 sm:grid-cols-2">
+                        <label className="text-xs text-[#a9bbb5]">Free revisions
+                          <input type="number" min="0" max="5" step="1" value={editRevisionLimit} onChange={(e) => setEditRevisionLimit(e.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-[#0b2824] px-3 py-2 text-white" />
+                        </label>
+                        <label className="text-xs text-[#a9bbb5]">Extra revision price
+                          <input type="number" min="5" max="200" step="0.01" value={editRevisionPrice} onChange={(e) => setEditRevisionPrice(e.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-[#0b2824] px-3 py-2 text-white" />
+                        </label>
+                        <div className="flex gap-2 sm:col-span-2">
+                          <button disabled={busy} type="button" onClick={() => void saveRevisionTerms(item.id)} className="rounded-full bg-[#d8b45a] px-3 py-1.5 text-xs font-bold text-[#10221f]">Save terms</button>
+                          <button type="button" onClick={() => setEditingTermsId(null)} className="rounded-full border border-white/15 px-3 py-1.5 text-xs">Cancel</button>
+                        </div>
+                      </div>
+                    ) : null}
                   </li>
                 ))}
               </ul>
