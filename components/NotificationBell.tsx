@@ -40,8 +40,20 @@ export default function NotificationBell() {
 
   useEffect(() => {
     void load()
-    const t = setInterval(() => void load(), 60000)
-    return () => clearInterval(t)
+    const interval = setInterval(() => void load(), 45000)
+    function onFocus() {
+      void load()
+    }
+    function onVisible() {
+      if (document.visibilityState === 'visible') void load()
+    }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [load])
 
   useEffect(() => {

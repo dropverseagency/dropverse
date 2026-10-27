@@ -5,6 +5,7 @@ import { Menu, X, LogOut, ShieldCheck } from 'lucide-react'
 import { createClient } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
 import Brand from './Brand'
+import NotificationBell from './NotificationBell'
 
 export default function SiteHeader({
   highlightEarn = true,
@@ -95,6 +96,7 @@ export default function SiteHeader({
         <div className="hidden items-center gap-3 lg:flex">
           {signedIn && auth.user ? (
             <>
+              <NotificationBell />
               {isAdmin && (
                 <Link
                   href="/admin"
@@ -129,6 +131,7 @@ export default function SiteHeader({
           )}
         </div>
         <div className="flex items-center gap-2.5 lg:hidden">
+          {signedIn ? <NotificationBell /> : null}
           {isAdmin ? (
             <Link
               href="/admin"
