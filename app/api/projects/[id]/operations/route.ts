@@ -140,22 +140,35 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (ctx.project.assigned_freelancer_id) await createUserNotification({ userId: ctx.project.assigned_freelancer_id, type: 'revision_requested', title: 'Project revision requested', body: details, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
   } else if (body.type === 'approve_delivery') {
     if (!['seller', 'admin'].includes(ctx.actor)) return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
-    if (ctx.project.operations_status !== 'delivered') return NextResponse.json({ error: 'NOT_DELIVERED' }, { status: 409 })
-    if (ctx.project.payment_status !== 'PAYMENT_CONFIRMED') return NextResponse.json({ error: 'PAYMENT_NOT_CONFIRMED' }, { status: 409 })
-    await client.from('projects').update({ operations_status: 'approved', freelancer_payout_status: 'releasable' }).eq('id', id)
-    await client.from('project_earnings').update({ status: 'releasable' }).eq('project_id', id).eq('status', 'held')
-    await event(id, user.id, ctx.actor, 'delivery_approved')
-    await recordFunnelEvent('approved',{userId:ctx.project.user_id,projectId:id,amountUsd:Number(ctx.project.client_price||0)})
-    if (ctx.project.assigned_freelancer_id) {
-      await createUserNotification({ userId: ctx.project.assigned_freelancer_id, type: 'delivery_approved', title: 'Your delivery was approved', body: `The delivery for ${ctx.project.title} was approved. Your payout is now eligible for release.`, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
-      await client.rpc('refresh_freelancer_metrics',{p_user_id:ctx.project.assigned_freelancer_id})
+    const { data: result, error } = await client.rpc('approve_project_delivery_atomic', {
+      p_project_id: id,
+      p_actor_id: user.id,
+      p_actor_kind: ctx.actor,
+    })
+    if (error || !result || typeof result !== 'object') {
+      console.error('[project-operations approve_delivery]', error)
+      return NextResponse.json({ error: 'DELIVERY_APPROVAL_FAILED' }, { status: 500 })
+    }
+    if (result.ok !== true) return NextResponse.json({ error: String(result.error ?? 'DELIVERY_APPROVAL_FAILED') }, { status: 409 })
+    if (result.duplicate !== true) {
+      await recordFunnelEvent('approved',{userId:ctx.project.user_id,projectId:id,amountUsd:Number(ctx.project.client_price||0)})
+      await createUserNotification({ userId: String(result.freelancerId), type: 'delivery_approved', title: 'Your delivery was approved', body: `The delivery for ${String(result.title)} was approved. Your payout is now eligible for release.`, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
+      await client.rpc('refresh_freelancer_metrics',{p_user_id:String(result.freelancerId)})
     }
   } else if (body.type === 'open_dispute') {
     const reason = clean(body.reason, 3000)
     if (reason.length < 10) return NextResponse.json({ error: 'REASON_TOO_SHORT' }, { status: 400 })
-    await client.from('project_disputes').insert({ project_id: id, opened_by: user.id, reason })
-    await client.from('projects').update({ operations_status: 'disputed' }).eq('id', id)
-    await event(id, user.id, ctx.actor, 'dispute_opened')
+    const { data: result, error } = await client.rpc('open_project_dispute_atomic', {
+      p_project_id: id,
+      p_user_id: user.id,
+      p_actor_kind: ctx.actor,
+      p_reason: reason,
+    })
+    if (error || !result || typeof result !== 'object') {
+      console.error('[project-operations open_dispute]', error)
+      return NextResponse.json({ error: 'DISPUTE_OPEN_FAILED' }, { status: 500 })
+    }
+    if (result.ok !== true) return NextResponse.json({ error: String(result.error ?? 'DISPUTE_OPEN_FAILED') }, { status: 409 })
   } else if (body.type === 'create_client_portal') {
     if (!['seller', 'admin'].includes(ctx.actor)) return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
     const token = randomBytes(32).toString('base64url')
