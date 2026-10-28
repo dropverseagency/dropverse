@@ -7,6 +7,7 @@ import { computeSellerProfit, computeFulfillmentCost, billingIntervalFor, type P
 import { adminClient } from './adminCore'
 import { projectRevisionColumns, type SampleRevisionRow } from './sampleProjectRevisions'
 import { recordFunnelEvent } from './funnel'
+import { createUserNotification } from './userNotifications'
 
 /**
  * Creates a new client project.
@@ -119,6 +120,15 @@ export async function createProjectServer(draft: ProjectDraft) {
   }
 
   revalidatePath('/dashboard')
+  await createUserNotification({
+    userId: user.id,
+    type: 'project_created',
+    title: 'We received your project',
+    body: `Your project "${String(draft.title || '').trim()}" was created. You can review its details and payment status in DropVerse.`,
+    href: `/dashboard/projects/${data.id}`,
+    entityType: 'project',
+    entityId: data.id,
+  })
   await recordFunnelEvent('project_created', { userId:user.id, projectId:data.id, sampleId:sampleId||undefined, amountUsd:clientPrice })
   const { count: priorProjects } = await adminClient().from('projects').select('*',{count:'exact',head:true}).eq('user_id',user.id).neq('id',data.id)
   if ((priorProjects||0)>0) await recordFunnelEvent('repeat_project',{userId:user.id,projectId:data.id,sampleId:sampleId||undefined,amountUsd:clientPrice})
