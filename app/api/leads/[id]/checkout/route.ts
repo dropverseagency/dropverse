@@ -48,9 +48,9 @@ export async function POST(
       return NextResponse.json({ error: 'TERMS_ACCEPTANCE_COULD_NOT_BE_RECORDED' }, { status: 503 })
     }
 
-    const idempotencyKey =
-      String(body.idempotencyKey || '').trim() ||
-      `lp-${packId}-${userId}-${randomBytes(8).toString('hex')}`
+    const requestedKey = String(body.idempotencyKey || '').trim()
+    if (requestedKey.length > 120) return NextResponse.json({ error: 'INVALID_IDEMPOTENCY_KEY' }, { status: 400 })
+    const idempotencyKey = requestedKey || `lp-${packId}-${userId}-${randomBytes(8).toString('hex')}`
 
     const { data, error } = await admin.rpc('create_lead_pack_purchase_atomic', {
       p_pack_id: packId,
