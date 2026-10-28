@@ -5,7 +5,7 @@ const site = process.env.NEXT_PUBLIC_SITE_URL || 'https://dropverse10v.vercel.ap
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
-      { userAgent: '*', allow: '/', disallow: ['/admin', '/dashboard', '/api/', '/login', '/forgot-password', '/reset-password', '/onboarding'] },
+      { userAgent: '*', allow: '/', disallow: ['/admin', '/dashboard', '/api/', '/login', '/signup', '/forgot-password', '/reset-password', '/onboarding', '/auth/'] },
     ],
     sitemap: `${site}/sitemap.xml`,
     host: site,
