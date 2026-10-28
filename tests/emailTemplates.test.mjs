@@ -28,7 +28,7 @@ test('welcome email includes branded HTML and a plain-text alternative', () => {
   assert.match(email.html, /href="https:\/\/dropverse10v\.vercel\.app"/i)
 })
 
-test('welcome email escapes URL content before inserting it into HTML', () => {
+test('welcome email normalizes the configured site URL to a safe origin', () => {
   const email = buildWelcomeEmail('https://dropverse10v.vercel.app/?q=a&x=b')
   assert.match(email.html, /href="https:\/\/dropverse10v\.vercel\.app"/i)
   assert.doesNotMatch(email.html, /q=a&x=b/)
