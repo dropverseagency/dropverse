@@ -198,7 +198,7 @@ export async function GET(request: NextRequest) {
       }
 
       case 'payments': {
-        const [pending, confirmed, failed, disputed, paddleRes, invoicesRes] = await Promise.all([
+        const [pending, confirmed, failed, disputed, paddleRes, invoicesRes, payoutRes] = await Promise.all([
           select('projects', 'id, title, client_price, payment_method, payment_status, payment_provider, payment_confirmed_at, payment_transaction_id, created_at')
             .eq('payment_status', 'PAYMENT_PENDING').order('created_at', { ascending: false }).limit(100),
           select('projects', 'id, title, client_price, payment_method, payment_status, payment_provider, payment_confirmed_at, payment_transaction_id, created_at')
@@ -217,12 +217,27 @@ export async function GET(request: NextRequest) {
             .select('id, invoice_number, amount, currency, status, client_name, client_email, project_id, created_at, updated_at')
             .order('created_at', { ascending: false })
             .limit(100),
+          admin
+            .from('payout_requests')
+            .select('id, user_id, amount, status, method, destination, dropverse_fee, estimated_net, requested_at, reviewed_at, paid_at, transfer_reference, admin_note')
+            .order('requested_at', { ascending: false })
+            .limit(100),
         ])
 
         const pendingRows = pending.data ?? []
         const confirmedRows = confirmed.data ?? []
         const paddleOrders = paddleRes.data ?? []
         const invoices = invoicesRes.data ?? []
+        const payoutRows = payoutRes.data ?? []
+        const payoutUserIds = [...new Set(payoutRows.map((p: any) => String(p.user_id)).filter(Boolean))]
+        const { data: payoutProfiles } = payoutUserIds.length
+          ? await admin.from('profiles').select('id, full_name, username').in('id', payoutUserIds)
+          : { data: [] }
+        const payoutProfilesById = new Map((payoutProfiles ?? []).map((p: any) => [p.id, p]))
+        const payoutRequests = payoutRows.map((p: any) => ({
+          ...p,
+          profile: payoutProfilesById.get(p.user_id) ?? null,
+        }))
 
         const confirmedVolume = confirmedRows.reduce((s: number, r: any) => s + Number(r.client_price || 0), 0)
         const pendingVolume = pendingRows.reduce((s: number, r: any) => s + Number(r.client_price || 0), 0)
@@ -242,6 +257,8 @@ export async function GET(request: NextRequest) {
           disputed: disputed.data ?? [],
           paddleOrders,
           invoices,
+          payoutRequests,
+          payoutsError: payoutRes.error?.message ?? null,
           confirmedVolume: Math.round(confirmedVolume * 100) / 100,
           pendingVolume: Math.round(pendingVolume * 100) / 100,
           paddleCompletedCount: paddleCompleted.length,
