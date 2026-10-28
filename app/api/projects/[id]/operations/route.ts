@@ -83,6 +83,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await client.from('project_assignments').update({ status, responded_at: new Date().toISOString(), response_note: clean(body.note, 1000) || null }).eq('project_id', id).eq('freelancer_id', user.id).eq('status', 'offered')
     await client.from('projects').update(status === 'accepted' ? { assignment_status: 'accepted', operations_status: 'in_progress' } : { assigned_freelancer_id: null, assignment_status: 'declined', operations_status: 'ready_to_assign', freelancer_payout_status: 'not_earned' }).eq('id', id)
     await event(id, user.id, 'freelancer', `assignment_${status}`)
+    await createUserNotification({ userId: ctx.project.user_id, type: `assignment_${status}`, title: status === 'accepted' ? 'Freelancer accepted the project' : 'Freelancer declined the project', body: `${ctx.project.title}: the assigned freelancer ${status} the assignment.`, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
   } else if (body.type === 'request_revision') {
     if (!['seller', 'admin'].includes(ctx.actor)) return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
     const details = clean(body.details, 3000)
@@ -102,7 +103,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await client.from('project_earnings').update({ status: 'releasable' }).eq('project_id', id).eq('status', 'held')
     await event(id, user.id, ctx.actor, 'delivery_approved')
     await recordFunnelEvent('approved',{userId:ctx.project.user_id,projectId:id,amountUsd:Number(ctx.project.client_price||0)})
-    if(ctx.project.assigned_freelancer_id) await client.rpc('refresh_freelancer_metrics',{p_user_id:ctx.project.assigned_freelancer_id})
+    if (ctx.project.assigned_freelancer_id) {
+      await createUserNotification({ userId: ctx.project.assigned_freelancer_id, type: 'delivery_approved', title: 'Your delivery was approved', body: `The delivery for ${ctx.project.title} was approved. Your payout is now eligible for release.`, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
+      await client.rpc('refresh_freelancer_metrics',{p_user_id:ctx.project.assigned_freelancer_id})
+    }
   } else if (body.type === 'open_dispute') {
     const reason = clean(body.reason, 3000)
     if (reason.length < 10) return NextResponse.json({ error: 'REASON_TOO_SHORT' }, { status: 400 })
