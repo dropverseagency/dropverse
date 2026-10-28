@@ -30,8 +30,31 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'LIST_FAILED' }, { status: 500 })
   }
 
+  const packs = data ?? []
+  const pendingCounts = new Map<string, number>()
+  if (packs.length) {
+    const { data: reservations, error: reservationsError } = await admin
+      .from('lead_pack_purchases')
+      .select('pack_id')
+      .in('pack_id', packs.map((item) => item.id))
+      .eq('status', 'pending_payment')
+      .gt('expires_at', new Date().toISOString())
+
+    if (reservationsError) {
+      console.error('[leads] active reservations', reservationsError.message)
+      return NextResponse.json({ error: 'LIST_FAILED' }, { status: 500 })
+    }
+    for (const reservation of reservations ?? []) {
+      pendingCounts.set(reservation.pack_id, (pendingCounts.get(reservation.pack_id) ?? 0) + 1)
+    }
+  }
+
   return NextResponse.json({
-    items: data ?? [],
+    items: packs.map((item) => ({
+      ...item,
+      reserved_seats: pendingCounts.get(item.id) ?? 0,
+      remaining_seats: Math.max(0, Number(item.remaining_seats ?? 0) - (pendingCounts.get(item.id) ?? 0)),
+    })),
     page,
     limit,
     total: count ?? 0,
