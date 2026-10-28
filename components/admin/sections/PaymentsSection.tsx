@@ -1,5 +1,5 @@
 'use client'
-import { Badge, Card, LoadingOrError, StatCard, fmtDate, fmtUsd, useAdminData } from '@/components/admin/shared'
+import { Badge, Card, LoadingOrError, StatCard, fmtDate, fmtUsd, adminMutate, useAdminData } from '@/components/admin/shared'
 import { Clock, CheckCircle2, XCircle, AlertTriangle, CreditCard, FileText, ExternalLink } from 'lucide-react'
 
 type ProjectRow = {
@@ -40,6 +40,23 @@ type InvoiceRow = {
   client_email?: string | null
   project_id?: string | null
   created_at: string
+}
+
+type PayoutRequestRow = {
+  id: string
+  user_id: string
+  amount: number | string
+  status: string
+  method?: string | null
+  destination?: string | null
+  dropverse_fee?: number | string | null
+  estimated_net?: number | string | null
+  requested_at: string
+  reviewed_at?: string | null
+  paid_at?: string | null
+  transfer_reference?: string | null
+  admin_note?: string | null
+  profile?: { full_name?: string | null; username?: string | null } | null
 }
 
 function statusTone(status: string) {
@@ -213,6 +230,99 @@ function InvoicesTable({ rows }: { rows: InvoiceRow[] }) {
   )
 }
 
+function PayoutRequestsTable({ rows }: { rows: PayoutRequestRow[] }) {
+  async function updateStatus(row: PayoutRequestRow, newStatus: 'approved' | 'paid' | 'cancelled') {
+    if (!window.confirm(`Change payout ${row.id.slice(0, 8)} to ${newStatus}?`)) return
+    let reference: string | undefined
+    let adminNote: string | undefined
+    if (newStatus === 'paid') {
+      reference = window.prompt('Enter the PayPal transaction ID or bank transfer reference:')?.trim()
+      if (!reference) {
+        alert('A transfer reference is required before marking a payout as paid.')
+        return
+      }
+    }
+    if (newStatus === 'cancelled') {
+      adminNote = window.prompt('Optional cancellation note (the reserved balance will be released):')?.trim() || undefined
+    }
+    const result = await adminMutate('set_payout', {
+      payoutId: row.id,
+      newStatus,
+      reference,
+      adminNote,
+    })
+    if (result.error) {
+      alert(String(result.message || result.error))
+      return
+    }
+    window.location.reload()
+  }
+
+  return (
+    <Card title={`Withdrawal requests (${rows.length})`}>
+      <p className="mb-3 text-xs leading-5 text-[#81948e]">
+        Review requests manually. Approving does not send money. Before marking one Paid, complete the transfer and record its provider / bank reference. Cancelled requests release the reserved balance.
+      </p>
+      {!rows.length ? (
+        <div className="rounded-lg border border-white/5 bg-white/[0.02] py-6 text-center text-xs text-[#7f918c]">No withdrawal requests yet.</div>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-white/5">
+          <table className="w-full min-w-[1050px] text-sm">
+            <thead>
+              <tr className="border-b border-white/5 text-left text-[11px] uppercase tracking-wider text-[#7f918c]">
+                <th className="py-2 pl-3 pr-3 font-semibold">User / Date</th>
+                <th className="py-2 pr-3 font-semibold">Gross</th>
+                <th className="py-2 pr-3 font-semibold">Method / Destination</th>
+                <th className="py-2 pr-3 font-semibold">Fee / Net</th>
+                <th className="py-2 pr-3 font-semibold">Status / Transfer reference</th>
+                <th className="py-2 pr-3 font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((p) => (
+                <tr key={p.id} className="border-b border-white/5 align-top last:border-0">
+                  <td className="py-3 pl-3 pr-3">
+                    <div className="font-semibold text-[#f0f4f2]">{p.profile?.full_name || p.profile?.username || 'DropVerse user'}</div>
+                    <div className="font-mono text-[10px] text-[#81948e]">{p.user_id.slice(0, 8)}…</div>
+                    <div className="mt-1 text-[10px] text-[#81948e]">{fmtDate(p.requested_at)}</div>
+                  </td>
+                  <td className="py-3 pr-3 font-semibold text-[#f0f4f2]">{fmtUsd(Number(p.amount) || 0)}</td>
+                  <td className="py-3 pr-3">
+                    <div className="text-xs font-semibold text-[#e4c979]">{p.method || '—'}</div>
+                    <div className="mt-1 max-w-[15rem] break-all text-xs text-[#9aacb8]">{p.destination || 'No destination supplied'}</div>
+                  </td>
+                  <td className="py-3 pr-3 text-xs text-[#c8d4d0]">
+                    <div>Fee: {fmtUsd(Number(p.dropverse_fee) || 0)}</div>
+                    <div className="mt-1">Net: {fmtUsd(Number(p.estimated_net) || 0)}</div>
+                  </td>
+                  <td className="py-3 pr-3">
+                    <Badge status={p.status} label={p.status} />
+                    {p.transfer_reference ? <div className="mt-2 max-w-[15rem] break-all text-[10px] text-[#9aacb8]">Ref: {p.transfer_reference}</div> : null}
+                    {p.admin_note ? <div className="mt-1 max-w-[15rem] text-[10px] text-[#9aacb8]">Note: {p.admin_note}</div> : null}
+                  </td>
+                  <td className="py-3 pr-3">
+                    <div className="flex flex-wrap gap-1.5">
+                      {p.status === 'pending' ? (
+                        <button onClick={() => updateStatus(p, 'approved')} className="rounded-lg border border-emerald-400/30 px-2.5 py-1 text-xs font-bold text-emerald-200 hover:bg-emerald-400/10">Approve</button>
+                      ) : null}
+                      {p.status === 'approved' ? (
+                        <button onClick={() => updateStatus(p, 'paid')} className="rounded-lg border border-sky-400/30 px-2.5 py-1 text-xs font-bold text-sky-200 hover:bg-sky-400/10">Mark paid</button>
+                      ) : null}
+                      {p.status === 'pending' || p.status === 'approved' ? (
+                        <button onClick={() => updateStatus(p, 'cancelled')} className="rounded-lg border border-red-400/30 px-2.5 py-1 text-xs font-bold text-red-200 hover:bg-red-400/10">Cancel</button>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  )
+}
+
 export default function PaymentsSection() {
   const { data, loading, error } = useAdminData('payments')
 
@@ -228,13 +338,15 @@ export default function PaymentsSection() {
             <StatCard label="Invoices paid" value={fmtUsd(Number(data.invoicesPaidVolume || 0))} sub={`${data.invoicesPaidCount ?? 0} paid · ${data.invoicesOpenCount ?? 0} open`} />
           </div>
 
-          {(data.paddleError || data.invoicesError) ? (
+          {(data.paddleError || data.invoicesError || data.payoutsError) ? (
             <div className="rounded-lg border border-[rgba(230,190,90,0.35)] bg-[rgba(230,190,90,0.08)] px-4 py-3 text-xs text-[#f0d98b]">
               {data.paddleError ? <div>Paddle orders: {String(data.paddleError)}</div> : null}
               {data.invoicesError ? <div>Invoices: {String(data.invoicesError)}</div> : null}
+              {data.payoutsError ? <div>Payout requests: {String(data.payoutsError)}</div> : null}
             </div>
           ) : null}
 
+          <PayoutRequestsTable rows={(data.payoutRequests ?? []) as PayoutRequestRow[]} />
           <PaddleOrdersTable rows={(data.paddleOrders ?? []) as PaddleOrder[]} />
           <InvoicesTable rows={(data.invoices ?? []) as InvoiceRow[]} />
 
@@ -244,8 +356,7 @@ export default function PaymentsSection() {
           <BucketTable title="Disputed" icon={<AlertTriangle size={15} />} rows={(data.disputed ?? []) as ProjectRow[]} />
 
           <p className="text-xs leading-5 text-[#9aacb8]">
-            Sandbox test payments appear here after checkout completes. Real money only appears after you switch to live Paddle credentials.
-            This page auto-refreshes every 20 seconds.
+            Withdrawal requests are reviewed manually above. Mark a request Paid only after the transfer is complete and its reference has been recorded.
           </p>
         </div>
       ) : null}

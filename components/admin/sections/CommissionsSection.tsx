@@ -19,7 +19,7 @@ export default function CommissionsSection() {
 
   async function setStatus(commissionId: string, status: string) {
     if (!confirm(`Change commission status to "${status}"?`)) return
-    const res = await adminMutate('set_commission', { commissionId, status })
+    const res = await adminMutate('set_commission', { commissionId, newStatus: status })
     if (res.error) alert(String(res.error))
     else window.location.reload()
   }

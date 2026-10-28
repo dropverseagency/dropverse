@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
 
   const { data: payouts, error: payoutsError } = await admin
     .from('payout_requests')
-    .select('id, amount, status, method, dropverse_fee, estimated_net, requested_at, reviewed_at, paid_at')
+    .select('id, amount, status, method, dropverse_fee, estimated_net, requested_at, reviewed_at, paid_at, transfer_reference')
     .eq('user_id', user.id)
     .order('requested_at', { ascending: false })
     .limit(100)
@@ -70,11 +70,16 @@ export async function GET(request: NextRequest) {
     return jsonError('PAYOUT_DATA_UNAVAILABLE')
   }
 
-  const pendingBalance = Number(summary.pending ?? 0)
+  const pendingCommissions = Number(summary.pendingCommissions ?? summary.pending ?? 0)
+  const pendingProjectEarnings = Number(summary.pendingProjectEarnings ?? 0)
+  const pendingBalance = Number(summary.pending ?? pendingCommissions + pendingProjectEarnings)
   const availableCommissions = Number(summary.availableCommissions ?? 0)
+  const availableCommissionsGross = Number(summary.availableCommissionsGross ?? availableCommissions)
   const paidFromCommissions = Number(summary.paidCommissions ?? 0)
+  const releasableProjectEarnings = Number(summary.releasableProjectEarnings ?? 0)
+  const releasedProjectEarnings = Number(summary.releasedProjectEarnings ?? 0)
   const processingBalance = Number(summary.processing ?? 0)
-  const availableBalance = Number(summary.available ?? 0)
+  const availableBalance = Number(summary.available ?? availableCommissions)
   const totalPaidPayouts = Number(summary.totalPaidPayouts ?? 0)
 
   const history = payouts.map((p) => ({
@@ -90,6 +95,7 @@ export async function GET(request: NextRequest) {
     status: p.status,
     reviewedAt: p.reviewed_at,
     paidAt: p.paid_at,
+    transferReference: p.transfer_reference ?? null,
     failureReason: null as string | null,
   }))
 
@@ -107,12 +113,20 @@ export async function GET(request: NextRequest) {
       breakdown: {
         affiliate: {
           label: 'Affiliate / referral commissions',
-          pending: pendingBalance,
+          pending: pendingCommissions,
           available: availableCommissions,
+          availableBeforeReservations: availableCommissionsGross,
           paid: paidFromCommissions,
+          paidThroughWithdrawals: totalPaidPayouts,
+        },
+        projectEarnings: {
+          label: 'Project fulfillment earnings',
+          pending: pendingProjectEarnings,
+          releasable: releasableProjectEarnings,
+          released: releasedProjectEarnings,
         },
         sourcesNote:
-          'Only approved affiliate commissions that have reached available status can be withdrawn. Lead Marketplace and project fulfillment earnings are not yet connected to this ledger.',
+          'Affiliate withdrawals reserve available commissions and remain under manual admin review. Project fulfillment earnings are tracked separately and are released by an admin only after project approval, with a transfer reference. Lead Marketplace earnings remain in their separate seller payout workflow.',
       },
       policy: {
         dropverseFeeUsd: DROPVERSE_PAYOUT_FEE_USD,
