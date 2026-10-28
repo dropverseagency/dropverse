@@ -4,7 +4,7 @@ const site = 'https://dropverse10v.vercel.app'
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const publicPaths = [
-    '/', '/pricing', '/services', '/samples', '/leads', '/academy', '/tools', '/earn',
+    '/', '/pricing', '/samples', '/leads', '/academy', '/tools', '/earn',
     '/terms', '/privacy', '/refund',
   ]
   const lastModified = new Date()
