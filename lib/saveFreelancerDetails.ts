@@ -20,6 +20,7 @@ export async function saveFreelancerDetails(userId: string, displayName: string,
   const supabase = createClient()
   const selectedNiches = [...new Set(niches.map((niche) => niche.trim()).filter(Boolean))]
   if (!selectedNiches.length) throw new Error('Select at least one freelancer niche.')
+  if (links.length < 1 || links.length > 5) throw new Error('Add between 1 and 5 portfolio links.')
   const normalisedLinks = links.map(normalisePortfolioLink)
 
   const { error: profileError } = await supabase.from('freelancer_profiles').upsert({
