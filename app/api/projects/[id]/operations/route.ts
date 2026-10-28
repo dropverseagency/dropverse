@@ -75,7 +75,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await client.from('projects').update({ assigned_freelancer_id: freelancerId, assignment_status: body.type === 'reassign' ? 'reassigned' : 'offered', operations_status: 'assigned', delivery_due_at: body.dueAt || null, freelancer_payout_amount: Math.max(0, Number(body.payoutAmount || ctx.project.fulfillment_cost || 0)), freelancer_payout_status: 'held' }).eq('id', id)
     await client.from('project_earnings').upsert({ project_id: id, freelancer_id: freelancerId, amount: Math.max(0, Number(body.payoutAmount || ctx.project.fulfillment_cost || 0)), status: 'held' })
     await event(id, user.id, ctx.actor, body.type === 'reassign' ? 'freelancer_reassigned' : 'freelancer_assigned', { freelancerId, dueAt: body.dueAt || null })
-    void createUserNotification({ userId: freelancerId, type: 'project_assignment', title: 'New project assignment', body: `Review the assignment for ${ctx.project.title}.`, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
+    await createUserNotification({ userId: freelancerId, type: 'project_assignment', title: 'New project assignment', body: `Review the assignment for ${ctx.project.title}.`, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
     await recordFunnelEvent('freelancer_assigned',{userId:ctx.project.user_id,projectId:id,metadata:{freelancerId}})
   } else if (body.type === 'respond_assignment') {
     if (ctx.actor !== 'freelancer') return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
@@ -83,6 +83,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await client.from('project_assignments').update({ status, responded_at: new Date().toISOString(), response_note: clean(body.note, 1000) || null }).eq('project_id', id).eq('freelancer_id', user.id).eq('status', 'offered')
     await client.from('projects').update(status === 'accepted' ? { assignment_status: 'accepted', operations_status: 'in_progress' } : { assigned_freelancer_id: null, assignment_status: 'declined', operations_status: 'ready_to_assign', freelancer_payout_status: 'not_earned' }).eq('id', id)
     await event(id, user.id, 'freelancer', `assignment_${status}`)
+    await createUserNotification({ userId: ctx.project.user_id, type: `assignment_${status}`, title: status === 'accepted' ? 'Freelancer accepted the project' : 'Freelancer declined the project', body: `${ctx.project.title}: the assigned freelancer ${status} the assignment.`, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
   } else if (body.type === 'request_revision') {
     if (!['seller', 'admin'].includes(ctx.actor)) return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
     const details = clean(body.details, 3000)
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await client.from('project_revision_requests').insert({ project_id: id, requested_by: user.id, request_number: requestNumber, details, included: charge.included, price_usd: charge.priceUsd, payment_status: charge.paymentStatus })
     await client.from('projects').update({ operations_status: 'revision_requested' }).eq('id', id)
     await event(id, user.id, ctx.actor, 'revision_requested', { requestNumber, ...charge })
-    if (ctx.project.assigned_freelancer_id) void createUserNotification({ userId: ctx.project.assigned_freelancer_id, type: 'revision_requested', title: 'Project revision requested', body: details, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
+    if (ctx.project.assigned_freelancer_id) await createUserNotification({ userId: ctx.project.assigned_freelancer_id, type: 'revision_requested', title: 'Project revision requested', body: details, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
   } else if (body.type === 'approve_delivery') {
     if (!['seller', 'admin'].includes(ctx.actor)) return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
     if (ctx.project.operations_status !== 'delivered') return NextResponse.json({ error: 'NOT_DELIVERED' }, { status: 409 })
@@ -102,7 +103,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await client.from('project_earnings').update({ status: 'releasable' }).eq('project_id', id).eq('status', 'held')
     await event(id, user.id, ctx.actor, 'delivery_approved')
     await recordFunnelEvent('approved',{userId:ctx.project.user_id,projectId:id,amountUsd:Number(ctx.project.client_price||0)})
-    if(ctx.project.assigned_freelancer_id) await client.rpc('refresh_freelancer_metrics',{p_user_id:ctx.project.assigned_freelancer_id})
+    if (ctx.project.assigned_freelancer_id) {
+      await createUserNotification({ userId: ctx.project.assigned_freelancer_id, type: 'delivery_approved', title: 'Your delivery was approved', body: `The delivery for ${ctx.project.title} was approved. Your payout is now eligible for release.`, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
+      await client.rpc('refresh_freelancer_metrics',{p_user_id:ctx.project.assigned_freelancer_id})
+    }
   } else if (body.type === 'open_dispute') {
     const reason = clean(body.reason, 3000)
     if (reason.length < 10) return NextResponse.json({ error: 'REASON_TOO_SHORT' }, { status: 400 })

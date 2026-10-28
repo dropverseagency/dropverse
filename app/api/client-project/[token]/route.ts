@@ -59,7 +59,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await access.admin.from('project_revision_requests').insert({ project_id: access.projectId, request_number: requestNumber, details: text, included: charge.included, price_usd: charge.priceUsd, payment_status: charge.paymentStatus })
     await access.admin.from('projects').update({ operations_status: 'revision_requested' }).eq('id', access.projectId)
     await access.admin.from('project_events').insert({ project_id: access.projectId, actor_kind: 'client', event_type: 'revision_requested', metadata: { requestNumber, ...charge } })
-    if (project.assigned_freelancer_id) void createUserNotification({ userId: project.assigned_freelancer_id, type: 'revision_requested', title: 'Client requested a revision', body: text, href: `/dashboard/projects/${access.projectId}`, entityType: 'project', entityId: access.projectId })
+    if (project.assigned_freelancer_id) await createUserNotification({ userId: project.assigned_freelancer_id, type: 'revision_requested', title: 'Client requested a revision', body: text, href: `/dashboard/projects/${access.projectId}`, entityType: 'project', entityId: access.projectId })
   } else if (body.action === 'approve') {
     if (project.operations_status !== 'delivered') return NextResponse.json({ error: 'NOT_DELIVERED' }, { status: 409 })
     if (project.payment_status !== 'PAYMENT_CONFIRMED') return NextResponse.json({ error: 'PAYMENT_NOT_CONFIRMED' }, { status: 409 })
@@ -67,6 +67,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await access.admin.from('project_earnings').update({ status: 'releasable' }).eq('project_id', access.projectId).eq('status', 'held')
     await access.admin.from('project_events').insert({ project_id: access.projectId, actor_kind: 'client', event_type: 'delivery_approved' })
     await recordFunnelEvent('approved',{projectId:access.projectId,amountUsd:Number(project.client_price||0),metadata:{actor:'client'}})
+    if (project.assigned_freelancer_id) await createUserNotification({ userId: project.assigned_freelancer_id, type: 'delivery_approved', title: 'Your delivery was approved', body: `The delivery for ${project.title} was approved by the client. Your payout is now eligible for release.`, href: `/dashboard/projects/${access.projectId}`, entityType: 'project', entityId: access.projectId })
     if(project.assigned_freelancer_id)await access.admin.rpc('refresh_freelancer_metrics',{p_user_id:project.assigned_freelancer_id})
   } else if(body.action==='review'){
     const rating=Math.floor(Number(body.rating));if(project.operations_status!=='approved'||project.payment_status!=='PAYMENT_CONFIRMED'||!project.assigned_freelancer_id||rating<1||rating>5)return NextResponse.json({error:'REVIEW_NOT_ALLOWED'},{status:409})
@@ -74,6 +75,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if(error)return NextResponse.json({error:'REVIEW_ALREADY_SUBMITTED'},{status:409})
     await access.admin.rpc('refresh_freelancer_metrics',{p_user_id:project.assigned_freelancer_id})
   } else return NextResponse.json({ error: 'INVALID_ACTION' }, { status: 400 })
-  void createUserNotification({ userId: project.user_id, type: `client_${body.action}`, title: `Client ${body.action}`, body: text || `Client ${body.action} recorded.`, href: `/dashboard/projects/${access.projectId}`, entityType: 'project', entityId: access.projectId })
+  await createUserNotification({ userId: project.user_id, type: `client_${body.action}`, title: `Client ${body.action}`, body: text || `Client ${body.action} recorded.`, href: `/dashboard/projects/${access.projectId}`, entityType: 'project', entityId: access.projectId })
   return NextResponse.json({ ok: true })
 }

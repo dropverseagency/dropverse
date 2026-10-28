@@ -41,8 +41,17 @@ export async function POST(request: NextRequest) {
       case 'set_freelancer_verification': {
         const userId=String(body.userId||'');const identityStatus=String(body.identityStatus||'');const specialtyStatus=String(body.specialtyStatus||'');const verifiedLevel=String(body.verifiedLevel||'');const note=String(body.note||'').trim().slice(0,2000)
         if(!userId||!['unsubmitted','pending','verified','rejected','expired'].includes(identityStatus)||!['unreviewed','pending','passed','failed'].includes(specialtyStatus)||!['none','identity','specialist','pro'].includes(verifiedLevel))return {error:'INVALID_VERIFICATION'}
-        const admin=adminClient();const {error}=await admin.from('freelancer_verifications').upsert({user_id:userId,identity_status:identityStatus,specialty_status:specialtyStatus,verified_level:verifiedLevel,specialty_review_note:note||null,reviewed_by:ctx.userId,reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString()});if(error)return {error:'VERIFICATION_SAVE_FAILED'}
-        await audit({actorId:ctx.userId,actorEmail:ctx.email,action:'freelancer_verification_updated',entity:'freelancer_verifications',entityId:userId,newValue:{identityStatus,specialtyStatus,verifiedLevel,note}});return {ok:true}
+        const admin = adminClient()
+        const { data: previous } = await admin.from('freelancer_verifications').select('identity_status,specialty_status,verified_level').eq('user_id', userId).maybeSingle()
+        const { error } = await admin.from('freelancer_verifications').upsert({ user_id: userId, identity_status: identityStatus, specialty_status: specialtyStatus, verified_level: verifiedLevel, specialty_review_note: note || null, reviewed_by: ctx.userId, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        if (error) return { error: 'VERIFICATION_SAVE_FAILED' }
+        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'freelancer_verification_updated', entity: 'freelancer_verifications', entityId: userId, newValue: { identityStatus, specialtyStatus, verifiedLevel, note } })
+        const changed = !previous || previous.identity_status !== identityStatus || previous.specialty_status !== specialtyStatus || previous.verified_level !== verifiedLevel
+        if (changed) {
+          const approved = identityStatus === 'verified' && specialtyStatus === 'passed'
+          await createUserNotification({ userId, type: 'freelancer_verification_updated', title: approved ? 'Your freelancer verification was approved' : 'Your freelancer verification was updated', body: `Identity status: ${identityStatus}. Specialty review: ${specialtyStatus}. Verification level: ${verifiedLevel}.`, href: '/dashboard', entityType: 'freelancer_verification', entityId: userId })
+        }
+        return { ok: true }
       }
       case 'release_project_earning': {
         const projectId = String(body.projectId ?? '')
@@ -55,7 +64,7 @@ export async function POST(request: NextRequest) {
         await admin.from('projects').update({ freelancer_payout_status: 'released' }).eq('id', projectId)
         await admin.from('project_events').insert({ project_id: projectId, actor_id: ctx.userId, actor_kind: 'admin', event_type: 'freelancer_payout_released', metadata: { reference } })
         await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'project_earning_released', entity: 'projects', entityId: projectId, newValue: { reference } })
-        void createUserNotification({ userId: project.assigned_freelancer_id, type: 'project_payout_released', title: 'Project payout released', body: `Your payout for ${project.title} was marked as sent. Reference: ${reference}`, href: `/dashboard/projects/${projectId}`, entityType: 'project', entityId: projectId })
+        await createUserNotification({ userId: project.assigned_freelancer_id, type: 'project_payout_released', title: 'Project payout released', body: `Your payout for ${project.title} was marked as sent. Reference: ${reference}`, href: `/dashboard/projects/${projectId}`, entityType: 'project', entityId: projectId })
         return { ok: true }
       }
 

@@ -79,7 +79,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       oldValue: { status: sample.status, price_usd: sample.price_usd, commission_rate: sample.commission_rate },
       newValue: updated,
     })
-    void createUserNotification({
+    await createUserNotification({
       userId: sample.owner_id,
       type: `sample_${action}`,
       title:
