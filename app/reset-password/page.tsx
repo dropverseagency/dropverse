@@ -35,11 +35,20 @@ function ResetPasswordInner() {
     ;(async () => {
       try {
         const supabase = createClient()
-        if (code) {
+        let { data, error: sessionError } = await supabase.auth.getSession()
+        if (!data.session && code) {
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
-          if (exchangeError) throw exchangeError
+          if (exchangeError) {
+            // The browser client may already have exchanged the PKCE code during initialization.
+            const retry = await supabase.auth.getSession()
+            data = retry.data
+            sessionError = retry.error
+          } else {
+            const refreshed = await supabase.auth.getSession()
+            data = refreshed.data
+            sessionError = refreshed.error
+          }
         }
-        const { data, error: sessionError } = await supabase.auth.getSession()
         if (sessionError || !data.session) {
           setError('This reset link is invalid or has expired. Request a new one.')
           return
