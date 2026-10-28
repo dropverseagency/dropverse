@@ -5,6 +5,7 @@ import {
   DROPVERSE_PAYOUT_FEE_USD,
   PAYOUT_CURRENCY,
   PAYOUT_METHODS,
+  PAYOUT_REQUEST_CUTOFF_DAYS,
   PAYOUT_SCHEDULE_DAYS,
   nextScheduledProcessingDate,
 } from '@/lib/payoutConfig'
@@ -131,9 +132,10 @@ export async function GET(request: NextRequest) {
       policy: {
         dropverseFeeUsd: DROPVERSE_PAYOUT_FEE_USD,
         scheduleDays: [...PAYOUT_SCHEDULE_DAYS],
+        requestCutoffDays: [...PAYOUT_REQUEST_CUTOFF_DAYS],
         nextScheduledProcessingDate: nextProcessing.toISOString().slice(0, 10),
         scheduleNote:
-          'Processing runs on the 5th and 20th of each month. If a date falls on a non-business day or the provider is unavailable, processing may move to the next applicable business day. These are scheduled processing dates, not guaranteed arrival dates.',
+          'Submit by the 3rd for the 5th processing cycle, or by the 18th for the 20th cycle. Requests submitted after a cutoff roll to the next cycle. If a processing date falls on a non-business day or the provider is unavailable, processing may move to the next applicable business day. These are scheduled processing dates, not guaranteed arrival dates.',
         withdrawalsEnabled: PAYOUT_METHODS.some((m) => m.enabled),
         transfersActivated: false,
         transfersNote:
