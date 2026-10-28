@@ -64,13 +64,28 @@ export async function POST(request: NextRequest) {
         const reference = String(body.reference ?? '').trim().slice(0, 200)
         if (!projectId || !reference) return { error: 'PROJECT_AND_REFERENCE_REQUIRED' }
         const admin = adminClient()
-        const { data: project } = await admin.from('projects').select('id,title,assigned_freelancer_id,freelancer_payout_status,operations_status,payment_status').eq('id', projectId).maybeSingle()
-        if (!project || project.freelancer_payout_status !== 'releasable' || project.operations_status !== 'approved' || project.payment_status !== 'PAYMENT_CONFIRMED' || !project.assigned_freelancer_id) return { error: 'EARNING_NOT_RELEASABLE' }
-        await admin.from('project_earnings').update({ status: 'released', released_at: new Date().toISOString() }).eq('project_id', projectId).eq('status', 'releasable')
-        await admin.from('projects').update({ freelancer_payout_status: 'released' }).eq('id', projectId)
-        await admin.from('project_events').insert({ project_id: projectId, actor_id: ctx.userId, actor_kind: 'admin', event_type: 'freelancer_payout_released', metadata: { reference } })
+        const { data: result, error } = await admin.rpc('release_project_earning_atomic', {
+          p_project_id: projectId,
+          p_admin_user_id: ctx.userId,
+          p_reference: reference,
+        })
+        if (error || !result || typeof result !== 'object') {
+          console.error('[admin/mutate release_project_earning]', error)
+          return { error: 'PROJECT_EARNING_RELEASE_FAILED' }
+        }
+        if (result.ok !== true) return { error: String(result.error ?? 'EARNING_NOT_RELEASABLE') }
+        // A retry after a successful commit is safe and must not duplicate notices.
+        if (result.duplicate === true) return { ok: true, duplicate: true }
         await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'project_earning_released', entity: 'projects', entityId: projectId, newValue: { reference } })
-        await createUserNotification({ userId: project.assigned_freelancer_id, type: 'project_payout_released', title: 'Project payout released', body: `Your payout for ${project.title} was marked as sent. Reference: ${reference}`, href: `/dashboard/projects/${projectId}`, entityType: 'project', entityId: projectId })
+        await createUserNotification({
+          userId: String(result.freelancerId),
+          type: 'project_payout_released',
+          title: 'Project payout released',
+          body: `Your payout for ${String(result.title)} was marked as sent. Reference: ${reference}`,
+          href: `/dashboard/projects/${projectId}`,
+          entityType: 'project',
+          entityId: projectId,
+        })
         return { ok: true }
       }
 
