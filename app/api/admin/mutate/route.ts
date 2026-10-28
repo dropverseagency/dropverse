@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
         await admin.from('projects').update({ freelancer_payout_status: 'released' }).eq('id', projectId)
         await admin.from('project_events').insert({ project_id: projectId, actor_id: ctx.userId, actor_kind: 'admin', event_type: 'freelancer_payout_released', metadata: { reference } })
         await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'project_earning_released', entity: 'projects', entityId: projectId, newValue: { reference } })
-        void createUserNotification({ userId: project.assigned_freelancer_id, type: 'project_payout_released', title: 'Project payout released', body: `Your payout for ${project.title} was marked as sent. Reference: ${reference}`, href: `/dashboard/projects/${projectId}`, entityType: 'project', entityId: projectId })
+        await createUserNotification({ userId: project.assigned_freelancer_id, type: 'project_payout_released', title: 'Project payout released', body: `Your payout for ${project.title} was marked as sent. Reference: ${reference}`, href: `/dashboard/projects/${projectId}`, entityType: 'project', entityId: projectId })
         return { ok: true }
       }
 
