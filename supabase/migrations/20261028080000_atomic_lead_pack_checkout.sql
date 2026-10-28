@@ -107,7 +107,7 @@ begin
     payment_provider, status, idempotency_key, expires_at
   ) values (
     p_pack_id, p_buyer_id, v_price, v_rate, v_fee, v_net,
-    'spaceremit', 'pending_payment', p_idempotency_key, now() + interval '30 minutes'
+    'SPACEREMIT', 'pending_payment', p_idempotency_key, now() + interval '30 minutes'
   )
   returning * into v_purchase;
 
