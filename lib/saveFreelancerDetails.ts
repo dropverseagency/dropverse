@@ -1,13 +1,20 @@
-import { createClient } from './supabase'
-export async function saveFreelancerDetails(userId: string, displayName: string, niches: string[], otherNiche: string, links: string[]) {
-  const supabase = createClient()
-  const { error: profileError } = await supabase.from('freelancer_profiles').upsert({
-    user_id: userId, display_name: displayName.trim().slice(0, 80) || 'Freelancer',
-    category: niches[0], niches, other_niche: niches.includes('Other') ? otherNiche.trim() : null
-  }, { onConflict: 'user_id' })
-  if (profileError) throw profileError
-  const { error: linksError } = await supabase.from('freelancer_links').insert(links.map(url => ({
-    user_id: userId, platform: new URL(url).hostname.slice(0, 80), url: url.trim()
-  })))
-  if (linksError) throw linksError
+export async function saveFreelancerDetails(_userId: string, displayName: string, niches: string[], otherNiche: string, links: string[]) {
+  // The server API authenticates the session and handles tables that do not
+  // grant direct client writes, including portfolio links and verification.
+  const response = await fetch('/api/freelancers/profile', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ displayName, niches, otherNiche, links }),
+  })
+  const result = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    const messages: Record<string, string> = {
+      NOT_AUTHENTICATED: 'Please sign in again and retry.',
+      FREELANCER_ONLY: 'Choose the freelancer account type before saving your freelancer profile.',
+      INVALID_PROFILE: 'Enter your name and choose at least one valid niche.',
+      INVALID_PORTFOLIO_LINKS: 'Add between 1 and 5 valid HTTPS portfolio links.',
+    }
+    throw new Error(messages[result.error] || 'Could not save freelancer details. Please retry.')
+  }
 }

@@ -12,7 +12,7 @@ import { type OrgRow } from '../../lib/orgs'
 import { PLAN_CONFIG, planById, type OrgRole } from '../../lib/planConfig'
 import { formatUsd } from '../../lib/projectConfig'
 
-type Profile = { id: string; full_name: string | null; role: string }
+type Profile = { id: string; full_name: string | null; role: string; user_type?: string | null; user_types?: string[] | null }
 type ProjectRow = {
   id: string; title: string; project_type: string; billing_interval: string
   client_price: number | string; fulfillment_cost: number | string; seller_profit: number | string
@@ -61,7 +61,7 @@ export default function UserDashboardHome() {
       }
       if (!session || cancelled) { window.location.assign('/login?redirect=%2Fdashboard'); return }
       setSessionToken(session.access_token)
-      const { data: profileData } = await supabase.from('profiles').select('id, full_name, role').eq('id', session.user.id).single()
+      const { data: profileData } = await supabase.from('profiles').select('id, full_name, role, user_type, user_types').eq('id', session.user.id).single()
       if (cancelled) return
       if (profileData) setProfile(profileData as Profile)
       if (profileData?.role === 'admin') setIsAdmin(true)
@@ -176,6 +176,7 @@ export default function UserDashboardHome() {
           {orgRole && <span className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-[#9aaca6]">Role: {orgRole}</span>}
           {isAdmin && <Link href="/admin" className="rounded-full border border-[#5a4a28] bg-[#2a2414] px-3 py-1.5 text-xs font-bold text-[#f0d98b]">Admin</Link>}
         </div>
+        {(profile?.user_type === 'freelancer' || profile?.user_types?.includes('freelancer')) && <Link href="/dashboard/freelancer" className="inline-flex items-center gap-2 rounded-full border border-[#2c403a] px-4 py-2.5 text-sm font-semibold text-[#d9e0dc] hover:border-[#d8b45a]">Freelancer settings</Link>}
         <Link href="/dashboard/samples" className="inline-flex items-center gap-2 rounded-full border border-[#2c403a] px-4 py-2.5 text-sm font-semibold text-[#d9e0dc] hover:border-[#d8b45a]">Samples Vault</Link>
         <Link href="/dashboard/create-project" className="inline-flex items-center gap-2 rounded-full bg-[#d8b45a] px-4 py-2.5 text-sm font-bold text-[#10221f]">
           <Plus size={16} /> New project

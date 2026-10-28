@@ -68,6 +68,39 @@ const HOW = [
 export default async function LeadsCatalogPage() {
   const items = await fetchPacks()
 
+  // Do not launch an empty buyer catalogue. Keep seller onboarding open so the
+  // first suitable packs can be submitted and reviewed before public launch.
+  if (items.length === 0) {
+    return (
+      <main className="min-h-screen bg-[#071f1d] text-[#e7edea]">
+        <SiteHeader />
+        <section className="container flex min-h-[78vh] items-center justify-center py-20">
+          <div className="w-full max-w-2xl rounded-3xl border border-white/10 bg-[#0a2926] px-6 py-10 text-center sm:px-10">
+            <p className="inline-flex rounded-full border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-[#e4c979]">
+              Seller submissions open
+            </p>
+            <h1 className="font-display mt-5 text-3xl font-extrabold text-white sm:text-4xl">
+              The Lead Marketplace is preparing its first approved packs
+            </h1>
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#9aa8a3]">
+              We are keeping the buyer catalogue closed until at least one pack passes review.
+              Sellers can still submit targeted lists for quality and data-rights review.
+              Approval is a listing review, not a guarantee that every contact will convert.
+            </p>
+            <div className="mt-7 flex flex-wrap justify-center gap-3">
+              <Link href="/dashboard/leads" className="inline-flex items-center gap-2 rounded-full bg-[#d8b45a] px-6 py-3 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b]">
+                <Upload size={16} /> Submit a lead pack
+              </Link>
+              <Link href="/" className="inline-flex items-center gap-2 rounded-full border border-white/15 px-6 py-3 text-sm font-semibold text-[#c5d0cb] transition hover:border-[rgba(216,180,90,0.45)] hover:text-[#e4c979]">
+                Explore DropVerse
+              </Link>
+            </div>
+          </div>
+        </section>
+      </main>
+    )
+  }
+
   return (
     <main className="min-h-screen bg-[#071f1d] text-[#e7edea]">
       <SiteHeader />
