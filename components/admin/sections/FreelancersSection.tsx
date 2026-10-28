@@ -7,7 +7,22 @@ export default function FreelancersSection() {
   const [q, setQ] = useState('')
   const limit = 20
   const { data, loading, error } = useAdminData('freelancers', [String(page), String(limit), q])
-  async function verify(userId:string){const note=prompt('Specialty review note:')||'';const res=await adminMutate('set_freelancer_verification',{userId,identityStatus:'verified',specialtyStatus:'passed',verifiedLevel:'specialist',note});if(res.error)alert(String(res.error));else window.location.reload()}
+  async function verify(userId:string){
+    const identityProviderReference = prompt('After reviewing identity evidence, enter the internal evidence/reference ID:')
+    if (!identityProviderReference?.trim()) return
+    const note = prompt('Specialty review note (portfolio or skills test reviewed):')
+    if (!note?.trim() || note.trim().length < 5) return
+    const res = await adminMutate('set_freelancer_verification', {
+      userId,
+      identityStatus: 'verified',
+      specialtyStatus: 'passed',
+      verifiedLevel: 'specialist',
+      identityProviderReference: identityProviderReference.trim(),
+      note: note.trim(),
+    })
+    if (res.error) alert(String(res.error))
+    else window.location.reload()
+  }
 
   return (
     <div>
