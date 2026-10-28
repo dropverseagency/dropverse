@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     const rawLinks = Array.isArray(body.links) ? body.links : []
     const links = rawLinks.map(normalisePortfolioLink)
 
-    if (displayName.length < 2 || niches.length < 1 || niches.length > 12 || (niches.includes('Other') && !otherNiche)) {
+    if (displayName.length < 2 || niches.length < 1 || niches.length > 50 || (niches.includes('Other') && !otherNiche)) {
       return NextResponse.json({ error: 'INVALID_PROFILE' }, { status: 400 })
     }
     if (rawLinks.length < 1 || rawLinks.length > 5 || links.some((link) => link === null)) {
