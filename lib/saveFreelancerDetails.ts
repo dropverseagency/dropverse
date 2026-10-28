@@ -41,10 +41,13 @@ export async function saveFreelancerDetails(userId: string, displayName: string,
   }, { onConflict: 'user_id', ignoreDuplicates: true })
   if (availabilityError) throw availabilityError
 
-  const { error: verificationError } = await supabase.from('freelancer_verifications').upsert({
-    user_id: userId,
-  }, { onConflict: 'user_id', ignoreDuplicates: true })
-  if (verificationError) throw verificationError
+  const verificationResponse = await fetch('/api/freelancers/verification', {
+    method: 'POST',
+    credentials: 'include',
+  })
+  if (!verificationResponse.ok) {
+    throw new Error('Could not initialise freelancer verification. Please retry.')
+  }
 
   // Replace portfolio links rather than accumulating duplicates on each edit.
   const { error: deleteLinksError } = await supabase.from('freelancer_links').delete().eq('user_id', userId)
