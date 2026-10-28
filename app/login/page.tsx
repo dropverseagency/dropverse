@@ -34,7 +34,7 @@ function LoginPageInner() {
   const [portfolioLinks, setPortfolioLinks] = useState<string[]>([''])
   const [loading, setLoading] = useState(false)
   const [providerLoading, setProviderLoading] = useState<string | null>(null)
-  const [message, setMessage] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(() => searchParams.get('passwordUpdated') === '1' ? 'Password updated. You can sign in with your new password.' : null)
   const [error, setError] = useState<string | null>(() => searchParams.get('error'))
 
   useEffect(() => {
@@ -429,6 +429,11 @@ function LoginPageInner() {
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               />
             </label>
+            {mode === 'login' ? (
+              <p className="-mt-1 text-right text-sm">
+                <Link href="/forgot-password" className="font-semibold text-[#d8b45a] hover:text-[#f0d98b]">Forgot password?</Link>
+              </p>
+            ) : null}
             {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? (
               <div
                 className="cf-turnstile"

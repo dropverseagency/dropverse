@@ -32,7 +32,7 @@ export default function LeadBuyPanel({
     const res = await fetch(`/api/leads/${packId}/checkout`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acceptedTerms: true, termsVersion: '2026-10-23' }),
+      body: JSON.stringify({ acceptedTerms: true, termsVersion: '2026-10-28' }),
     })
     const json = await res.json().catch(() => ({}))
     if (res.status === 401) {
@@ -58,7 +58,7 @@ export default function LeadBuyPanel({
     })
     const json = await res.json().catch(() => ({}))
     if (!res.ok) {
-      setMsg(json.error || 'Could not verify payment')
+      setMsg(json.message || json.error || 'Could not verify payment')
       return
     }
     setPhase('done')

@@ -5,7 +5,8 @@ import Motion from '../components/Motion'
 import VisitBeacon from '../components/VisitBeacon'
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://dropverse.js.org'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://dropverse10v.vercel.app'),
+  alternates: { canonical: '/' },
   title: { default: 'DropVerse — Build your online business & agency', template: '%s | DropVerse' },
   description: 'Build your online business and agency with DropVerse: digital services, work samples, project workspaces, and a lead marketplace. Not a guarantee of income or clients.',
   keywords: ['B2B SaaS', 'workspace management', 'project management', 'workflow automation', 'team collaboration', 'client operations', 'digital asset management', 'DropVerse'],
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
     title: 'DropVerse — Build your online business & agency',
     description: 'Sell digital services, pitch samples, run projects, and trade lead packs in one workspace.',
     siteName: 'DropVerse',
+    url: process.env.NEXT_PUBLIC_SITE_URL || 'https://dropverse10v.vercel.app',
     images: [{ url: '/dropverse-logo.jpeg', width: 500, height: 500, alt: 'DropVerse logo' }],
   },
   twitter: {
