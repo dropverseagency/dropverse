@@ -94,6 +94,14 @@ export default function FreelancerOperationsPage() {
         {loading ? <div className="mt-6 rounded-2xl border border-white/10 bg-[#0a2926] p-6 text-sm text-[#9aaca6]">Loading freelancer settings…</div> : null}
         {error ? <p className="mt-5 rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-200">{error}</p> : null}
 
+        {!loading && data && !data.profile ? (
+          <section className="mt-6 rounded-2xl border border-white/10 bg-[#0a2926] p-6">
+            <h2 className="font-display text-lg font-bold text-white">Complete your freelancer profile first</h2>
+            <p className="mt-2 text-sm leading-6 text-[#9aaca6]">Your account is registered as a freelancer, but no freelancer profile and portfolio have been saved yet. Finish the freelancer onboarding form before setting availability or receiving assignments.</p>
+            <Link href="/dashboard/samples" className="mt-4 inline-flex text-sm font-semibold text-[#e4c979] hover:text-white">Open Samples Vault →</Link>
+          </section>
+        ) : null}
+
         {!loading && data?.profile ? (
           <>
             <section className="mt-6 rounded-2xl border border-white/10 bg-[#0a2926] p-5">
