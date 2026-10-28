@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
 
   const { data: payouts, error: payoutsError } = await admin
     .from('payout_requests')
-    .select('id, amount, status, method, dropverse_fee, estimated_net, requested_at, reviewed_at, paid_at')
+    .select('id, amount, status, method, dropverse_fee, estimated_net, requested_at, reviewed_at, paid_at, transfer_reference, admin_note')
     .eq('user_id', user.id)
     .order('requested_at', { ascending: false })
     .limit(100)
@@ -95,6 +95,8 @@ export async function GET(request: NextRequest) {
     status: p.status,
     reviewedAt: p.reviewed_at,
     paidAt: p.paid_at,
+    transferReference: p.transfer_reference ?? null,
+    adminNote: p.admin_note ?? null,
     failureReason: null as string | null,
   }))
 
