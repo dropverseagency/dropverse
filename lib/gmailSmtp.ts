@@ -13,7 +13,7 @@ export async function sendGmailNotificationEmail(
   html?: string,
 ): Promise<boolean> {
   const user = process.env.GMAIL_SMTP_USER?.trim()
-  const password = process.env.GMAIL_APP_PASSWORD?.replace(/\\s+/g, '')
+  const password = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, '')
 
   if (!user || !password) {
     console.warn('[gmail notification] skipped: GMAIL_SMTP_USER or GMAIL_APP_PASSWORD is not configured')
