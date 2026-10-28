@@ -41,6 +41,89 @@ export async function GET() {
   }
 }
 
+function normalisePortfolioLink(raw: unknown): { platform: string; url: string } | null {
+  if (typeof raw !== 'string') return null
+  try {
+    const url = new URL(raw.trim())
+    if (url.protocol !== 'https:' || !url.hostname.includes('.')) return null
+    const host = url.hostname.toLowerCase()
+    const platform = host === 'behance.net' || host.endsWith('.behance.net')
+      ? 'behance'
+      : host === 'dribbble.com' || host.endsWith('.dribbble.com')
+        ? 'dribbble'
+        : host === 'upwork.com' || host.endsWith('.upwork.com')
+          ? 'upwork'
+          : 'other'
+    return { platform, url: url.toString() }
+  } catch {
+    return null
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { userId, admin } = await context()
+    const body = await request.json().catch(() => ({})) as Record<string, unknown>
+    const displayName = String(body.displayName || '').trim().slice(0, 80)
+    const niches = Array.isArray(body.niches)
+      ? [...new Set(body.niches.filter((value): value is string => typeof value === 'string').map((value) => value.trim()).filter(Boolean))]
+      : []
+    const otherNiche = String(body.otherNiche || '').trim().slice(0, 100)
+    const rawLinks = Array.isArray(body.links) ? body.links : []
+    const links = rawLinks.map(normalisePortfolioLink)
+
+    if (displayName.length < 2 || niches.length < 1 || niches.length > 12 || (niches.includes('Other') && !otherNiche)) {
+      return NextResponse.json({ error: 'INVALID_PROFILE' }, { status: 400 })
+    }
+    if (rawLinks.length < 1 || rawLinks.length > 5 || links.some((link) => link === null)) {
+      return NextResponse.json({ error: 'INVALID_PORTFOLIO_LINKS' }, { status: 400 })
+    }
+
+    const { error: profileError } = await admin.from('freelancer_profiles').upsert({
+      user_id: userId,
+      display_name: displayName,
+      category: niches[0],
+      niches,
+      other_niche: niches.includes('Other') ? otherNiche : null,
+    }, { onConflict: 'user_id' })
+    if (profileError) {
+      console.error('[freelancer profile POST]', profileError.message)
+      return NextResponse.json({ error: 'PROFILE_SAVE_FAILED' }, { status: 400 })
+    }
+
+    const { error: availabilityError } = await admin.from('freelancer_availability').upsert({
+      user_id: userId,
+      available: true,
+      capacity: 1,
+      typical_turnaround_days: 3,
+    }, { onConflict: 'user_id', ignoreDuplicates: true })
+    if (availabilityError) return NextResponse.json({ error: 'AVAILABILITY_INIT_FAILED' }, { status: 500 })
+
+    const { error: verificationError } = await admin.from('freelancer_verifications').upsert({
+      user_id: userId,
+    }, { onConflict: 'user_id', ignoreDuplicates: true })
+    if (verificationError) return NextResponse.json({ error: 'VERIFICATION_INIT_FAILED' }, { status: 500 })
+
+    const { error: deleteLinksError } = await admin.from('freelancer_links').delete().eq('user_id', userId)
+    if (deleteLinksError) return NextResponse.json({ error: 'PORTFOLIO_LINKS_SAVE_FAILED' }, { status: 500 })
+    const validLinks = links as { platform: string; url: string }[]
+    const { error: linksError } = await admin.from('freelancer_links').insert(validLinks.map((link) => ({
+      user_id: userId,
+      platform: link.platform,
+      url: link.url,
+    })))
+    if (linksError) return NextResponse.json({ error: 'PORTFOLIO_LINKS_SAVE_FAILED' }, { status: 500 })
+
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    const code = (error as Error).message
+    if (code === 'NOT_AUTHENTICATED') return NextResponse.json({ error: code }, { status: 401 })
+    if (code === 'FREELANCER_ONLY') return NextResponse.json({ error: code }, { status: 403 })
+    console.error('[freelancer profile POST]', error)
+    return NextResponse.json({ error: 'INTERNAL' }, { status: 500 })
+  }
+}
+
 export async function PATCH(request: NextRequest) {
   try {
     const { userId, admin } = await context()
