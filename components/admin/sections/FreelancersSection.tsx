@@ -60,7 +60,11 @@ export default function FreelancersSection() {
                         <td className="py-3 pr-3 text-[#c8d4d0]">{f.service_name ?? '—'}</td>
                         <td className="py-3 pr-3 text-[#c8d4d0]">{f.rating ?? '—'}</td>
                         <td className="py-3 text-xs text-[#7f918c]">{fmtDate(f.created_at)}</td>
-                        <td className="py-3 pr-3 text-xs"><span className="me-2 text-[#e4c979]">{f.verification?.verified_level||'none'}</span><button onClick={()=>verify(f.id)} className="rounded-lg border border-white/15 px-2 py-1">Verify identity + specialty</button></td>
+                        <td className="py-3 pr-3 text-xs">
+                          <div className="mb-2 text-[#e4c979]">Level: {f.verification?.verified_level || 'none'}</div>
+                          <div className="mb-2 text-[#9aaca6]">ID: {f.verification?.identity_status || 'unsubmitted'} · Skill: {f.verification?.specialty_status || 'unreviewed'}</div>
+                          <button onClick={()=>verify(f.id)} className="rounded-lg border border-white/15 px-2 py-1">Verify identity + specialty</button>
+                        </td>
                         <td className="py-3 text-xs">
                           {f.availability ? <><span className={f.availability.available ? 'text-emerald-300' : 'text-[#aab9b4]'}>{f.availability.available ? 'Available' : 'Unavailable'}</span><div className="mt-1 text-[#7f918c]">Capacity: {f.availability.capacity} · {f.availability.typical_turnaround_days ?? '—'}d</div></> : <span className="text-[#f0b66a]">Not configured</span>}
                         </td>
