@@ -356,8 +356,7 @@ export default function PaymentsSection() {
           <BucketTable title="Disputed" icon={<AlertTriangle size={15} />} rows={(data.disputed ?? []) as ProjectRow[]} />
 
           <p className="text-xs leading-5 text-[#9aacb8]">
-            Sandbox test payments appear here after checkout completes. Real money only appears after you switch to live Paddle credentials.
-            This page auto-refreshes every 20 seconds.
+            Withdrawal requests are reviewed manually above. Mark a request Paid only after the transfer is complete and its reference has been recorded.
           </p>
         </div>
       ) : null}
