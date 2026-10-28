@@ -6,6 +6,7 @@ import {
 } from '../../../../lib/projectConfig'
 import { notifyAdminEvent } from '@/lib/agents/adminNotify'
 import { recordFunnelEvent } from '@/lib/funnel'
+import { verifyPayPalOrder } from '../../../../lib/paypalVerification'
 
 /**
  * Public invoice payment verification — NO authentication required.
@@ -63,40 +64,20 @@ async function getPayPalAccessToken() {
 }
 
 async function verifyWithPayPal(orderId: string, expectedAmount: number, expectedCurrency: string) {
-  const token = await getPayPalAccessToken()
-  if (!token) {
-    if (!orderId || orderId.length < 8) {
-      return { ok: false as const, error: 'PAYPAL_VERIFY_FAILED' }
-    }
-    return { ok: true as const, data: { id: orderId, status: 'COMPLETED', amount: expectedAmount } }
-  }
-
-  const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ''
+  const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || process.env.PAYPAL_CLIENT_ID || ''
   const base =
     process.env.PAYPAL_API_BASE ||
     (clientId.startsWith('A') ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com')
 
-  const res = await fetch(`${base}/v2/checkout/orders/${encodeURIComponent(orderId)}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+  return verifyPayPalOrder(orderId, expectedAmount, expectedCurrency, {
+    getAccessToken: getPayPalAccessToken,
+    fetchOrder: (id, token) => fetch(`${base}/v2/checkout/orders/${encodeURIComponent(id)}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    }),
   })
-  if (!res.ok) {
-    return { ok: false as const, error: 'PAYPAL_VERIFY_FAILED', detail: await res.text().catch(() => '') }
-  }
-  const order = await res.json()
-  const status = String(order?.status || '').toUpperCase()
-  if (status !== 'COMPLETED' && status !== 'APPROVED') {
-    return { ok: false as const, error: 'PAYPAL_VERIFY_FAILED', detail: order }
-  }
-  const unit = order?.purchase_units?.[0]
-  const paid = Number(unit?.amount?.value ?? unit?.payments?.captures?.[0]?.amount?.value ?? 0)
-  const currency = String(unit?.amount?.currency_code || expectedCurrency)
-  if (currency !== expectedCurrency || !(Math.abs(paid - expectedAmount) < 0.01)) {
-    return { ok: false as const, error: 'SP_AMOUNT_MISMATCH', detail: { paid, currency, expectedAmount } }
-  }
-  return { ok: true as const, data: { id: orderId, status, amount: paid } }
 }
 
 export async function POST(request: NextRequest) {
