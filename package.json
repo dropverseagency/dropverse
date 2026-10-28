@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm test && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --test tests/*.test.mjs",
+    "email:preview": "node scripts/preview-welcome-email.mjs"
   },
   "dependencies": {
     "@paypal/react-paypal-js": "^10.6.0",
