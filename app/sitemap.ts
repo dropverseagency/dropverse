@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
 
-const site = 'https://dropverse10v.vercel.app'
+const site = process.env.NEXT_PUBLIC_SITE_URL || 'https://dropverse10v.vercel.app'
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const publicPaths = [
