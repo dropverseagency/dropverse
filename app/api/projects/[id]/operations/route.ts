@@ -105,7 +105,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await client.from('project_assignments').update({ status: 'reassigned' }).eq('project_id', id).in('status', ['offered', 'accepted'])
     const { error } = await client.from('project_assignments').insert({ project_id: id, freelancer_id: freelancerId, assigned_by: user.id })
     if (error) return NextResponse.json({ error: 'ASSIGNMENT_FAILED' }, { status: 409 })
-    const payoutAmount = Math.max(0, Number(body.payoutAmount ?? ctx.project.fulfillment_cost ?? 0))
+    const payoutAmount = Math.max(0, Number(ctx.project.fulfillment_cost || 0))
     const { error: projectUpdateError } = await client.from('projects').update({
       assigned_freelancer_id: freelancerId,
       assignment_status: body.type === 'reassign' ? 'reassigned' : 'offered',
