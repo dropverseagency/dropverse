@@ -5,7 +5,7 @@ export const FREELANCER_NICHES = ["Video Editing","Short-Form Video Editing","Lo
 
 export function validPortfolioLinks(links: string[]) {
   return links.length > 0 && links.every(link => {
-    try { const url = new URL(link); return ['http:', 'https:'].includes(url.protocol) && Boolean(url.hostname.includes('.')) } catch { return false }
+    try { const url = new URL(link); return url.protocol === 'https:' && Boolean(url.hostname.includes('.')) } catch { return false }
   })
 }
 
