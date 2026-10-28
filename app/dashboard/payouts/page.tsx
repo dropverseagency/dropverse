@@ -40,6 +40,7 @@ type PayoutPayload = {
   policy: {
     dropverseFeeUsd: number
     scheduleDays: number[]
+    requestCutoffDays: number[]
     nextScheduledProcessingDate: string
     scheduleNote: string
     withdrawalsEnabled: boolean
@@ -357,6 +358,10 @@ export default function PayoutsPage() {
                   <span className="font-semibold text-[#e4c979]">Scheduled processing:</span>{' '}
                   {data.policy.scheduleDays.join(' & ')} of each month. Next:{' '}
                   <span className="font-mono text-[#f0f4f2]">{data.policy.nextScheduledProcessingDate}</span>
+                </p>
+                <p>
+                  <span className="font-semibold text-[#e4c979]">Request cutoffs:</span>{' '}
+                  {data.policy.requestCutoffDays.join(' & ')} of each month. Submit by the 3rd for the 5th cycle and by the 18th for the 20th cycle.
                 </p>
                 <p className="text-xs text-[#81948e]">{data.policy.scheduleNote}</p>
                 {!data.policy.transfersActivated && (

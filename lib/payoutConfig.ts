@@ -12,6 +12,9 @@ export const DROPVERSE_PAYOUT_FEE_USD = 2
 /** Scheduled processing days of the month (calendar). */
 export const PAYOUT_SCHEDULE_DAYS = [5, 20] as const
 
+/** Last calendar day to submit a request for each processing cycle. */
+export const PAYOUT_REQUEST_CUTOFF_DAYS = [3, 18] as const
+
 export type PayoutMethodId = 'paypal' | 'local'
 
 export type PayoutMethodConfig = {
@@ -55,15 +58,22 @@ export function methodById(id: string | null | undefined): PayoutMethodConfig | 
   return PAYOUT_METHODS.find((m) => m.id === id)
 }
 
-/** Next scheduled processing date (UTC date at 00:00). Not a guaranteed arrival date. */
+/**
+ * Next scheduled processing date based on the request cutoffs (UTC calendar date).
+ * Requests submitted by the 3rd target the 5th; requests submitted by the 18th
+ * target the 20th. After a cutoff, the request rolls to the next cycle.
+ * This is a processing date, not a guaranteed arrival date.
+ */
 export function nextScheduledProcessingDate(from: Date = new Date()): Date {
   const y = from.getUTCFullYear()
   const m = from.getUTCMonth()
   const d = from.getUTCDate()
-  for (const day of PAYOUT_SCHEDULE_DAYS) {
-    if (d < day) return new Date(Date.UTC(y, m, day))
+  if (d <= PAYOUT_REQUEST_CUTOFF_DAYS[0]) {
+    return new Date(Date.UTC(y, m, PAYOUT_SCHEDULE_DAYS[0]))
   }
-  // Roll to first schedule day next month
+  if (d <= PAYOUT_REQUEST_CUTOFF_DAYS[1]) {
+    return new Date(Date.UTC(y, m, PAYOUT_SCHEDULE_DAYS[1]))
+  }
   return new Date(Date.UTC(y, m + 1, PAYOUT_SCHEDULE_DAYS[0]))
 }
 
