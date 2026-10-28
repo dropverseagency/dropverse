@@ -94,17 +94,34 @@ export async function POST(request: NextRequest) {
         const resolution = String(body.resolution ?? '').trim().slice(0, 3000)
         const outcome = String(body.outcome ?? '')
         const refundReference = String(body.refundReference ?? '').trim().slice(0, 200)
-        const refundAmount = Math.max(0, Number(body.refundAmount ?? 0))
+        const rawRefundAmount = body.refundAmount == null ? 0 : Number(body.refundAmount)
         if (!disputeId || resolution.length < 3 || !['resolved','refunded','rejected'].includes(outcome)) return { error: 'INVALID_DISPUTE_RESOLUTION' }
-        if (outcome === 'refunded' && !refundReference) return { error: 'REFUND_REFERENCE_REQUIRED' }
+        if (outcome === 'refunded' && (!refundReference || !Number.isFinite(rawRefundAmount) || rawRefundAmount <= 0)) {
+          return { error: 'REFUND_AMOUNT_AND_REFERENCE_REQUIRED' }
+        }
+        const refundAmount = outcome === 'refunded' ? Math.round(rawRefundAmount * 100) / 100 : 0
         const admin = adminClient()
-        const { data: dispute } = await admin.from('project_disputes').select('id,project_id,status').eq('id', disputeId).maybeSingle()
-        if (!dispute || !['open','under_review'].includes(dispute.status)) return { error: 'DISPUTE_NOT_OPEN' }
-        await admin.from('project_disputes').update({ status: outcome, resolution, refund_amount: outcome === 'refunded' ? refundAmount : null, refund_reference: outcome === 'refunded' ? refundReference : null, resolved_by: ctx.userId, resolved_at: new Date().toISOString() }).eq('id', disputeId)
-        await admin.from('projects').update(outcome === 'refunded' ? { operations_status: 'refunded', payment_status: 'PAYMENT_REFUNDED', freelancer_payout_status: 'reversed' } : { operations_status: outcome === 'resolved' ? 'approved' : 'delivered' }).eq('id', dispute.project_id)
-        if (outcome === 'refunded') await admin.from('project_earnings').update({ status: 'reversed' }).eq('project_id', dispute.project_id).neq('status','released')
-        await admin.from('project_events').insert({ project_id: dispute.project_id, actor_id: ctx.userId, actor_kind: 'admin', event_type: `dispute_${outcome}`, metadata: { disputeId, refundAmount, refundReference } })
-        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: `project_dispute_${outcome}`, entity: 'project_disputes', entityId: disputeId, newValue: { resolution, refundAmount, refundReference } })
+        const { data: result, error } = await admin.rpc('resolve_project_dispute_atomic', {
+          p_dispute_id: disputeId,
+          p_admin_user_id: ctx.userId,
+          p_outcome: outcome,
+          p_resolution: resolution,
+          p_refund_amount: refundAmount,
+          p_refund_reference: refundReference || null,
+        })
+        if (error || !result || typeof result !== 'object') {
+          console.error('[admin/mutate resolve_project_dispute]', error)
+          return { error: 'DISPUTE_RESOLUTION_FAILED' }
+        }
+        if (result.ok !== true) return { error: String(result.error ?? 'DISPUTE_RESOLUTION_FAILED') }
+        await audit({
+          actorId: ctx.userId,
+          actorEmail: ctx.email,
+          action: `project_dispute_${outcome}`,
+          entity: 'project_disputes',
+          entityId: disputeId,
+          newValue: { resolution, refundAmount: outcome === 'refunded' ? refundAmount : null, refundReference: outcome === 'refunded' ? refundReference : null },
+        })
         return { ok: true }
       }
       case 'confirm_payment': {
