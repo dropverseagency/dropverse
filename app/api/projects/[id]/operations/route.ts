@@ -66,14 +66,57 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await event(id, user.id, ctx.actor, 'message_added')
   } else if (body.type === 'assign' || body.type === 'reassign') {
     if (!['seller', 'admin'].includes(ctx.actor)) return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
+    if (ctx.project.payment_status !== 'PAYMENT_CONFIRMED') {
+      return NextResponse.json({ error: 'PAYMENT_REQUIRED' }, { status: 409 })
+    }
+    if (['approved', 'disputed', 'refunded', 'cancelled'].includes(ctx.project.operations_status)) {
+      return NextResponse.json({ error: 'PROJECT_NOT_ASSIGNABLE' }, { status: 409 })
+    }
+
     const freelancerId = clean(body.freelancerId, 100)
-    const { data: freelancer } = await client.from('freelancer_profiles').select('user_id').eq('user_id', freelancerId).maybeSingle()
+    const [{ data: freelancer }, { data: verification }, { data: availability }] = await Promise.all([
+      client.from('freelancer_profiles').select('user_id').eq('user_id', freelancerId).maybeSingle(),
+      client.from('freelancer_verifications').select('identity_status,specialty_status,verified_level').eq('user_id', freelancerId).maybeSingle(),
+      client.from('freelancer_availability').select('available,capacity').eq('user_id', freelancerId).maybeSingle(),
+    ])
     if (!freelancer) return NextResponse.json({ error: 'FREELANCER_NOT_FOUND' }, { status: 404 })
+    if (
+      verification?.identity_status !== 'verified' ||
+      verification?.specialty_status !== 'passed' ||
+      !['specialist', 'pro'].includes(verification?.verified_level || '')
+    ) {
+      return NextResponse.json({ error: 'FREELANCER_NOT_VERIFIED' }, { status: 409 })
+    }
+    if (!availability || availability.available !== true || Number(availability.capacity || 0) < 1) {
+      return NextResponse.json({ error: 'FREELANCER_UNAVAILABLE' }, { status: 409 })
+    }
+
+    const { data: activeProjects, error: capacityError } = await client
+      .from('projects')
+      .select('id')
+      .eq('assigned_freelancer_id', freelancerId)
+      .neq('id', id)
+      .in('operations_status', ['assigned', 'in_progress', 'revision_requested'])
+    if (capacityError) return NextResponse.json({ error: 'CAPACITY_CHECK_FAILED' }, { status: 500 })
+    if ((activeProjects || []).length >= Number(availability.capacity)) {
+      return NextResponse.json({ error: 'FREELANCER_AT_CAPACITY' }, { status: 409 })
+    }
+
     await client.from('project_assignments').update({ status: 'reassigned' }).eq('project_id', id).in('status', ['offered', 'accepted'])
     const { error } = await client.from('project_assignments').insert({ project_id: id, freelancer_id: freelancerId, assigned_by: user.id })
     if (error) return NextResponse.json({ error: 'ASSIGNMENT_FAILED' }, { status: 409 })
-    await client.from('projects').update({ assigned_freelancer_id: freelancerId, assignment_status: body.type === 'reassign' ? 'reassigned' : 'offered', operations_status: 'assigned', delivery_due_at: body.dueAt || null, freelancer_payout_amount: Math.max(0, Number(body.payoutAmount || ctx.project.fulfillment_cost || 0)), freelancer_payout_status: 'held' }).eq('id', id)
-    await client.from('project_earnings').upsert({ project_id: id, freelancer_id: freelancerId, amount: Math.max(0, Number(body.payoutAmount || ctx.project.fulfillment_cost || 0)), status: 'held' })
+    const payoutAmount = Math.max(0, Number(body.payoutAmount ?? ctx.project.fulfillment_cost ?? 0))
+    const { error: projectUpdateError } = await client.from('projects').update({
+      assigned_freelancer_id: freelancerId,
+      assignment_status: body.type === 'reassign' ? 'reassigned' : 'offered',
+      operations_status: 'assigned',
+      delivery_due_at: body.dueAt || null,
+      freelancer_payout_amount: payoutAmount,
+      freelancer_payout_status: 'held',
+    }).eq('id', id)
+    if (projectUpdateError) return NextResponse.json({ error: 'PROJECT_ASSIGNMENT_SAVE_FAILED' }, { status: 500 })
+    const { error: earningsError } = await client.from('project_earnings').upsert({ project_id: id, freelancer_id: freelancerId, amount: payoutAmount, status: 'held' })
+    if (earningsError) return NextResponse.json({ error: 'PROJECT_EARNINGS_SAVE_FAILED' }, { status: 500 })
     await event(id, user.id, ctx.actor, body.type === 'reassign' ? 'freelancer_reassigned' : 'freelancer_assigned', { freelancerId, dueAt: body.dueAt || null })
     await createUserNotification({ userId: freelancerId, type: 'project_assignment', title: 'New project assignment', body: `Review the assignment for ${ctx.project.title}.`, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
     await recordFunnelEvent('freelancer_assigned',{userId:ctx.project.user_id,projectId:id,metadata:{freelancerId}})
