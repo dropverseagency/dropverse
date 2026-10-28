@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
             userId: row.user_id,
             type: 'payout_cancelled',
             title: 'Your payout request was cancelled',
-            body: adminNote || 'Your payout request was cancelled. The reserved balance is available again.',
+            body: 'Your payout request was cancelled. The reserved balance is available again.',
             href: '/dashboard/payouts',
             entityType: 'payout_request',
             entityId: payoutId,
