@@ -136,7 +136,7 @@ export default function PayPalCheckout({
                       currency_code: currency,
                       value,
                     },
-                    custom_id: `dv:${planName}:${value}`,
+                    custom_id: itemType === 'invoice' && itemId ? `dv:invoice:${itemId}:${value}` : `dv:${planName}:${value}`,
                   },
                 ],
               })
