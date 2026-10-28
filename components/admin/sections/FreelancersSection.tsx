@@ -31,7 +31,8 @@ export default function FreelancersSection() {
                       <th className="py-2 pr-3 font-semibold">Service</th>
                       <th className="py-2 pr-3 font-semibold">Rating</th>
                       <th className="py-2 font-semibold">Registered</th>
-                      <th className="py-2 font-semibold">Verification</th>
+                      <th className="py-2 pr-3 font-semibold">Verification</th>
+                      <th className="py-2 font-semibold">Availability</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -44,7 +45,10 @@ export default function FreelancersSection() {
                         <td className="py-3 pr-3 text-[#c8d4d0]">{f.service_name ?? '—'}</td>
                         <td className="py-3 pr-3 text-[#c8d4d0]">{f.rating ?? '—'}</td>
                         <td className="py-3 text-xs text-[#7f918c]">{fmtDate(f.created_at)}</td>
-                        <td className="py-3 text-xs"><span className="me-2 text-[#e4c979]">{f.verification?.verified_level||'none'}</span><button onClick={()=>verify(f.id)} className="rounded-lg border border-white/15 px-2 py-1">Verify identity + specialty</button></td>
+                        <td className="py-3 pr-3 text-xs"><span className="me-2 text-[#e4c979]">{f.verification?.verified_level||'none'}</span><button onClick={()=>verify(f.id)} className="rounded-lg border border-white/15 px-2 py-1">Verify identity + specialty</button></td>
+                        <td className="py-3 text-xs">
+                          {f.availability ? <><span className={f.availability.available ? 'text-emerald-300' : 'text-[#aab9b4]'}>{f.availability.available ? 'Available' : 'Unavailable'}</span><div className="mt-1 text-[#7f918c]">Capacity: {f.availability.capacity} · {f.availability.typical_turnaround_days ?? '—'}d</div></> : <span className="text-[#f0b66a]">Not configured</span>}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
