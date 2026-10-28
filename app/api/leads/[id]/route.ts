@@ -29,7 +29,18 @@ export async function GET(
   }
 
   const effective = effectiveMaxBuyers(Number(pack.max_buyers), pack.admin_max_buyers)
-  const remaining = remainingSeats(Number(pack.max_buyers), pack.admin_max_buyers, Number(pack.sold_count))
+  const soldRemaining = remainingSeats(Number(pack.max_buyers), pack.admin_max_buyers, Number(pack.sold_count))
+  const { count: pendingReservations, error: reservationError } = await admin
+    .from('lead_pack_purchases')
+    .select('id', { count: 'exact', head: true })
+    .eq('pack_id', id)
+    .eq('status', 'pending_payment')
+    .gt('expires_at', new Date().toISOString())
+  if (reservationError) {
+    console.error('[leads] detail reservations', reservationError.message)
+    return NextResponse.json({ error: 'DETAIL_FAILED' }, { status: 500 })
+  }
+  const remaining = Math.max(0, soldRemaining - Number(pendingReservations ?? 0))
 
   return NextResponse.json({
     ...pack,
