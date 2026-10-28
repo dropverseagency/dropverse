@@ -70,31 +70,31 @@ assert.equal(isValidPayPalOrderId('not-an-order-id!'), false)
 
 {
   const d = deps({ responseOk: false })
-  const result = await verifyPayPalOrder(orderId, 25, 'USD', d)
+  const result = await verifyPayPalOrder(orderId, 25, 'USD', 'dv:invoice:invoice-123:25.00', d)
   assert.equal(result.ok, false, 'PayPal API errors must not be treated as payment')
 }
 
 {
   const d = deps({ response: { ...completedOrder, status: 'APPROVED', purchase_units: [] } })
-  const result = await verifyPayPalOrder(orderId, 25, 'USD', d)
+  const result = await verifyPayPalOrder(orderId, 25, 'USD', 'dv:invoice:invoice-123:25.00', d)
   assert.deepEqual(result, { ok: false, error: 'PAYPAL_VERIFY_FAILED' })
 }
 
 {
-  const d = deps({ response: { ...completedOrder, purchase_units: [{ payments: { captures: [] } }] } })
-  const result = await verifyPayPalOrder(orderId, 25, 'USD', d)
+  const d = deps({ response: { ...completedOrder, purchase_units: [{ custom_id: 'dv:invoice:invoice-123:25.00', payments: { captures: [] } }] } })
+  const result = await verifyPayPalOrder(orderId, 25, 'USD', 'dv:invoice:invoice-123:25.00', d)
   assert.deepEqual(result, { ok: false, error: 'PAYPAL_VERIFY_FAILED' })
 }
 
 {
-  const d = deps({ response: { ...completedOrder, purchase_units: [{ payments: { captures: [{ id: 'CAPTURE123456789', status: 'PENDING', amount: { value: '25.00', currency_code: 'USD' } }] } }] } })
-  const result = await verifyPayPalOrder(orderId, 25, 'USD', d)
+  const d = deps({ response: { ...completedOrder, purchase_units: [{ custom_id: 'dv:invoice:invoice-123:25.00', payments: { captures: [{ id: 'CAPTURE123456789', status: 'PENDING', amount: { value: '25.00', currency_code: 'USD' } }] } }] } })
+  const result = await verifyPayPalOrder(orderId, 25, 'USD', 'dv:invoice:invoice-123:25.00', d)
   assert.deepEqual(result, { ok: false, error: 'PAYPAL_VERIFY_FAILED' })
 }
 
 {
   const d = deps()
-  const result = await verifyPayPalOrder(orderId, 25, 'USD', d)
+  const result = await verifyPayPalOrder(orderId, 25, 'USD', 'dv:invoice:invoice-123:25.00', d)
   assert.deepEqual(result, {
     ok: true,
     data: {
@@ -108,22 +108,22 @@ assert.equal(isValidPayPalOrderId('not-an-order-id!'), false)
 }
 
 {
-  const d = deps({ response: { ...completedOrder, purchase_units: [{ payments: { captures: [{ id: 'CAPTURE123456789', status: 'COMPLETED', amount: { value: '24.00', currency_code: 'USD' } }] } }] } })
-  const result = await verifyPayPalOrder(orderId, 25, 'USD', d)
+  const d = deps({ response: { ...completedOrder, purchase_units: [{ custom_id: 'dv:invoice:invoice-123:25.00', payments: { captures: [{ id: 'CAPTURE123456789', status: 'COMPLETED', amount: { value: '24.00', currency_code: 'USD' } }] } }] } })
+  const result = await verifyPayPalOrder(orderId, 25, 'USD', 'dv:invoice:invoice-123:25.00', d)
   assert.equal(result.ok, false)
   assert.equal(result.error, 'SP_AMOUNT_MISMATCH')
 }
 
 {
-  const d = deps({ response: { ...completedOrder, purchase_units: [{ payments: { captures: [{ id: 'CAPTURE123456789', status: 'COMPLETED', amount: { value: '25.00', currency_code: 'EUR' } }] } }] } })
-  const result = await verifyPayPalOrder(orderId, 25, 'USD', d)
+  const d = deps({ response: { ...completedOrder, purchase_units: [{ custom_id: 'dv:invoice:invoice-123:25.00', payments: { captures: [{ id: 'CAPTURE123456789', status: 'COMPLETED', amount: { value: '25.00', currency_code: 'EUR' } }] } }] } })
+  const result = await verifyPayPalOrder(orderId, 25, 'USD', 'dv:invoice:invoice-123:25.00', d)
   assert.equal(result.ok, false)
   assert.equal(result.error, 'SP_AMOUNT_MISMATCH')
 }
 
 {
   const d = deps({ response: { ...completedOrder, id: 'DIFFERENTORDER12345' } })
-  const result = await verifyPayPalOrder(orderId, 25, 'USD', d)
+  const result = await verifyPayPalOrder(orderId, 25, 'USD', 'dv:invoice:invoice-123:25.00', d)
   assert.deepEqual(result, { ok: false, error: 'PAYPAL_VERIFY_FAILED' })
 }
 
