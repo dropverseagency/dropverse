@@ -160,6 +160,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await createUserNotification({ userId: ctx.project.user_id, type: `assignment_${status}`, title: status === 'accepted' ? 'Freelancer accepted the project' : 'Freelancer declined the project', body: `${ctx.project.title}: the assigned freelancer ${status} the assignment.`, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
   } else if (body.type === 'request_revision') {
     if (!['seller', 'admin'].includes(ctx.actor)) return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
+    if (ctx.project.operations_status !== 'delivered') {
+      return NextResponse.json({ error: 'DELIVERY_NOT_READY_FOR_REVISION' }, { status: 409 })
+    }
+    if (ctx.project.payment_status !== 'PAYMENT_CONFIRMED') {
+      return NextResponse.json({ error: 'PAYMENT_NOT_CONFIRMED' }, { status: 409 })
+    }
     const details = clean(body.details, 3000)
     if (!details) return NextResponse.json({ error: 'DETAILS_REQUIRED' }, { status: 400 })
     const { count } = await client.from('project_revision_requests').select('*', { count: 'exact', head: true }).eq('project_id', id)
