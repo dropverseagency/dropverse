@@ -20,7 +20,7 @@ export async function POST(
       acceptedTerms?: boolean
       termsVersion?: string
     }
-    if (body.acceptedTerms !== true || body.termsVersion !== '2026-10-23') {
+    if (body.acceptedTerms !== true || body.termsVersion !== '2026-10-28') {
       return NextResponse.json({ error: 'TERMS_ACCEPTANCE_REQUIRED' }, { status: 400 })
     }
 
@@ -35,8 +35,8 @@ export async function POST(
       entity_id: packId,
       new_value: {
         accepted: true,
-        terms_version: '2026-10-23',
-        refund_policy_version: '2026-10-23',
+        terms_version: '2026-10-28',
+        refund_policy_version: '2026-10-28',
         accepted_at: new Date().toISOString(),
         ip,
         user_agent: request.headers.get('user-agent')?.slice(0, 500) || null,
