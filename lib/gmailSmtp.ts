@@ -19,7 +19,8 @@ export async function sendGmailNotificationEmail(
     return false
   }
 
-  const from = process.env.NOTIFICATION_FROM_EMAIL?.trim() || `DropVerse <${user}>`
+  // Always send as the authenticated Gmail mailbox to avoid unverified From aliases.
+  const from = `DropVerse <${user}>`
   const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 465,
