@@ -141,7 +141,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'ASSIGNMENT_NO_LONGER_OFFERED' }, { status: 409 })
     }
 
-    const { error: projectUpdateError } = await client
+    const { data: updatedProject, error: projectUpdateError } = await client
       .from('projects')
       .update(status === 'accepted'
         ? { assignment_status: 'accepted', operations_status: 'in_progress' }
@@ -149,8 +149,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .eq('id', id)
       .eq('assigned_freelancer_id', user.id)
       .eq('assignment_status', 'offered')
+      .select('id')
+      .maybeSingle()
 
     if (projectUpdateError) return NextResponse.json({ error: 'PROJECT_ASSIGNMENT_RESPONSE_FAILED' }, { status: 500 })
+    if (!updatedProject) {
+      return NextResponse.json({ error: 'PROJECT_ASSIGNMENT_NO_LONGER_OFFERED' }, { status: 409 })
+    }
     await event(id, user.id, 'freelancer', `assignment_${status}`)
     await createUserNotification({ userId: ctx.project.user_id, type: `assignment_${status}`, title: status === 'accepted' ? 'Freelancer accepted the project' : 'Freelancer declined the project', body: `${ctx.project.title}: the assigned freelancer ${status} the assignment.`, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
   } else if (body.type === 'request_revision') {
