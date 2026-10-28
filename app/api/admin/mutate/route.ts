@@ -125,21 +125,34 @@ export async function POST(request: NextRequest) {
           return { ok: true, status: decision.status, noop: true }
         }
 
+        const transferReference = String(body.reference ?? '').trim().slice(0, 200)
+        const adminNote = String(body.adminNote ?? '').trim().slice(0, 2000)
+        if (decision.status === 'paid' && !transferReference) {
+          return { error: 'TRANSFER_REFERENCE_REQUIRED', message: 'Add the bank / PayPal transfer reference before marking this payout as paid.' }
+        }
+
         const patch: Record<string, unknown> = {
           status: decision.status,
           reviewed_at: row.reviewed_at ?? new Date().toISOString(),
         }
+        if (adminNote) patch.admin_note = adminNote
         if (decision.status === 'paid') {
           patch.paid_at = new Date().toISOString()
-          patch.reviewed_at = row.reviewed_at ?? new Date().toISOString()
+          patch.transfer_reference = transferReference
         }
 
-        const { error: updError } = await admin.from('payout_requests').update(patch).eq('id', payoutId)
-        if (updError) {
-          console.error('[admin/mutate set_payout]', updError)
+        const { data: updated, error: updError } = await admin
+          .from('payout_requests')
+          .update(patch)
+          .eq('id', payoutId)
+          .eq('status', row.status)
+          .select('id')
+          .maybeSingle()
+        if (updError || !updated) {
+          if (updError) console.error('[admin/mutate set_payout]', updError)
           return {
-            error: 'PAYOUT_UPDATE_FAILED',
-            message: 'Could not update payout status. Check that the status is allowed by the database.',
+            error: updated ? 'PAYOUT_UPDATE_FAILED' : 'PAYOUT_STATUS_CONFLICT',
+            message: 'Could not update payout status. Refresh the request and try again.',
           }
         }
         await audit({
@@ -149,9 +162,45 @@ export async function POST(request: NextRequest) {
           entity: 'payout_requests',
           entityId: payoutId,
           oldValue: { status: row.status },
-          newValue: { status: decision.status, requested: requestedStatus },
+          newValue: {
+            status: decision.status,
+            requested: requestedStatus,
+            transferReference: decision.status === 'paid' ? transferReference : null,
+            adminNote: adminNote || null,
+          },
         })
-        if (decision.status === 'paid') await recordFunnelEvent('payout_completed',{userId:row.user_id,amountUsd:Number(row.amount||0),metadata:{payoutId}})
+        if (decision.status === 'paid') {
+          await recordFunnelEvent('payout_completed',{userId:row.user_id,amountUsd:Number(row.amount||0),metadata:{payoutId}})
+          await createUserNotification({
+            userId: row.user_id,
+            type: 'payout_paid',
+            title: 'Your payout was marked as paid',
+            body: `A payout of ${Number(row.amount || 0).toFixed(2)} was marked as sent. Reference: ${transferReference}`,
+            href: '/dashboard/payouts',
+            entityType: 'payout_request',
+            entityId: payoutId,
+          })
+        } else if (decision.status === 'approved') {
+          await createUserNotification({
+            userId: row.user_id,
+            type: 'payout_approved',
+            title: 'Your payout request was approved',
+            body: 'Your payout is approved and awaiting manual transfer on the scheduled processing cycle.',
+            href: '/dashboard/payouts',
+            entityType: 'payout_request',
+            entityId: payoutId,
+          })
+        } else if (decision.status === 'cancelled') {
+          await createUserNotification({
+            userId: row.user_id,
+            type: 'payout_cancelled',
+            title: 'Your payout request was cancelled',
+            body: adminNote || 'Your payout request was cancelled. The reserved balance is available again.',
+            href: '/dashboard/payouts',
+            entityType: 'payout_request',
+            entityId: payoutId,
+          })
+        }
         invalidate()
         return { ok: true, status: decision.status }
       }
