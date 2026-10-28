@@ -340,8 +340,34 @@ export async function GET(request: NextRequest) {
         if (q) query = query.or(`display_name.ilike.%${q}%,category.ilike.%${q}%`)
         const { data, count, error } = await query.range(offset, offset + limit - 1)
         if (error) throw error
-        const profiles=(data||[]) as any[];const ids=profiles.map(row=>row.user_id);const [{data:verifications},{data:metrics}]=ids.length?await Promise.all([admin.from('freelancer_verifications').select('*').in('user_id',ids),admin.from('freelancer_metrics').select('*').in('user_id',ids)]):[{data:[]},{data:[]}]
-        const v=new Map(((verifications||[]) as any[]).map(row=>[row.user_id,row]));const m=new Map(((metrics||[]) as any[]).map(row=>[row.user_id,row]));return { section: 'freelancers', rows: profiles.map(row=>({...row,id:row.user_id,full_name:row.display_name,service_name:row.category,verification:v.get(row.user_id)||null,metrics:m.get(row.user_id)||null,rating:(m.get(row.user_id) as any)?.average_rating||null})), count: count ?? 0, offset, limit }
+        const profiles=(data||[]) as any[]
+        const ids=profiles.map(row=>row.user_id)
+        const [{data:verifications},{data:metrics},{data:availability}]=ids.length
+          ? await Promise.all([
+              admin.from('freelancer_verifications').select('*').in('user_id',ids),
+              admin.from('freelancer_metrics').select('*').in('user_id',ids),
+              admin.from('freelancer_availability').select('*').in('user_id',ids),
+            ])
+          : [{data:[]},{data:[]},{data:[]}]
+        const v=new Map(((verifications||[]) as any[]).map(row=>[row.user_id,row]))
+        const m=new Map(((metrics||[]) as any[]).map(row=>[row.user_id,row]))
+        const a=new Map(((availability||[]) as any[]).map(row=>[row.user_id,row]))
+        return {
+          section: 'freelancers',
+          rows: profiles.map(row=>({
+            ...row,
+            id:row.user_id,
+            full_name:row.display_name,
+            service_name:row.category,
+            verification:v.get(row.user_id)||null,
+            availability:a.get(row.user_id)||null,
+            metrics:m.get(row.user_id)||null,
+            rating:(m.get(row.user_id) as any)?.average_rating||null,
+          })),
+          count: count ?? 0,
+          offset,
+          limit,
+        }
       }
 
       case 'audit': {
