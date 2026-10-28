@@ -1,6 +1,6 @@
 export async function saveFreelancerDetails(userId: string, displayName: string, niches: string[], otherNiche: string, links: string[]) {
-  // The API authenticates the session and uses the service role for tables that
-  // intentionally do not grant direct client writes (portfolio links and verification).
+  // The server API authenticates the session and handles tables that do not
+  // grant direct client writes, including portfolio links and verification.
   const response = await fetch('/api/freelancers/profile', {
     method: 'POST',
     credentials: 'include',
