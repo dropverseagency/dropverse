@@ -121,6 +121,9 @@ export async function createCommissionsForProject(params: {
     status: 'pending',
     available_at: availableAt,
   })
+  // The unique project/referral index is the final concurrency guard. A
+  // parallel payment-confirmation request may win after the earlier read.
+  if (error?.code === '23505') return { created: false, reason: 'DUPLICATE' }
   if (error) return { created: false, reason: 'DB_ERROR', detail: error.message }
 
   await audit({
@@ -264,7 +267,7 @@ export async function setCommissionStatus(params: {
   if (!isReversal && toIdx <= fromIdx) return { ok: false, reason: 'INVALID_TRANSITION' }
   if (fromIdx === -1 && !isReversal) return { ok: false, reason: 'INVALID_TRANSITION' }
 
-  const { error: updateError } = await admin
+  const { data: updated, error: updateError } = await admin
     .from('referral_commissions')
     .update({
       status: params.newStatus,
@@ -273,7 +276,11 @@ export async function setCommissionStatus(params: {
       reviewer_id: params.actorId,
     })
     .eq('id', params.commissionId)
+    .eq('status', row.status)
+    .select('id')
+    .maybeSingle()
   if (updateError) return { ok: false, reason: 'DB_ERROR' }
+  if (!updated) return { ok: false, reason: 'STATUS_CONFLICT' }
 
   await audit({
     actorId: params.actorId,

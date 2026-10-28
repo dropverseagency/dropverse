@@ -64,13 +64,28 @@ export async function POST(request: NextRequest) {
         const reference = String(body.reference ?? '').trim().slice(0, 200)
         if (!projectId || !reference) return { error: 'PROJECT_AND_REFERENCE_REQUIRED' }
         const admin = adminClient()
-        const { data: project } = await admin.from('projects').select('id,title,assigned_freelancer_id,freelancer_payout_status,operations_status,payment_status').eq('id', projectId).maybeSingle()
-        if (!project || project.freelancer_payout_status !== 'releasable' || project.operations_status !== 'approved' || project.payment_status !== 'PAYMENT_CONFIRMED' || !project.assigned_freelancer_id) return { error: 'EARNING_NOT_RELEASABLE' }
-        await admin.from('project_earnings').update({ status: 'released', released_at: new Date().toISOString() }).eq('project_id', projectId).eq('status', 'releasable')
-        await admin.from('projects').update({ freelancer_payout_status: 'released' }).eq('id', projectId)
-        await admin.from('project_events').insert({ project_id: projectId, actor_id: ctx.userId, actor_kind: 'admin', event_type: 'freelancer_payout_released', metadata: { reference } })
+        const { data: result, error } = await admin.rpc('release_project_earning_atomic', {
+          p_project_id: projectId,
+          p_admin_user_id: ctx.userId,
+          p_reference: reference,
+        })
+        if (error || !result || typeof result !== 'object') {
+          console.error('[admin/mutate release_project_earning]', error)
+          return { error: 'PROJECT_EARNING_RELEASE_FAILED' }
+        }
+        if (result.ok !== true) return { error: String(result.error ?? 'EARNING_NOT_RELEASABLE') }
+        // A retry after a successful commit is safe and must not duplicate notices.
+        if (result.duplicate === true) return { ok: true, duplicate: true }
         await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'project_earning_released', entity: 'projects', entityId: projectId, newValue: { reference } })
-        await createUserNotification({ userId: project.assigned_freelancer_id, type: 'project_payout_released', title: 'Project payout released', body: `Your payout for ${project.title} was marked as sent. Reference: ${reference}`, href: `/dashboard/projects/${projectId}`, entityType: 'project', entityId: projectId })
+        await createUserNotification({
+          userId: String(result.freelancerId),
+          type: 'project_payout_released',
+          title: 'Project payout released',
+          body: `Your payout for ${String(result.title)} was marked as sent. Reference: ${reference}`,
+          href: `/dashboard/projects/${projectId}`,
+          entityType: 'project',
+          entityId: projectId,
+        })
         return { ok: true }
       }
 
@@ -79,17 +94,34 @@ export async function POST(request: NextRequest) {
         const resolution = String(body.resolution ?? '').trim().slice(0, 3000)
         const outcome = String(body.outcome ?? '')
         const refundReference = String(body.refundReference ?? '').trim().slice(0, 200)
-        const refundAmount = Math.max(0, Number(body.refundAmount ?? 0))
+        const rawRefundAmount = body.refundAmount == null ? 0 : Number(body.refundAmount)
         if (!disputeId || resolution.length < 3 || !['resolved','refunded','rejected'].includes(outcome)) return { error: 'INVALID_DISPUTE_RESOLUTION' }
-        if (outcome === 'refunded' && !refundReference) return { error: 'REFUND_REFERENCE_REQUIRED' }
+        if (outcome === 'refunded' && (!refundReference || !Number.isFinite(rawRefundAmount) || rawRefundAmount <= 0)) {
+          return { error: 'REFUND_AMOUNT_AND_REFERENCE_REQUIRED' }
+        }
+        const refundAmount = outcome === 'refunded' ? Math.round(rawRefundAmount * 100) / 100 : 0
         const admin = adminClient()
-        const { data: dispute } = await admin.from('project_disputes').select('id,project_id,status').eq('id', disputeId).maybeSingle()
-        if (!dispute || !['open','under_review'].includes(dispute.status)) return { error: 'DISPUTE_NOT_OPEN' }
-        await admin.from('project_disputes').update({ status: outcome, resolution, refund_amount: outcome === 'refunded' ? refundAmount : null, refund_reference: outcome === 'refunded' ? refundReference : null, resolved_by: ctx.userId, resolved_at: new Date().toISOString() }).eq('id', disputeId)
-        await admin.from('projects').update(outcome === 'refunded' ? { operations_status: 'refunded', payment_status: 'PAYMENT_REFUNDED', freelancer_payout_status: 'reversed' } : { operations_status: outcome === 'resolved' ? 'approved' : 'delivered' }).eq('id', dispute.project_id)
-        if (outcome === 'refunded') await admin.from('project_earnings').update({ status: 'reversed' }).eq('project_id', dispute.project_id).neq('status','released')
-        await admin.from('project_events').insert({ project_id: dispute.project_id, actor_id: ctx.userId, actor_kind: 'admin', event_type: `dispute_${outcome}`, metadata: { disputeId, refundAmount, refundReference } })
-        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: `project_dispute_${outcome}`, entity: 'project_disputes', entityId: disputeId, newValue: { resolution, refundAmount, refundReference } })
+        const { data: result, error } = await admin.rpc('resolve_project_dispute_atomic', {
+          p_dispute_id: disputeId,
+          p_admin_user_id: ctx.userId,
+          p_outcome: outcome,
+          p_resolution: resolution,
+          p_refund_amount: refundAmount,
+          p_refund_reference: refundReference || null,
+        })
+        if (error || !result || typeof result !== 'object') {
+          console.error('[admin/mutate resolve_project_dispute]', error)
+          return { error: 'DISPUTE_RESOLUTION_FAILED' }
+        }
+        if (result.ok !== true) return { error: String(result.error ?? 'DISPUTE_RESOLUTION_FAILED') }
+        await audit({
+          actorId: ctx.userId,
+          actorEmail: ctx.email,
+          action: `project_dispute_${outcome}`,
+          entity: 'project_disputes',
+          entityId: disputeId,
+          newValue: { resolution, refundAmount: outcome === 'refunded' ? refundAmount : null, refundReference: outcome === 'refunded' ? refundReference : null },
+        })
         return { ok: true }
       }
       case 'confirm_payment': {
