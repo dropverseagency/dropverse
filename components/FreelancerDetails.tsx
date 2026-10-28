@@ -35,7 +35,7 @@ export function FreelancerDetails({ niches, setNiches, otherNiche, setOtherNiche
         <input type="url" required placeholder="https://behance.net/your-work" value={link} onChange={e => setLinks(links.map((v,i) => i === index ? e.target.value : v))} className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#10221f] px-3 py-3 text-sm text-white" />
         {links.length > 1 && <button type="button" onClick={() => setLinks(links.filter((_,i) => i !== index))} className="px-2 text-sm text-[#d8b45a]">Remove</button>}
       </div>)}
-      <button type="button" onClick={() => setLinks([...links, ''])} className="text-sm font-semibold text-[#d8b45a]">+ Add another portfolio link</button>
+      <button type="button" disabled={links.length >= 5} onClick={() => setLinks([...links, ''])} className="text-sm font-semibold text-[#d8b45a] disabled:cursor-not-allowed disabled:opacity-50">{links.length >= 5 ? 'Maximum 5 portfolio links reached' : '+ Add another portfolio link'}</button>
       <p className="text-xs text-[#9aaca6]">Behance, Dribbble, GitHub, Google Drive, personal website, or other public portfolio URLs.</p>
     </div>
   </div>
