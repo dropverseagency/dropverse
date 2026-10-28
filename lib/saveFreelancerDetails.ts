@@ -1,4 +1,4 @@
-export async function saveFreelancerDetails(userId: string, displayName: string, niches: string[], otherNiche: string, links: string[]) {
+export async function saveFreelancerDetails(_userId: string, displayName: string, niches: string[], otherNiche: string, links: string[]) {
   // The server API authenticates the session and handles tables that do not
   // grant direct client writes, including portfolio links and verification.
   const response = await fetch('/api/freelancers/profile', {
