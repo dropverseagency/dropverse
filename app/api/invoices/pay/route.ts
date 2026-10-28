@@ -63,13 +63,13 @@ async function getPayPalAccessToken() {
   return json.access_token || null
 }
 
-async function verifyWithPayPal(orderId: string, expectedAmount: number, expectedCurrency: string) {
+async function verifyWithPayPal(orderId: string, expectedAmount: number, expectedCurrency: string, invoiceId: string) {
   const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || process.env.PAYPAL_CLIENT_ID || ''
   const base =
     process.env.PAYPAL_API_BASE ||
     (clientId.startsWith('A') ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com')
 
-  return verifyPayPalOrder(orderId, expectedAmount, expectedCurrency, {
+  return verifyPayPalOrder(orderId, expectedAmount, expectedCurrency, `dv:invoice:${invoiceId}:${expectedAmount.toFixed(2)}`, {
     getAccessToken: getPayPalAccessToken,
     fetchOrder: (id, token) => fetch(`${base}/v2/checkout/orders/${encodeURIComponent(id)}`, {
       headers: {
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
 
   if (provider === 'paypal') {
     paymentMethod = 'PAYPAL'
-    const verification = await verifyWithPayPal(paymentId, expectedAmount, expectedCurrency)
+    const verification = await verifyWithPayPal(paymentId, expectedAmount, expectedCurrency, invoiceId)
     if (!verification.ok) {
       return NextResponse.json(
         { error: verification.error, detail: (verification as any).detail },
