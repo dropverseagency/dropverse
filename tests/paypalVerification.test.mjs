@@ -20,6 +20,7 @@ const completedOrder = {
   id: orderId,
   status: 'COMPLETED',
   purchase_units: [{
+    custom_id: 'dv:invoice:invoice-123:25.00',
     payments: {
       captures: [{
         id: '3C679366HH908993F',
@@ -55,14 +56,14 @@ assert.equal(isValidPayPalOrderId('not-an-order-id!'), false)
 
 {
   const d = deps({ token: null })
-  const result = await verifyPayPalOrder(orderId, 25, 'USD', d)
+  const result = await verifyPayPalOrder(orderId, 25, 'USD', 'dv:invoice:invoice-123:25.00', d)
   assert.deepEqual(result, { ok: false, error: 'PAYPAL_VERIFY_FAILED' })
   assert.equal(d.getFetchCalls(), 0, 'must not query PayPal without a server access token')
 }
 
 {
   const d = deps()
-  const result = await verifyPayPalOrder('12345678', 25, 'USD', d)
+  const result = await verifyPayPalOrder('12345678', 25, 'USD', 'dv:invoice:invoice-123:25.00', d)
   assert.equal(result.ok, false, 'malformed order IDs must fail')
   assert.equal(d.getFetchCalls(), 0, 'malformed order IDs must be rejected before network calls')
 }
@@ -124,6 +125,12 @@ assert.equal(isValidPayPalOrderId('not-an-order-id!'), false)
   const d = deps({ response: { ...completedOrder, id: 'DIFFERENTORDER12345' } })
   const result = await verifyPayPalOrder(orderId, 25, 'USD', d)
   assert.deepEqual(result, { ok: false, error: 'PAYPAL_VERIFY_FAILED' })
+}
+
+{
+  const d = deps({ response: { ...completedOrder, purchase_units: [{ ...completedOrder.purchase_units[0], custom_id: 'dv:invoice:another-invoice:25.00' }] } })
+  const result = await verifyPayPalOrder(orderId, 25, 'USD', 'dv:invoice:invoice-123:25.00', d)
+  assert.deepEqual(result, { ok: false, error: 'PAYPAL_VERIFY_FAILED' }, 'a paid order must be tied to the invoice being paid')
 }
 
 unlinkSync(modulePath)
