@@ -12,7 +12,7 @@ export default function RefundPage() {
       <article className="mx-auto max-w-3xl">
         <Link href="/" className="text-sm font-semibold text-[#d8b45a] hover:text-[#f0d98b]">Back to DropVerse</Link>
         <h1 className="font-display mt-6 text-4xl font-extrabold text-white">Refund Policy</h1>
-        <p className="mt-3 text-sm text-[#849792]">Last updated 23 October 2026. Contact dropverseagency@gmail.com.</p>
+        <p className="mt-3 text-sm text-[#849792]">Last updated 28 October 2026. Contact dropverseagency@gmail.com.</p>
         <div className="mt-8 space-y-6 text-sm leading-7 text-[#c5d2cc]">
           <p>This policy covers DropVerse subscriptions, digital services, and lead-pack purchases processed through a DropVerse checkout. Refund decisions consider the offer and description shown at purchase, transaction and delivery records, payment-provider rules, and applicable law. Nothing in this policy removes a right that cannot legally be waived.</p>
           <h2 className="font-display text-xl font-bold text-white">Platform plan cancellations</h2>
