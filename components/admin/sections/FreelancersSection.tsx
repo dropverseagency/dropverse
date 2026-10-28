@@ -37,7 +37,7 @@ export default function FreelancersSection() {
             placeholder="Search freelancer name or service..."
           />
           <Card>
-            {!data.rows?.length ? emptyNote('No freelancers registered yet. Freelancers can be added from the marketplace section later.') : (
+            {!data.rows?.length ? emptyNote('No freelancer profiles yet. They appear here after a freelancer completes profile onboarding.') : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
