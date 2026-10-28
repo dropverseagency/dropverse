@@ -33,7 +33,8 @@ type PayoutPayload = {
   currency: string
   balances: { pending: number; available: number; processing: number; totalPaid: number }
   breakdown: {
-    affiliate: { label: string; pending: number; available: number; paid: number }
+    affiliate: { label: string; pending: number; available: number; availableBeforeReservations?: number; paid: number; paidThroughWithdrawals?: number }
+    projectEarnings: { label: string; pending: number; releasable: number; released: number }
     sourcesNote: string
   }
   policy: {
@@ -457,14 +458,32 @@ export default function PayoutsPage() {
           <section className="mt-8">
             <h2 className="font-display text-lg font-bold text-[#e8edea]">Earnings breakdown</h2>
             <p className="mt-1 text-xs text-[#81948e]">{data.breakdown.sourcesNote}</p>
-            <div className="mt-3 rounded-xl border border-white/5 bg-[rgba(255,255,255,0.02)] p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-sm font-semibold text-[#f0f4f2]">{data.breakdown.affiliate.label}</span>
-                <span className="text-sm text-[#c8d4d0]">
-                  {formatUsd(data.breakdown.affiliate.available)} available ·{' '}
-                  {formatUsd(data.breakdown.affiliate.pending)} pending ·{' '}
-                  {formatUsd(data.breakdown.affiliate.paid)} paid
-                </span>
+            <div className="mt-3 grid gap-3">
+              <div className="rounded-xl border border-white/5 bg-[rgba(255,255,255,0.02)] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-[#f0f4f2]">{data.breakdown.affiliate.label}</span>
+                  <span className="text-sm text-[#c8d4d0]">
+                    {formatUsd(data.breakdown.affiliate.available)} withdrawable ·{' '}
+                    {formatUsd(data.breakdown.affiliate.pending)} pending ·{' '}
+                    {formatUsd(data.breakdown.affiliate.paid)} commission ledger paid
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-[#81948e]">
+                  {formatUsd(data.breakdown.affiliate.paidThroughWithdrawals ?? 0)} paid through withdrawal requests. Open and paid withdrawals are deducted from the withdrawable balance.
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/5 bg-[rgba(255,255,255,0.02)] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-[#f0f4f2]">{data.breakdown.projectEarnings.label}</span>
+                  <span className="text-sm text-[#c8d4d0]">
+                    {formatUsd(data.breakdown.projectEarnings.releasable)} releasable ·{' '}
+                    {formatUsd(data.breakdown.projectEarnings.pending)} held ·{' '}
+                    {formatUsd(data.breakdown.projectEarnings.released)} released
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-[#81948e]">
+                  Project earnings are paid separately by an admin after project approval; they are not included in affiliate withdrawal requests.
+                </p>
               </div>
             </div>
           </section>
