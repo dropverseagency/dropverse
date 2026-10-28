@@ -39,13 +39,19 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case 'set_freelancer_verification': {
-        const userId=String(body.userId||'');const identityStatus=String(body.identityStatus||'');const specialtyStatus=String(body.specialtyStatus||'');const verifiedLevel=String(body.verifiedLevel||'');const note=String(body.note||'').trim().slice(0,2000)
+        const userId=String(body.userId||'')
+        const identityStatus=String(body.identityStatus||'')
+        const specialtyStatus=String(body.specialtyStatus||'')
+        const verifiedLevel=String(body.verifiedLevel||'')
+        const note=String(body.note||'').trim().slice(0,2000)
+        const identityProviderReference=String(body.identityProviderReference||'').trim().slice(0,200)
         if(!userId||!['unsubmitted','pending','verified','rejected','expired'].includes(identityStatus)||!['unreviewed','pending','passed','failed'].includes(specialtyStatus)||!['none','identity','specialist','pro'].includes(verifiedLevel))return {error:'INVALID_VERIFICATION'}
+        if(identityStatus==='verified' && (!identityProviderReference || note.length < 5 || specialtyStatus!=='passed' || !['specialist','pro'].includes(verifiedLevel)))return {error:'VERIFICATION_EVIDENCE_REQUIRED'}
         const admin = adminClient()
         const { data: previous } = await admin.from('freelancer_verifications').select('identity_status,specialty_status,verified_level').eq('user_id', userId).maybeSingle()
-        const { error } = await admin.from('freelancer_verifications').upsert({ user_id: userId, identity_status: identityStatus, specialty_status: specialtyStatus, verified_level: verifiedLevel, specialty_review_note: note || null, reviewed_by: ctx.userId, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        const { error } = await admin.from('freelancer_verifications').upsert({ user_id: userId, identity_status: identityStatus, specialty_status: specialtyStatus, verified_level: verifiedLevel, specialty_review_note: note || null, identity_provider_reference: identityProviderReference || null, reviewed_by: ctx.userId, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
         if (error) return { error: 'VERIFICATION_SAVE_FAILED' }
-        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'freelancer_verification_updated', entity: 'freelancer_verifications', entityId: userId, newValue: { identityStatus, specialtyStatus, verifiedLevel, note } })
+        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'freelancer_verification_updated', entity: 'freelancer_verifications', entityId: userId, newValue: { identityStatus, specialtyStatus, verifiedLevel, note, identityProviderReference: identityProviderReference || null } })
         const changed = !previous || previous.identity_status !== identityStatus || previous.specialty_status !== specialtyStatus || previous.verified_level !== verifiedLevel
         if (changed) {
           const approved = identityStatus === 'verified' && specialtyStatus === 'passed'
