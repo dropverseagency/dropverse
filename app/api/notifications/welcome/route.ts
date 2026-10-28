@@ -31,18 +31,16 @@ export async function POST() {
     }
 
     idempotencyKey = `welcome_email:${userId}`
-    const { error: claimError } = await admin.from('agent_events').insert({
-      idempotency_key: idempotencyKey,
-      agent: 'welcome_email',
-      entity_id: userId,
-    })
-    if (claimError) {
-      if (claimError.code === '23505') {
-        return NextResponse.json({ ok: true, skipped: 'ALREADY_SENT' })
-      }
-      console.error('[notifications/welcome] idempotency claim failed:', claimError.message)
-      return NextResponse.json({ error: 'WELCOME_CLAIM_FAILED' }, { status: 503 })
+    const { data: existing, error: lookupError } = await admin
+      .from('agent_events')
+      .select('id')
+      .eq('idempotency_key', idempotencyKey)
+      .maybeSingle()
+    if (lookupError) {
+      console.error('[notifications/welcome] idempotency lookup failed:', lookupError.message)
+      return NextResponse.json({ error: 'WELCOME_LOOKUP_FAILED' }, { status: 503 })
     }
+    if (existing) return NextResponse.json({ ok: true, skipped: 'ALREADY_SENT' })
 
     const sent = await sendGmailNotificationEmail(
       email,
@@ -59,8 +57,17 @@ export async function POST() {
     )
 
     if (!sent) {
-      await admin.from('agent_events').delete().eq('idempotency_key', idempotencyKey)
       return NextResponse.json({ error: 'WELCOME_EMAIL_FAILED' }, { status: 503 })
+    }
+
+    // Record only after successful delivery so a failed SMTP attempt can be retried.
+    const { error: recordError } = await admin.from('agent_events').insert({
+      idempotency_key: idempotencyKey,
+      agent: 'welcome_email',
+      entity_id: userId,
+    })
+    if (recordError && recordError.code !== '23505') {
+      console.error('[notifications/welcome] sent email but could not record idempotency:', recordError.message)
     }
 
     return NextResponse.json({ ok: true, sent: true })
