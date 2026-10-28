@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireUser } from '@/lib/leads/auth'
 import { adminClient } from '@/lib/adminCore'
 import { sendGmailNotificationEmail } from '@/lib/gmailSmtp'
+import { buildWelcomeEmail } from '@/lib/emailTemplates'
 
 export const runtime = 'nodejs'
 
@@ -42,18 +43,13 @@ export async function POST() {
     }
     if (existing) return NextResponse.json({ ok: true, skipped: 'ALREADY_SENT' })
 
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://dropverse10v.vercel.app'
+    const emailContent = buildWelcomeEmail(siteUrl)
     const sent = await sendGmailNotificationEmail(
       email,
-      'Welcome to DropVerse',
-      [
-        'Welcome to DropVerse!',
-        '',
-        'Your account is ready. You can explore the platform, manage projects, and connect with the services that fit your goals.',
-        '',
-        'Open DropVerse: ' + (process.env.NEXT_PUBLIC_SITE_URL || 'https://dropverse10v.vercel.app'),
-        '',
-        '— The DropVerse Team',
-      ].join('\n'),
+      emailContent.subject,
+      emailContent.text,
+      emailContent.html,
     )
 
     if (!sent) {
