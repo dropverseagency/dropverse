@@ -33,6 +33,7 @@ type PayPalOrder = {
   id?: unknown
   status?: unknown
   purchase_units?: Array<{
+    custom_id?: unknown
     payments?: { captures?: PayPalCapture[] | null } | null
   }> | null
 }
@@ -47,6 +48,7 @@ export async function verifyPayPalOrder(
   rawOrderId: string,
   expectedAmount: number,
   expectedCurrency: string,
+  expectedCustomId: string,
   dependencies: VerifyPayPalOrderDependencies,
 ): Promise<PayPalCaptureResult> {
   const orderId = String(rawOrderId || '').trim()
@@ -98,7 +100,15 @@ export async function verifyPayPalOrder(
     return { ok: false, error: 'PAYPAL_VERIFY_FAILED' }
   }
 
-  const captures = order.purchase_units?.flatMap((unit) => unit.payments?.captures || []) || []
+  const purchaseUnits = order.purchase_units || []
+  if (
+    purchaseUnits.length !== 1 ||
+    String(purchaseUnits[0]?.custom_id || '') !== expectedCustomId
+  ) {
+    return { ok: false, error: 'PAYPAL_VERIFY_FAILED' }
+  }
+
+  const captures = purchaseUnits.flatMap((unit) => unit.payments?.captures || [])
   const completedCaptures = captures.filter((capture) => String(capture?.status || '').toUpperCase() === 'COMPLETED')
   if (completedCaptures.length === 0) {
     return { ok: false, error: 'PAYPAL_VERIFY_FAILED' }
