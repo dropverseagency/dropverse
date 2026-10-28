@@ -8,7 +8,7 @@ update public.lead_pack_purchases
 set expires_at = created_at + interval '30 minutes'
 where status = 'pending_payment' and expires_at is null;
 
-drop index if exists public.lead_pack_purchases_buyer_unique;
+alter table public.lead_pack_purchases drop constraint if exists lead_pack_purchases_buyer_unique;
 create unique index if not exists lead_pack_purchases_buyer_active_unique
   on public.lead_pack_purchases (pack_id, buyer_id)
   where status in ('pending_payment', 'paid');
@@ -179,6 +179,16 @@ begin
   for update;
 
   if not found then raise exception 'PACK_NOT_FOUND'; end if;
+
+  if exists (
+    select 1 from public.lead_pack_purchases
+    where pack_id = v_purchase.pack_id
+      and buyer_id = v_purchase.buyer_id
+      and id <> p_purchase_id
+      and status in ('pending_payment', 'paid')
+  ) then
+    raise exception 'DUPLICATE_LATE_PAYMENT_REQUIRES_REVIEW';
+  end if;
 
   v_effective := least(v_pack.max_buyers, coalesce(v_pack.admin_max_buyers, v_pack.max_buyers));
   select count(*) into v_pending_others
