@@ -26,7 +26,7 @@ export default function LoginPage() {
 function LoginPageInner() {
   const searchParams = useSearchParams()
   const [redirectTo] = useState(() => searchParams.get('redirect') || '/dashboard')
-  const [mode, setMode] = useState<'login' | 'signup'>(() => (searchParams.get('ref') ? 'signup' : 'login'))
+  const [mode, setMode] = useState<'login' | 'signup'>(() => (searchParams.get('mode') === 'signup' || searchParams.get('ref') ? 'signup' : 'login'))
   const [referralPrefill] = useState(() => searchParams.get('ref') || '')
   const [freelancerSelected, setFreelancerSelected] = useState(false)
   const [freelancerNiches, setFreelancerNiches] = useState<string[]>([])
