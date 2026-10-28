@@ -148,11 +148,17 @@ export async function POST(request: NextRequest) {
           .eq('status', row.status)
           .select('id')
           .maybeSingle()
-        if (updError || !updated) {
-          if (updError) console.error('[admin/mutate set_payout]', updError)
+        if (updError) {
+          console.error('[admin/mutate set_payout]', updError)
           return {
-            error: updated ? 'PAYOUT_UPDATE_FAILED' : 'PAYOUT_STATUS_CONFLICT',
-            message: 'Could not update payout status. Refresh the request and try again.',
+            error: 'PAYOUT_UPDATE_FAILED',
+            message: 'Could not update payout status. Check the payout schema and try again.',
+          }
+        }
+        if (!updated) {
+          return {
+            error: 'PAYOUT_STATUS_CONFLICT',
+            message: 'The payout status changed while you were reviewing it. Refresh the request and try again.',
           }
         }
         await audit({
