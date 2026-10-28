@@ -58,6 +58,8 @@ type PayoutPayload = {
     method: string | null
     status: string
     paidAt: string | null
+    transferReference: string | null
+    adminNote: string | null
     failureReason: string | null
   }[]
 }
@@ -590,7 +592,11 @@ export default function PayoutsPage() {
                           {h.requestedAt ? new Date(h.requestedAt).toLocaleString() : '—'}
                         </td>
                         <td className="px-4 py-3 font-medium text-[#f0f4f2]">{formatUsd(h.amount)}</td>
-                        <td className="px-4 py-3 text-[#c8d4d0]">{h.method || '—'}</td>
+                        <td className="px-4 py-3 text-[#c8d4d0]">
+                          <div>{h.method || '—'}</div>
+                          {h.transferReference ? <div className="mt-1 max-w-[14rem] break-all text-[10px] text-[#9aacb8]">Ref: {h.transferReference}</div> : null}
+                          {h.adminNote ? <div className="mt-1 max-w-[14rem] text-[10px] text-[#9aacb8]">{h.adminNote}</div> : null}
+                        </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${statusClass(h.status)}`}>
                             {statusLabel(h.status)}
