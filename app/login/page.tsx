@@ -89,7 +89,7 @@ function LoginPageInner() {
         const { data, error: exchErr } = await supabase.auth.exchangeCodeForSession(window.location.hash)
         if (!exchErr && data.session) {
           applyPendingReferral().catch(() => undefined)
-          await fetch('/api/notifications/welcome', { method: 'POST', credentials: 'include' }).catch(() => undefined)
+          void fetch('/api/notifications/welcome', { method: 'POST', credentials: 'include', keepalive: true }).catch(() => undefined)
           window.location.assign(await firstLoginTarget(supabase, data.session.user.id))
           return
         }
@@ -101,7 +101,7 @@ function LoginPageInner() {
         } = await supabase.auth.getSession()
         if (session?.user?.id) {
           applyPendingReferral().catch(() => undefined)
-          await fetch('/api/notifications/welcome', { method: 'POST', credentials: 'include' }).catch(() => undefined)
+          void fetch('/api/notifications/welcome', { method: 'POST', credentials: 'include', keepalive: true }).catch(() => undefined)
           window.location.assign(await firstLoginTarget(supabase, session.user.id))
         }
       }
@@ -214,7 +214,7 @@ function LoginPageInner() {
           if (isFreelancer) await saveFreelancerDetails(data.session.user.id, fullName, freelancerNiches, otherNiche, portfolioLinks)
           // Best-effort admin Telegram notify (Agent A sibling)
           void fetch('/api/agents/new-signup', { method: 'POST', credentials: 'include' }).catch(() => undefined)
-          await fetch('/api/notifications/welcome', { method: 'POST', credentials: 'include' }).catch(() => undefined)
+          void fetch('/api/notifications/welcome', { method: 'POST', credentials: 'include', keepalive: true }).catch(() => undefined)
           window.location.assign(redirectTo)
         } else {
           setMessage(
@@ -229,7 +229,7 @@ function LoginPageInner() {
         })
         if (signInError) throw signInError
         applyPendingReferral().catch(() => undefined)
-        await fetch('/api/notifications/welcome', { method: 'POST', credentials: 'include' }).catch(() => undefined)
+        void fetch('/api/notifications/welcome', { method: 'POST', credentials: 'include', keepalive: true }).catch(() => undefined)
         window.location.assign(await firstLoginTarget(supabase, signInData?.user?.id ?? ''))
       }
     } catch (submitError) {
