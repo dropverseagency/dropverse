@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 import { adminClient, audit } from '@/lib/adminCore'
 import { requireUser } from '@/lib/leads/auth'
-import { leadCommissionRateForPrice, remainingSeats, splitCommission } from '@/lib/leads/types'
 
 export const runtime = 'nodejs'
 
-/** POST /api/leads/[id]/checkout — create pending purchase for authenticated buyer */
+/** POST /api/leads/[id]/checkout — reserve a seat and create/reuse a pending purchase atomically. */
 export async function POST(
   request: NextRequest,
   ctx: { params: Promise<{ id: string }> },
@@ -25,9 +24,10 @@ export async function POST(
       return NextResponse.json({ error: 'TERMS_ACCEPTANCE_REQUIRED' }, { status: 400 })
     }
 
+    const admin = adminClient()
     const forwardedFor = request.headers.get('x-forwarded-for') || ''
     const ip = forwardedFor.split(',')[0]?.trim().slice(0, 80) || request.headers.get('x-real-ip') || null
-    const { error: acceptanceError } = await adminClient().from('audit_logs').insert({
+    const { error: acceptanceError } = await admin.from('audit_logs').insert({
       actor_id: userId,
       actor_email: email,
       action: 'checkout_terms_accepted',
@@ -49,99 +49,37 @@ export async function POST(
     }
 
     const idempotencyKey =
-      String(body?.idempotencyKey || '').trim() ||
+      String(body.idempotencyKey || '').trim() ||
       `lp-${packId}-${userId}-${randomBytes(8).toString('hex')}`
 
-    const admin = adminClient()
+    const { data, error } = await admin.rpc('create_lead_pack_purchase_atomic', {
+      p_pack_id: packId,
+      p_buyer_id: userId,
+      p_idempotency_key: idempotencyKey,
+    })
 
-    const { data: pack, error } = await admin
-      .from('lead_packs')
-      .select('id, seller_id, price_usd, max_buyers, admin_max_buyers, sold_count, status, currency')
-      .eq('id', packId)
-      .single()
-
-    if (error || !pack) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
-    if (pack.status !== 'approved') {
-      return NextResponse.json({ error: 'NOT_FOR_SALE' }, { status: 409 })
-    }
-    if (pack.seller_id === userId) {
-      return NextResponse.json({ error: 'CANNOT_BUY_OWN' }, { status: 403 })
-    }
-
-    const remaining = remainingSeats(
-      Number(pack.max_buyers),
-      pack.admin_max_buyers as number | null,
-      Number(pack.sold_count),
-    )
-    if (remaining <= 0) {
-      return NextResponse.json({ error: 'SOLD_OUT' }, { status: 409 })
+    if (error || !data || typeof data !== 'object') {
+      const reason = error?.message || 'CHECKOUT_FAILED'
+      if (reason.includes('NOT_FOUND')) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
+      if (reason.includes('NOT_FOR_SALE')) return NextResponse.json({ error: 'NOT_FOR_SALE' }, { status: 409 })
+      if (reason.includes('CANNOT_BUY_OWN')) return NextResponse.json({ error: 'CANNOT_BUY_OWN' }, { status: 403 })
+      if (reason.includes('ALREADY_PURCHASED')) return NextResponse.json({ error: 'ALREADY_PURCHASED' }, { status: 409 })
+      if (reason.includes('SOLD_OUT')) return NextResponse.json({ error: 'SOLD_OUT' }, { status: 409 })
+      if (reason.includes('INVALID_LEAD_PRICE')) return NextResponse.json({ error: 'INVALID_PRICE' }, { status: 400 })
+      console.error('[leads] atomic checkout failed', reason)
+      return NextResponse.json({ error: 'CHECKOUT_FAILED' }, { status: 500 })
     }
 
-    const { data: existing } = await admin
-      .from('lead_pack_purchases')
-      .select('id, status, price_usd, idempotency_key')
-      .eq('pack_id', packId)
-      .eq('buyer_id', userId)
-      .maybeSingle()
-
-    if (existing?.status === 'paid') {
-      return NextResponse.json({ error: 'ALREADY_PURCHASED', purchaseId: existing.id }, { status: 409 })
+    const purchase = data as {
+      purchaseId?: string
+      amount?: number | string
+      currency?: string
+      idempotencyKey?: string
+      expiresAt?: string | null
+      alreadyPending?: boolean
     }
-    if (existing?.status === 'pending_payment') {
-      // Refresh a pending purchase to the current server-side tier rules while preserving
-      // the amount already attached to that pending payment.
-      const pendingPrice = Math.round(Number(existing.price_usd) * 100) / 100
-      const pendingRate = leadCommissionRateForPrice(pendingPrice)
-      const pendingSplit = splitCommission(pendingPrice, pendingRate)
-      const { error: refreshError } = await admin
-        .from('lead_pack_purchases')
-        .update({
-          commission_rate: pendingRate,
-          platform_fee_usd: pendingSplit.platformFee,
-          seller_net_usd: pendingSplit.sellerNet,
-        })
-        .eq('id', existing.id)
-        .eq('status', 'pending_payment')
-
-      if (refreshError) {
-        console.error('[leads] pending commission refresh failed', refreshError.message)
-        return NextResponse.json({ error: 'CHECKOUT_FAILED' }, { status: 500 })
-      }
-
-      return NextResponse.json({
-        ok: true,
-        purchaseId: existing.id,
-        amount: pendingPrice,
-        currency: (pack.currency as string) || 'USD',
-        idempotencyKey: existing.idempotency_key,
-        spaceremitPublicKey: process.env.NEXT_PUBLIC_SPACEREMIT_PUBLIC_KEY || '',
-      })
-    }
-
-    const price = Math.round(Number(pack.price_usd) * 100) / 100
-    const rate = leadCommissionRateForPrice(price)
-    const { platformFee, sellerNet } = splitCommission(price, rate)
-
-    const { data: purchase, error: insErr } = await admin
-      .from('lead_pack_purchases')
-      .insert({
-        pack_id: packId,
-        buyer_id: userId,
-        price_usd: price,
-        commission_rate: rate,
-        platform_fee_usd: platformFee,
-        seller_net_usd: sellerNet,
-        status: 'pending_payment',
-        idempotency_key: idempotencyKey,
-      })
-      .select('id, price_usd, idempotency_key')
-      .single()
-
-    if (insErr || !purchase) {
-      if (insErr?.code === '23505') {
-        return NextResponse.json({ error: 'ALREADY_PURCHASED' }, { status: 409 })
-      }
-      console.error('[leads] checkout insert', insErr?.message)
+    if (!purchase.purchaseId) {
+      console.error('[leads] atomic checkout returned no purchase id')
       return NextResponse.json({ error: 'CHECKOUT_FAILED' }, { status: 500 })
     }
 
@@ -150,24 +88,28 @@ export async function POST(
       actorEmail: email,
       action: 'lead_checkout_started',
       entity: 'lead_pack_purchase',
-      entityId: purchase.id,
-      newValue: { packId, price, commissionRate: rate, platformFee, sellerNet },
+      entityId: purchase.purchaseId,
+      newValue: {
+        packId,
+        amount: Number(purchase.amount),
+        commissionRate: 0.2,
+        expiresAt: purchase.expiresAt ?? null,
+        alreadyPending: purchase.alreadyPending === true,
+      },
     })
 
     return NextResponse.json({
       ok: true,
-      purchaseId: purchase.id,
-      amount: Number(purchase.price_usd),
-      currency: (pack.currency as string) || 'USD',
-      idempotencyKey: purchase.idempotency_key,
+      purchaseId: purchase.purchaseId,
+      amount: Number(purchase.amount),
+      currency: purchase.currency || 'USD',
+      idempotencyKey: purchase.idempotencyKey || idempotencyKey,
+      expiresAt: purchase.expiresAt ?? null,
       spaceremitPublicKey: process.env.NEXT_PUBLIC_SPACEREMIT_PUBLIC_KEY || '',
     })
   } catch (e) {
     if ((e as Error).message === 'NOT_AUTHENTICATED') {
       return NextResponse.json({ error: 'NOT_AUTHENTICATED' }, { status: 401 })
-    }
-    if ((e as Error).message === 'INVALID_LEAD_PRICE') {
-      return NextResponse.json({ error: 'INVALID_PRICE' }, { status: 400 })
     }
     console.error('[leads] checkout', e)
     return NextResponse.json({ error: 'INTERNAL' }, { status: 500 })
