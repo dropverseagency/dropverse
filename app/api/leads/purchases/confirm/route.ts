@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       .limit(1)
       .maybeSingle()
     const consentValue = consent?.new_value as Record<string, unknown> | null
-    if (!consent || consentValue?.accepted !== true || consentValue?.terms_version !== '2026-10-23') {
+    if (!consent || consentValue?.accepted !== true || consentValue?.terms_version !== '2026-10-28') {
       return NextResponse.json({ error: 'TERMS_ACCEPTANCE_REQUIRED' }, { status: 400 })
     }
 
@@ -104,6 +104,7 @@ export async function POST(request: NextRequest) {
       }
       if (reason.includes('NOT_PAYABLE')) return NextResponse.json({ error: 'NOT_PAYABLE' }, { status: 409 })
       if (reason.includes('PAYMENT_ID_REUSED')) return NextResponse.json({ error: 'PAYMENT_ID_REUSED' }, { status: 409 })
+      if (reason.includes('DUPLICATE_LATE_PAYMENT_REQUIRES_REVIEW')) return NextResponse.json({ error: 'PAYMENT_REQUIRES_REVIEW', message: 'A newer checkout already exists for this buyer and pack. Contact support for manual reconciliation or refund.' }, { status: 409 })
       if (reason.includes('LEDGER_RECONCILIATION_REQUIRED')) return NextResponse.json({ error: 'LEDGER_RECONCILIATION_REQUIRED' }, { status: 409 })
       console.error('[leads] atomic payment confirmation failed', reason)
       return NextResponse.json({ error: 'CONFIRM_FAILED' }, { status: 500 })
