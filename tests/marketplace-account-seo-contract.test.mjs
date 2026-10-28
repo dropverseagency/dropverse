@@ -54,6 +54,10 @@ test('SEO files keep private routes out of indexing and publish a public sitemap
   assert.match(sitemap, /\/pricing/)
   assert.match(sitemap, /\/privacy/)
   assert.doesNotMatch(sitemap, /\/dashboard|\/admin|\/login|\/reset-password/)
+  assert.match(read('../app/forgot-password/layout.tsx'), /index: false/)
+  assert.match(read('../app/reset-password/layout.tsx'), /index: false/)
+  assert.doesNotMatch(read('../app/privacy/page.tsx'), /Dodo Payments/)
+  assert.doesNotMatch(read('../app/refund/page.tsx'), /Dodo Payments/)
 })
 
 test('lead pack reservation migration is transactional and server-role only', () => {
