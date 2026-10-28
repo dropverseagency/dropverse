@@ -38,7 +38,7 @@ export function buildWelcomeEmail(siteUrl?: string): WelcomeEmail {
     'Open DropVerse: ' + url,
     '',
     '— The DropVerse Team',
-  ].join('\\n')
+  ].join('\n')
 
   const html = `<!doctype html>
 <html lang="en">
