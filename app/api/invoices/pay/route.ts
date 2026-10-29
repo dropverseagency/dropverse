@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
     const verification = await verifyWithPayPal(paymentId, expectedAmount, expectedCurrency, invoiceId)
     if (!verification.ok) {
       return NextResponse.json(
-        { error: verification.error, detail: (verification as any).detail },
+        { error: verification.error },
         { status: verification.error === 'SP_AMOUNT_MISMATCH' ? 422 : 402 },
       )
     }
