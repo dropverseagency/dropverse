@@ -60,7 +60,7 @@ function compactReport(value: unknown): Record<string, string | undefined> | nul
   const report = value as Record<string, unknown>
   return {
     violated: safeText(report['violated-directive'] ?? report.violatedDirective ?? report.effectiveDirective),
-    blocked: safeUrl(report['blocked-uri'] ?? report.blockedURL ?? report.blockedURL),
+    blocked: safeUrl(report['blocked-uri'] ?? report.blockedURL),
     document: safeUrl(report['document-uri'] ?? report.documentURL),
     disposition: safeText(report.disposition, 40),
   }
