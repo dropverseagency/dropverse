@@ -78,6 +78,7 @@ alter table public.projects enable row level security;
 alter table public.invoices enable row level security;
 alter table public.audit_logs enable row level security;
 create policy "projects owners insert" on public.projects for insert to authenticated with check (true);
+create policy "projects owners read" on public.projects for select to authenticated using (true);
 create policy "projects owners update" on public.projects for update to authenticated using (true) with check (true);
 create policy "invoices owner write" on public.invoices for all to authenticated using (true) with check (true);
 create policy "invoices owner status update" on public.invoices for update to authenticated using (true) with check (true);
