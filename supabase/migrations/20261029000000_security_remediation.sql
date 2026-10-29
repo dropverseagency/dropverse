@@ -59,4 +59,43 @@ drop policy if exists "users create own payouts" on public.payout_requests;
 revoke insert,update,delete on table public.payout_requests from public,anon,authenticated;
 drop policy if exists "audit_logs api write" on public.audit_logs;
 revoke insert,update,delete on table public.audit_logs from public,anon,authenticated;
+
+-- Prevent replaying one verified payment transaction against multiple projects/invoices.
+create table if not exists public.payment_transaction_claims (
+  provider text not null check (provider in ('SPACEREMIT','PAYPAL')),
+  transaction_id text not null check (length(btrim(transaction_id)) between 1 and 255),
+  entity_type text not null check (entity_type in ('project','invoice')),
+  entity_id uuid not null,
+  claimed_at timestamptz not null default now(),
+  primary key (provider, transaction_id)
+);
+alter table public.payment_transaction_claims enable row level security;
+revoke all on table public.payment_transaction_claims from public,anon,authenticated;
+
+create or replace function public.claim_payment_transaction(
+  p_provider text, p_transaction_id text, p_entity_type text, p_entity_id uuid
+) returns boolean
+language plpgsql security definer set search_path=public,pg_temp as $
+declare v_entity_type text; v_entity_id uuid;
+begin
+  if coalesce(auth.role(),current_setting('request.jwt.claim.role',true),current_user) <> 'service_role' then
+    raise exception 'PAYMENT_CLAIM_REQUIRES_SERVER_API' using errcode='42501';
+  end if;
+  if p_provider not in ('SPACEREMIT','PAYPAL')
+     or p_transaction_id is null or length(btrim(p_transaction_id)) < 1 or length(p_transaction_id) > 255
+     or p_entity_type not in ('project','invoice') or p_entity_id is null then
+    raise exception 'INVALID_PAYMENT_CLAIM_ARGUMENTS' using errcode='22023';
+  end if;
+  insert into public.payment_transaction_claims(provider,transaction_id,entity_type,entity_id)
+  values (p_provider,btrim(p_transaction_id),p_entity_type,p_entity_id)
+  on conflict (provider,transaction_id) do nothing;
+  if found then return true; end if;
+  select entity_type,entity_id into v_entity_type,v_entity_id
+    from public.payment_transaction_claims
+    where provider=p_provider and transaction_id=btrim(p_transaction_id);
+  return v_entity_type=p_entity_type and v_entity_id=p_entity_id;
+end; $;
+revoke all on function public.claim_payment_transaction(text,text,text,uuid) from public,anon,authenticated;
+grant execute on function public.claim_payment_transaction(text,text,text,uuid) to service_role;
+
 commit;
