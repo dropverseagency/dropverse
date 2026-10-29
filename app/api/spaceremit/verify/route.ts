@@ -2,12 +2,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { adminClient } from '@/lib/adminCore'
 import { cookies } from 'next/headers'
 
-import {
-  STATUS_TRANSITIONS,
-  type ProjectStatus,
-} from '../../../../lib/projectConfig'
 import { notifyAdminEvent } from '@/lib/agents/adminNotify'
 import { createUserNotification } from '@/lib/userNotifications'
 
@@ -93,11 +90,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'SP_VERIFY_FAILED' }, { status: 422 })
   }
   const tx = spData.data
+  const txStatus = String(tx?.status || '').toUpperCase()
+  if (!['SUCCESS', 'CONFIRMED', 'COMPLETED'].includes(txStatus)) {
+    return NextResponse.json({ error: 'PAYMENT_NOT_COMPLETE' }, { status: 402 })
+  }
 
   // 3. Cross-check amount & currency against the project's fulfillment cost.
   const expected = Number(project.fulfillment_cost || 0)
-  const paid = Number(tx.total_amount || 0)
-  if (tx.currency !== 'USD' || !(Math.abs(paid - expected) < 0.01)) {
+  const paid = Number(tx.total_amount)
+  const currency = String(tx.currency || '').toUpperCase()
+  if (!(expected > 0) || !Number.isFinite(paid) || currency !== 'USD' || Math.abs(paid - expected) >= 0.01) {
     void notifyAdminEvent({
       agent: 'payment_failed',
       idempotencyKey: `payment_fail:spaceremit:mismatch:${projectId}:${paymentId}`,
@@ -109,37 +111,78 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'SP_AMOUNT_MISMATCH' }, { status: 422 })
   }
 
-  // 4. Advance the project through allowed status transitions:
-  //    DRAFT -> PAYMENT_PENDING -> PAYMENT_CONFIRMED
-  let currentStatus: ProjectStatus = (project.status || 'DRAFT') as ProjectStatus
-  const path: ProjectStatus[] = [
-    currentStatus,
-    'PAYMENT_PENDING',
-    'PAYMENT_CONFIRMED',
-  ]
-  for (let i = 0; i < path.length - 1; i++) {
-    const from = path[i]
-    const to = path[i + 1]
-    if (from === to) continue
-    if (!STATUS_TRANSITIONS[from].includes(to)) {
-      return NextResponse.json({ error: 'STATUS_BLOCKED' }, { status: 409 })
-    }
-    await supabase
-      .from('projects')
-      .update({ status: to, payment_status: to })
-      .eq('id', projectId)
-    currentStatus = to
+  // 4. Claim this transaction globally before attaching it to a project.
+  // The database RPC is idempotent for this project and rejects reuse elsewhere.
+  const { data: claimed, error: claimError } = await adminClient().rpc('claim_payment_transaction', {
+    p_provider: 'SPACEREMIT',
+    p_transaction_id: paymentId,
+    p_entity_type: 'project',
+    p_entity_id: projectId,
+  })
+  if (claimError) {
+    console.error('payment transaction claim failed:', claimError.message)
+    return NextResponse.json({ error: 'PAYMENT_CLAIM_FAILED' }, { status: 500 })
   }
-  await supabase
+  if (claimed !== true) {
+    return NextResponse.json({ error: 'PAYMENT_TRANSACTION_ALREADY_USED' }, { status: 409 })
+  }
+
+  // 5. Preserve the allowed initial transition, then atomically confirm payment.
+  let currentStatus = String(project.status || 'DRAFT')
+  if (currentStatus === 'DRAFT') {
+    const { data: pendingProject, error: pendingError } = await adminClient()
+      .from('projects')
+      .update({ status: 'PAYMENT_PENDING' })
+      .eq('id', projectId)
+      .eq('payment_status', 'PAYMENT_PENDING')
+      .eq('status', 'DRAFT')
+      .select('id')
+      .maybeSingle()
+    if (pendingError) {
+      console.error('project pending transition failed:', pendingError.message)
+      return NextResponse.json({ error: 'DB_ERROR' }, { status: 500 })
+    }
+    if (!pendingProject) {
+      const { data: latest } = await adminClient()
+        .from('projects')
+        .select('status,payment_status')
+        .eq('id', projectId)
+        .maybeSingle()
+      if (!latest || latest.status !== 'PAYMENT_PENDING' || latest.payment_status !== 'PAYMENT_PENDING') {
+        return NextResponse.json({ error: 'PROJECT_STATE_CHANGED' }, { status: 409 })
+      }
+    }
+    currentStatus = 'PAYMENT_PENDING'
+  }
+  if (currentStatus !== 'PAYMENT_PENDING' && currentStatus !== 'PAST_DUE') {
+    return NextResponse.json({ error: 'STATUS_BLOCKED' }, { status: 409 })
+  }
+
+  const confirmedAt = new Date().toISOString()
+  const { data: confirmedProject, error: confirmError } = await adminClient()
     .from('projects')
     .update({
+      status: 'PAYMENT_CONFIRMED',
       payment_status: 'PAYMENT_CONFIRMED',
+      payment_provider: 'SPACEREMIT',
+      payment_transaction_id: paymentId,
+      payment_confirmed_at: confirmedAt,
       spaceremit_payment_id: paymentId,
     })
     .eq('id', projectId)
+    .eq('payment_status', 'PAYMENT_PENDING')
+    .select('id')
+    .maybeSingle()
+  if (confirmError) {
+    console.error('project payment confirmation failed:', confirmError.message)
+    return NextResponse.json({ error: 'DB_ERROR' }, { status: 500 })
+  }
+  if (!confirmedProject) {
+    return NextResponse.json({ error: 'ALREADY_CONFIRMED' }, { status: 409 })
+  }
 
-  // 5. Audit log (server-side only — never client-supplied).
-  await supabase.from('audit_logs').insert({
+  // 6. Audit log (server-side only — never client-supplied).
+  await adminClient().from('audit_logs').insert({
     actor_id: user.id,
     actor_email: user.email ?? null,
     action: 'spaceremit_payment_confirmed',

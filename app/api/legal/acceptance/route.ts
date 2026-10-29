@@ -19,6 +19,8 @@ export async function POST(request: NextRequest) {
     const itemType = String(body.itemType || '')
     let userId: string | null = null
     let email: string | null = null
+    let invoiceAmount: number | null = null
+    let invoiceCurrency: string | null = null
 
     if (itemType === 'invoice') {
       const invoiceId = String(body.itemId || '').trim()
@@ -32,6 +34,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'INVOICE_NOT_PAYABLE' }, { status: 409 })
       }
       email = invoice.client_email || null
+      invoiceAmount = Number(invoice.amount)
+      invoiceCurrency = String(invoice.currency || 'USD').toUpperCase()
     } else {
       const { requireUser } = await import('@/lib/leads/auth')
       const user = await requireUser()
@@ -61,6 +65,8 @@ export async function POST(request: NextRequest) {
       new_value: {
         accepted: true,
         terms_version: CURRENT_TERMS_VERSION,
+        item_id: String(body.itemId || '').trim(),
+        ...(itemType === 'invoice' ? { amount: invoiceAmount, currency: invoiceCurrency } : {}),
         accepted_at: new Date().toISOString(),
         item_name: String(body.itemName || '').slice(0, 180),
         refund_policy_version: CURRENT_TERMS_VERSION,

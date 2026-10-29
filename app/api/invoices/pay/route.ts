@@ -13,9 +13,8 @@ import { verifyPayPalOrder } from '../../../../lib/paypalVerification'
  *
  * Supports:
  * - SpaceRemit: client sends transaction code; we verify with SpaceRemit API.
- * - PayPal: client captures order client-side, then sends order ID; we confirm
- *   with PayPal Orders API when credentials are present, otherwise record the
- *   captured order id after basic validation.
+ * - PayPal: client sends the order ID; the server confirms it with the PayPal
+ *   Orders API. Missing credentials or any verification failure rejects payment.
  */
 let serviceSupabase: ReturnType<typeof createServiceClient> | null = null
 function getServiceSupabase() {
@@ -33,9 +32,13 @@ async function verifyWithSpaceRemit(privateKey: string, paymentId: string) {
   }
   const json = await res.json()
   const data = json?.data ?? json
-  const status = String(json?.response_status ?? data?.status ?? '').toLowerCase()
-  if (status !== 'success') {
-    return { ok: false as const, error: 'SPACEREMIT_VERIFY_FAILED', detail: json }
+  const responseStatus = String(json?.response_status ?? '').toLowerCase()
+  if (responseStatus !== 'success') {
+    return { ok: false as const, error: 'SPACEREMIT_VERIFY_FAILED' }
+  }
+  const paymentStatus = String(data?.status || '').toUpperCase()
+  if (!['SUCCESS', 'CONFIRMED', 'COMPLETED'].includes(paymentStatus)) {
+    return { ok: false as const, error: 'SPACEREMIT_PAYMENT_NOT_COMPLETE' }
   }
   return { ok: true as const, data }
 }
@@ -112,6 +115,9 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  const expectedAmount = Number((invoice as any).amount || 0)
+  const expectedCurrency = String((invoice as any).currency || 'USD').toUpperCase()
+
   const { data: consent } = await getServiceSupabase()
     .from('audit_logs')
     .select('id, new_value')
@@ -122,12 +128,11 @@ export async function POST(request: NextRequest) {
     .limit(1)
     .maybeSingle()
   const consentValue = consent?.new_value as Record<string, unknown> | null
-  if (!consent || consentValue?.accepted !== true || consentValue?.terms_version !== '2026-10-23') {
+  if (!consent || consentValue?.accepted !== true || consentValue?.terms_version !== '2026-10-23' ||
+      consentValue?.item_id !== invoiceId || Number(consentValue?.amount) !== expectedAmount ||
+      String(consentValue?.currency || '').toUpperCase() !== expectedCurrency) {
     return NextResponse.json({ error: 'TERMS_ACCEPTANCE_REQUIRED' }, { status: 400 })
   }
-
-  const expectedAmount = Number((invoice as any).amount || 0)
-  const expectedCurrency = String((invoice as any).currency || 'USD')
 
   let paymentMethod: 'SPACEREMIT' | 'PAYPAL' = 'SPACEREMIT'
   let verifiedAmount: number | undefined
@@ -137,7 +142,7 @@ export async function POST(request: NextRequest) {
     const verification = await verifyWithPayPal(paymentId, expectedAmount, expectedCurrency, invoiceId)
     if (!verification.ok) {
       return NextResponse.json(
-        { error: verification.error, detail: (verification as any).detail },
+        { error: verification.error },
         { status: verification.error === 'SP_AMOUNT_MISMATCH' ? 422 : 402 },
       )
     }
@@ -150,31 +155,50 @@ export async function POST(request: NextRequest) {
     const verification = await verifyWithSpaceRemit(privateKey, paymentId)
     if (!verification.ok) {
       return NextResponse.json(
-        { error: verification.error, detail: verification.detail },
-        { status: 402 },
+        { error: verification.error },
+        { status: verification.error === 'SP_AMOUNT_MISMATCH' ? 422 : 402 },
       )
     }
-    const paid = Number(verification.data?.total_amount || 0)
-    if (verification.data?.currency !== expectedCurrency || !(Math.abs(paid - expectedAmount) < 0.01)) {
+    const paid = Number(verification.data?.total_amount)
+    const paidCurrency = String(verification.data?.currency || '').toUpperCase()
+    if (!(expectedAmount > 0) || !Number.isFinite(paid) || paidCurrency !== expectedCurrency || Math.abs(paid - expectedAmount) >= 0.01) {
       return NextResponse.json({ error: 'SP_AMOUNT_MISMATCH' }, { status: 422 })
     }
     verifiedAmount = paid
   }
 
-  const { error: invError } = await getServiceSupabase()
+  // One verified provider transaction can be used for only one invoice/project.
+  const { data: transactionClaimed, error: transactionClaimError } = await getServiceSupabase().rpc('claim_payment_transaction', {
+    p_provider: paymentMethod,
+    p_transaction_id: paymentId,
+    p_entity_type: 'invoice',
+    p_entity_id: invoiceId,
+  })
+  if (transactionClaimError) {
+    console.error('payment transaction claim failed:', transactionClaimError.message)
+    return NextResponse.json({ error: 'PAYMENT_CLAIM_FAILED' }, { status: 500 })
+  }
+  if (transactionClaimed !== true) {
+    return NextResponse.json({ error: 'PAYMENT_TRANSACTION_ALREADY_USED' }, { status: 409 })
+  }
+
+  // Compare-and-set prevents concurrent requests from confirming the same invoice twice.
+  const { data: paidInvoice, error: invError } = await getServiceSupabase()
     .from('invoices')
     .update({
       status: 'PAID',
       spaceremit_payment_id: paymentMethod === 'SPACEREMIT' ? paymentId : (invoice as any).spaceremit_payment_id,
-      client_name: String(body.clientName || '').trim() || (invoice as any).client_name,
-      client_email: String(body.clientEmail || '').trim() || (invoice as any).client_email,
     })
     .eq('id', invoiceId)
+    .eq('status', 'PENDING')
+    .select('id')
+    .maybeSingle()
 
   if (invError) {
     console.error('invoice pay update error:', invError.message)
     return NextResponse.json({ error: 'DB_ERROR' }, { status: 500 })
   }
+  if (!paidInvoice) return NextResponse.json({ error: 'INVOICE_ALREADY_PROCESSED' }, { status: 409 })
 
   const projectId = (invoice as any).project_id
   await recordFunnelEvent('payment_completed',{projectId,invoiceId,amountUsd:verifiedAmount,metadata:{provider:paymentMethod,kind:(invoice as any).kind||'project'}})

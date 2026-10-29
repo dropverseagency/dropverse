@@ -81,7 +81,7 @@ export async function createProjectServer(draft: ProjectDraft) {
     seller_profit: sellerProfit,
     payment_method: storedMethod,
     payment_status: 'PAYMENT_PENDING',
-    spaceremit_payment_id: draft.spaceremitPaymentId?.trim() || null,
+    spaceremit_payment_id: null, // never trust a client-supplied payment ID before server verification
     status: 'DRAFT',
     current_billing_period: 1,
     delivery_notes: String(draft.deliveryNotes || '').trim(),
@@ -98,14 +98,14 @@ export async function createProjectServer(draft: ProjectDraft) {
   let insertError: { message?: string; code?: string; details?: string } | null = null
 
   {
-    const res = await supabase.from('projects').insert(rowWithProvider).select('id').single()
+    const res = await adminClient().from('projects').insert(rowWithProvider).select('id').single()
     data = res.data
     insertError = res.error
   }
 
   // Retry without payment_provider if the column is missing.
   if (insertError && /payment_provider/i.test(insertError.message || '')) {
-    const res = await supabase.from('projects').insert(baseRow).select('id').single()
+    const res = await adminClient().from('projects').insert(baseRow).select('id').single()
     data = res.data
     insertError = res.error
   }
