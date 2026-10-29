@@ -77,12 +77,10 @@ create table public.audit_logs (
 alter table public.projects enable row level security;
 alter table public.invoices enable row level security;
 alter table public.audit_logs enable row level security;
-alter table public.payout_requests enable row level security;
 create policy "projects owners insert" on public.projects for insert to authenticated with check (true);
 create policy "projects owners update" on public.projects for update to authenticated using (true) with check (true);
 create policy "invoices owner write" on public.invoices for all to authenticated using (true) with check (true);
 create policy "invoices owner status update" on public.invoices for update to authenticated using (true) with check (true);
-create policy "users create own payouts" on public.payout_requests for insert to authenticated with check (true);
 create policy "audit_logs api write" on public.audit_logs for insert to authenticated with check (true);
 
 create table public.referrals (
@@ -117,6 +115,8 @@ create table public.payout_requests (
   reviewed_at timestamptz,
   paid_at timestamptz
 );
+alter table public.payout_requests enable row level security;
+create policy "users create own payouts" on public.payout_requests for insert to authenticated with check (true);
 
 grant usage on schema public to anon, authenticated, service_role;
 grant select,insert,update,delete on public.projects, public.invoices, public.audit_logs, public.payout_requests to authenticated;
