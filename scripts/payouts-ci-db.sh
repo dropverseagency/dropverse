@@ -133,7 +133,7 @@ psql -v ON_ERROR_STOP=1 -c "insert into public.referral_commissions(id, referral
 psql -v ON_ERROR_STOP=1 -c "select proname from pg_proc where proname in ('create_payout_request_atomic','get_payout_balance_summary');"
 
 echo "Applying DropVerse security remediation migration"
-SECURITY_MIGRATION="$(find supabase/migrations -maxdepth 1 -type f -name '*_security_remediation.sql' -print -quit)"
+SECURITY_MIGRATION="$(find supabase/migrations -maxdepth 1 -type f -name '*security_remediation*.sql' -print -quit)"
 test -n "$SECURITY_MIGRATION"
 psql -v ON_ERROR_STOP=1 -f "$SECURITY_MIGRATION"
 TRIGGER_GRANTS_MIGRATION="$(find supabase/migrations -maxdepth 1 -type f -name '*_revoke_trigger_function_rpc.sql' -print -quit)"
