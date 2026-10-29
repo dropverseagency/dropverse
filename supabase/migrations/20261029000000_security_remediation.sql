@@ -26,7 +26,7 @@ revoke all on function public.consume_rate_limit_bucket(text,integer,integer) fr
 grant execute on function public.consume_rate_limit_bucket(text,integer,integer) to service_role;
 
 drop policy if exists "projects owners insert" on public.projects;
-revoke insert on table public.projects from anon,authenticated;
+revoke insert on table public.projects from public,anon,authenticated;
 create or replace function public.guard_project_financial_mutations()
 returns trigger language plpgsql security definer set search_path=public,pg_temp as $$
 declare v_role text:=coalesce(auth.role(),current_setting('request.jwt.claim.role',true),current_user);
@@ -44,7 +44,7 @@ create trigger guard_project_financial_mutations before insert or update on publ
 
 drop policy if exists "invoices owner write" on public.invoices;
 drop policy if exists "invoices owner status update" on public.invoices;
-revoke insert,update,delete on table public.invoices from anon,authenticated;
+revoke insert,update,delete on table public.invoices from public,anon,authenticated;
 create or replace function public.guard_invoice_mutations()
 returns trigger language plpgsql security definer set search_path=public,pg_temp as $$
 declare v_role text:=coalesce(auth.role(),current_setting('request.jwt.claim.role',true),current_user);
@@ -56,7 +56,7 @@ drop trigger if exists guard_invoice_mutations on public.invoices;
 create trigger guard_invoice_mutations before insert or update or delete on public.invoices for each row execute function public.guard_invoice_mutations();
 
 drop policy if exists "users create own payouts" on public.payout_requests;
-revoke insert,update,delete on table public.payout_requests from anon,authenticated;
+revoke insert,update,delete on table public.payout_requests from public,anon,authenticated;
 drop policy if exists "audit_logs api write" on public.audit_logs;
-revoke insert,update,delete on table public.audit_logs from anon,authenticated;
+revoke insert,update,delete on table public.audit_logs from public,anon,authenticated;
 commit;

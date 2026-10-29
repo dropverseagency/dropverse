@@ -41,13 +41,15 @@ async function confirmProject(supabase: ReturnType<typeof serviceClient>, paymen
   const nextStatus = status === 'DRAFT' || status === 'PAYMENT_PENDING' || status === 'PAST_DUE'
     ? 'PAYMENT_CONFIRMED'
     : status
-  const { error: updateError } = await supabase.from('projects').update({
+  const { data: updatedProject, error: updateError } = await supabase.from('projects').update({
     payment_status: 'PAYMENT_CONFIRMED',
+    payment_provider: 'SPACEREMIT',
+    payment_transaction_id: paymentId,
     payment_confirmed_at: now,
     spaceremit_payment_id: paymentId,
     status: nextStatus,
-  }).eq('id', project.id).eq('payment_status', 'PAYMENT_PENDING')
-  if (updateError) return false
+  }).eq('id', project.id).eq('payment_status', 'PAYMENT_PENDING').select('id').maybeSingle()
+  if (updateError || !updatedProject) return false
   await supabase.from('audit_logs').insert({
     actor_id: project.user_id,
     actor_email: null,
@@ -73,12 +75,14 @@ async function confirmInvoice(supabase: ReturnType<typeof serviceClient>, paymen
   const expected = Number(invoice.amount || 0)
   const paid = Number(tx?.total_amount || 0)
   if (String(tx?.currency || '').toUpperCase() !== String(invoice.currency || 'USD').toUpperCase() || !(expected > 0) || !Number.isFinite(paid) || Math.abs(paid - expected) >= 0.01) return false
-  const { error: updateError } = await supabase
+  const { data: paidInvoice, error: updateError } = await supabase
     .from('invoices')
     .update({ status: 'PAID', spaceremit_payment_id: paymentId })
     .eq('id', invoice.id)
     .eq('status', 'PENDING')
-  if (updateError) return false
+    .select('id')
+    .maybeSingle()
+  if (updateError || !paidInvoice) return false
   if (invoice.project_id) {
     await supabase
       .from('projects')
