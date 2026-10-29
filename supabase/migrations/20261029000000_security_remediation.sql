@@ -20,6 +20,10 @@ begin
  on conflict(key) do update set count=case when public.rate_limit_buckets.window_start=excluded.window_start then public.rate_limit_buckets.count+1 else 1 end,
  window_start=excluded.window_start,updated_at=now() returning count into v_count;
  v_reset_ms:=(extract(epoch from (v_window_start+p_window_ms*interval '1 millisecond'))*1000)::bigint;
+ -- Bound table growth from one-off IP/user keys without paying the cleanup cost on every request.
+ if random() < 0.01 then
+   delete from public.rate_limit_buckets where updated_at < now() - interval '2 hours';
+ end if;
  return jsonb_build_object('success',v_count<=p_limit,'limit',p_limit,'remaining',greatest(0,p_limit-v_count),'reset',v_reset_ms,'backend','supabase');
 end; $$;
 revoke all on function public.consume_rate_limit_bucket(text,integer,integer) from public,anon,authenticated;
