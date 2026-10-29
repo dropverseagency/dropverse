@@ -32,9 +32,13 @@ async function verifyWithSpaceRemit(privateKey: string, paymentId: string) {
   }
   const json = await res.json()
   const data = json?.data ?? json
-  const status = String(json?.response_status ?? data?.status ?? '').toLowerCase()
-  if (status !== 'success') {
-    return { ok: false as const, error: 'SPACEREMIT_VERIFY_FAILED', detail: json }
+  const responseStatus = String(json?.response_status ?? '').toLowerCase()
+  if (responseStatus !== 'success') {
+    return { ok: false as const, error: 'SPACEREMIT_VERIFY_FAILED' }
+  }
+  const paymentStatus = String(data?.status || '').toUpperCase()
+  if (!['SUCCESS', 'CONFIRMED', 'COMPLETED'].includes(paymentStatus)) {
+    return { ok: false as const, error: 'SPACEREMIT_PAYMENT_NOT_COMPLETE' }
   }
   return { ok: true as const, data }
 }
@@ -155,11 +159,27 @@ export async function POST(request: NextRequest) {
         { status: 402 },
       )
     }
-    const paid = Number(verification.data?.total_amount || 0)
-    if (verification.data?.currency !== expectedCurrency || !(Math.abs(paid - expectedAmount) < 0.01)) {
+    const paid = Number(verification.data?.total_amount)
+    const paidCurrency = String(verification.data?.currency || '').toUpperCase()
+    if (!(expectedAmount > 0) || !Number.isFinite(paid) || paidCurrency !== expectedCurrency || Math.abs(paid - expectedAmount) >= 0.01) {
       return NextResponse.json({ error: 'SP_AMOUNT_MISMATCH' }, { status: 422 })
     }
     verifiedAmount = paid
+  }
+
+  // One verified provider transaction can be used for only one invoice/project.
+  const { data: transactionClaimed, error: transactionClaimError } = await getServiceSupabase().rpc('claim_payment_transaction', {
+    p_provider: paymentMethod,
+    p_transaction_id: paymentId,
+    p_entity_type: 'invoice',
+    p_entity_id: invoiceId,
+  })
+  if (transactionClaimError) {
+    console.error('payment transaction claim failed:', transactionClaimError.message)
+    return NextResponse.json({ error: 'PAYMENT_CLAIM_FAILED' }, { status: 500 })
+  }
+  if (transactionClaimed !== true) {
+    return NextResponse.json({ error: 'PAYMENT_TRANSACTION_ALREADY_USED' }, { status: 409 })
   }
 
   // Compare-and-set prevents concurrent requests from confirming the same invoice twice.
