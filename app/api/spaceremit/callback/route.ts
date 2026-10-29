@@ -36,6 +36,10 @@ async function confirmProject(supabase: ReturnType<typeof serviceClient>, paymen
   const expected = Number(project.fulfillment_cost || 0)
   const paid = Number(tx?.total_amount || 0)
   if (String(tx?.currency || '').toUpperCase() !== 'USD' || !(expected > 0) || !Number.isFinite(paid) || Math.abs(paid - expected) >= 0.01) return false
+  const { data: claimed, error: claimError } = await supabase.rpc('claim_payment_transaction', {
+    p_provider: 'SPACEREMIT', p_transaction_id: paymentId, p_entity_type: 'project', p_entity_id: project.id,
+  })
+  if (claimError || claimed !== true) return false
   const now = new Date().toISOString()
   const status = (project.status || 'DRAFT') as ProjectStatus
   const nextStatus = status === 'DRAFT' || status === 'PAYMENT_PENDING' || status === 'PAST_DUE'
@@ -75,6 +79,10 @@ async function confirmInvoice(supabase: ReturnType<typeof serviceClient>, paymen
   const expected = Number(invoice.amount || 0)
   const paid = Number(tx?.total_amount || 0)
   if (String(tx?.currency || '').toUpperCase() !== String(invoice.currency || 'USD').toUpperCase() || !(expected > 0) || !Number.isFinite(paid) || Math.abs(paid - expected) >= 0.01) return false
+  const { data: claimed, error: claimError } = await supabase.rpc('claim_payment_transaction', {
+    p_provider: 'SPACEREMIT', p_transaction_id: paymentId, p_entity_type: 'invoice', p_entity_id: invoice.id,
+  })
+  if (claimError || claimed !== true) return false
   const { data: paidInvoice, error: updateError } = await supabase
     .from('invoices')
     .update({ status: 'PAID', spaceremit_payment_id: paymentId })
