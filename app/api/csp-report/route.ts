@@ -49,7 +49,7 @@ function safeUrl(value: unknown): string | undefined {
     // Never log query strings, fragments, data payloads, or blob identifiers.
     if (parsed.protocol === 'data:' || parsed.protocol === 'blob:') return parsed.protocol
     const safePath = parsed.pathname.split('/').map((segment) => {
-      if (segment.length > 48 || /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(segment) || /^\\d{5,}$/.test(segment) || segment.includes('@')) {
+      if (segment.length > 48 || /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(segment) || /^\d{5,}$/.test(segment) || segment.includes('@')) {
         return '[redacted]'
       }
       return segment.slice(0, 80)
