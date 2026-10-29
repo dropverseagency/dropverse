@@ -79,7 +79,7 @@ revoke all on table public.payment_transaction_claims from public,anon,authentic
 create or replace function public.claim_payment_transaction(
   p_provider text, p_transaction_id text, p_entity_type text, p_entity_id uuid
 ) returns boolean
-language plpgsql security definer set search_path=public,pg_temp as $
+language plpgsql security definer set search_path=public,pg_temp as $claim$
 declare v_entity_type text; v_entity_id uuid;
 begin
   if coalesce(auth.role(),current_setting('request.jwt.claim.role',true),current_user) <> 'service_role' then
@@ -98,7 +98,7 @@ begin
     from public.payment_transaction_claims
     where provider=p_provider and transaction_id=btrim(p_transaction_id);
   return v_entity_type=p_entity_type and v_entity_id=p_entity_id;
-end; $;
+end; $claim$;
 revoke all on function public.claim_payment_transaction(text,text,text,uuid) from public,anon,authenticated;
 grant execute on function public.claim_payment_transaction(text,text,text,uuid) to service_role;
 
