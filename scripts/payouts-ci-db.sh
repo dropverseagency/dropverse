@@ -52,7 +52,8 @@ create table public.projects (
   operations_status text,
   delivered_at timestamptz,
   service_start_date date,
-  service_end_date date
+  service_end_date date,
+  description text
 );
 create table public.invoices (
   id uuid primary key default gen_random_uuid(),
@@ -135,6 +136,9 @@ echo "Applying DropVerse security remediation migration"
 SECURITY_MIGRATION="$(find supabase/migrations -maxdepth 1 -type f -name '*_security_remediation.sql' -print -quit)"
 test -n "$SECURITY_MIGRATION"
 psql -v ON_ERROR_STOP=1 -f "$SECURITY_MIGRATION"
+TRIGGER_GRANTS_MIGRATION="$(find supabase/migrations -maxdepth 1 -type f -name '*_revoke_trigger_function_rpc.sql' -print -quit)"
+test -n "$TRIGGER_GRANTS_MIGRATION"
+psql -v ON_ERROR_STOP=1 -f "$TRIGGER_GRANTS_MIGRATION"
 
 # Server-only writes must be denied for authenticated clients.
 if psql -v ON_ERROR_STOP=1 -c "SET ROLE authenticated; SET request.jwt.claim.role='authenticated'; INSERT INTO public.projects (user_id,client_price,fulfillment_cost,seller_profit,payment_method,payment_status,status) VALUES ('00000000-0000-0000-0000-000000000099',100,40,60,'SPACEREMIT','PAYMENT_PENDING','DRAFT');"; then
@@ -152,7 +156,8 @@ fi
 
 # Project state fields remain protected even where UPDATE privilege is retained.
 psql -v ON_ERROR_STOP=1 -c "SET request.jwt.claim.role='service_role'; INSERT INTO public.projects (id,user_id,client_price,fulfillment_cost,seller_profit,payment_method,payment_status,status) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000099',100,40,60,'SPACEREMIT','PAYMENT_PENDING','DRAFT');"
-if psql -v ON_ERROR_STOP=1 -c "SET ROLE authenticated; SET request.jwt.claim.role='authenticated'; UPDATE public.projects SET payment_status='PAYMENT_CONFIRMED' WHERE id='00000000-0000-0000-0000-000000000001';"; then
+psql -v ON_ERROR_STOP=1 -c "SET request.jwt.claim.role='authenticated'; SET ROLE authenticated; UPDATE public.projects SET description='safe client edit' WHERE id='00000000-0000-0000-0000-000000000001';"
+if psql -v ON_ERROR_STOP=1 -c "SET request.jwt.claim.role='authenticated'; SET ROLE authenticated; UPDATE public.projects SET payment_status='PAYMENT_CONFIRMED' WHERE id='00000000-0000-0000-0000-000000000001';"; then
   echo "SECURITY_TEST_FAILED: authenticated payment-state update succeeded"; exit 1
 fi
 
