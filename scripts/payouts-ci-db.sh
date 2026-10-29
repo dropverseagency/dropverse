@@ -131,7 +131,9 @@ psql -v ON_ERROR_STOP=1 -c "insert into public.referral_commissions(id, referral
 psql -v ON_ERROR_STOP=1 -c "select proname from pg_proc where proname in ('create_payout_request_atomic','get_payout_balance_summary');"
 
 echo "Applying DropVerse security remediation migration"
-psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261029000000_security_remediation.sql
+SECURITY_MIGRATION="$(find supabase/migrations -maxdepth 1 -type f -name '*_security_remediation.sql' -print -quit)"
+test -n "$SECURITY_MIGRATION"
+psql -v ON_ERROR_STOP=1 -f "$SECURITY_MIGRATION"
 
 # Server-only writes must be denied for authenticated clients.
 if psql -v ON_ERROR_STOP=1 -c "SET ROLE authenticated; SET request.jwt.claim.role='authenticated'; INSERT INTO public.projects (user_id,client_price,fulfillment_cost,seller_profit,payment_method,payment_status,status) VALUES ('00000000-0000-0000-0000-000000000099',100,40,60,'SPACEREMIT','PAYMENT_PENDING','DRAFT');"; then
