@@ -48,7 +48,13 @@ function safeUrl(value: unknown): string | undefined {
     const parsed = new URL(raw)
     // Never log query strings, fragments, data payloads, or blob identifiers.
     if (parsed.protocol === 'data:' || parsed.protocol === 'blob:') return parsed.protocol
-    return `${parsed.origin}${parsed.pathname}`.slice(0, 300)
+    const safePath = parsed.pathname.split('/').map((segment) => {
+      if (segment.length > 48 || /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(segment) || /^\\d{5,}$/.test(segment) || segment.includes('@')) {
+        return '[redacted]'
+      }
+      return segment.slice(0, 80)
+    }).join('/')
+    return `${parsed.origin}${safePath}`.slice(0, 300)
   } catch {
     // CSP also reports tokens such as "inline" and "eval", which are not URLs.
     return raw.replace(/[?#].*$/, '').slice(0, 120)
