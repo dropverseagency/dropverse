@@ -155,8 +155,8 @@ export async function POST(request: NextRequest) {
     const verification = await verifyWithSpaceRemit(privateKey, paymentId)
     if (!verification.ok) {
       return NextResponse.json(
-        { error: verification.error, detail: verification.detail },
-        { status: 402 },
+        { error: verification.error },
+        { status: verification.error === 'SP_AMOUNT_MISMATCH' ? 422 : 402 },
       )
     }
     const paid = Number(verification.data?.total_amount)
