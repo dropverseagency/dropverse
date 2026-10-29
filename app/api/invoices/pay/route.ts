@@ -13,9 +13,8 @@ import { verifyPayPalOrder } from '../../../../lib/paypalVerification'
  *
  * Supports:
  * - SpaceRemit: client sends transaction code; we verify with SpaceRemit API.
- * - PayPal: client captures order client-side, then sends order ID; we confirm
- *   with PayPal Orders API when credentials are present, otherwise record the
- *   captured order id after basic validation.
+ * - PayPal: client sends the order ID; the server confirms it with the PayPal
+ *   Orders API. Missing credentials or any verification failure rejects payment.
  */
 let serviceSupabase: ReturnType<typeof createServiceClient> | null = null
 function getServiceSupabase() {
@@ -112,6 +111,9 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  const expectedAmount = Number((invoice as any).amount || 0)
+  const expectedCurrency = String((invoice as any).currency || 'USD').toUpperCase()
+
   const { data: consent } = await getServiceSupabase()
     .from('audit_logs')
     .select('id, new_value')
@@ -122,12 +124,11 @@ export async function POST(request: NextRequest) {
     .limit(1)
     .maybeSingle()
   const consentValue = consent?.new_value as Record<string, unknown> | null
-  if (!consent || consentValue?.accepted !== true || consentValue?.terms_version !== '2026-10-23') {
+  if (!consent || consentValue?.accepted !== true || consentValue?.terms_version !== '2026-10-23' ||
+      consentValue?.item_id !== invoiceId || Number(consentValue?.amount) !== expectedAmount ||
+      String(consentValue?.currency || '').toUpperCase() !== expectedCurrency) {
     return NextResponse.json({ error: 'TERMS_ACCEPTANCE_REQUIRED' }, { status: 400 })
   }
-
-  const expectedAmount = Number((invoice as any).amount || 0)
-  const expectedCurrency = String((invoice as any).currency || 'USD')
 
   let paymentMethod: 'SPACEREMIT' | 'PAYPAL' = 'SPACEREMIT'
   let verifiedAmount: number | undefined
@@ -161,20 +162,23 @@ export async function POST(request: NextRequest) {
     verifiedAmount = paid
   }
 
-  const { error: invError } = await getServiceSupabase()
+  // Compare-and-set prevents concurrent requests from confirming the same invoice twice.
+  const { data: paidInvoice, error: invError } = await getServiceSupabase()
     .from('invoices')
     .update({
       status: 'PAID',
       spaceremit_payment_id: paymentMethod === 'SPACEREMIT' ? paymentId : (invoice as any).spaceremit_payment_id,
-      client_name: String(body.clientName || '').trim() || (invoice as any).client_name,
-      client_email: String(body.clientEmail || '').trim() || (invoice as any).client_email,
     })
     .eq('id', invoiceId)
+    .eq('status', 'PENDING')
+    .select('id')
+    .maybeSingle()
 
   if (invError) {
     console.error('invoice pay update error:', invError.message)
     return NextResponse.json({ error: 'DB_ERROR' }, { status: 500 })
   }
+  if (!paidInvoice) return NextResponse.json({ error: 'INVOICE_ALREADY_PROCESSED' }, { status: 409 })
 
   const projectId = (invoice as any).project_id
   await recordFunnelEvent('payment_completed',{projectId,invoiceId,amountUsd:verifiedAmount,metadata:{provider:paymentMethod,kind:(invoice as any).kind||'project'}})

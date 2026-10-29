@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { adminClient } from '@/lib/adminCore'
 import { cookies } from 'next/headers'
 
 import {
@@ -124,13 +125,13 @@ export async function POST(request: NextRequest) {
     if (!STATUS_TRANSITIONS[from].includes(to)) {
       return NextResponse.json({ error: 'STATUS_BLOCKED' }, { status: 409 })
     }
-    await supabase
+    await adminClient()
       .from('projects')
       .update({ status: to, payment_status: to })
       .eq('id', projectId)
     currentStatus = to
   }
-  await supabase
+  await adminClient()
     .from('projects')
     .update({
       payment_status: 'PAYMENT_CONFIRMED',
@@ -139,7 +140,7 @@ export async function POST(request: NextRequest) {
     .eq('id', projectId)
 
   // 5. Audit log (server-side only — never client-supplied).
-  await supabase.from('audit_logs').insert({
+  await adminClient().from('audit_logs').insert({
     actor_id: user.id,
     actor_email: user.email ?? null,
     action: 'spaceremit_payment_confirmed',

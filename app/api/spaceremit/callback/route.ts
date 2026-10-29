@@ -23,27 +23,31 @@ function serviceClient() {
 }
 
 /** Try to confirm a project paid with SpaceRemit. Returns true if matched. */
-async function confirmProject(supabase: ReturnType<typeof serviceClient>, paymentId: string) {
+async function confirmProject(supabase: ReturnType<typeof serviceClient>, paymentId: string, tx: any) {
   const { data: project } = await supabase
     .from('projects')
     .select('*')
     .eq('spaceremit_payment_id', paymentId)
-    .neq('payment_status', 'PAYMENT_CONFIRMED')
+    .eq('payment_status', 'PAYMENT_PENDING')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
-  if (!project) return false
+  if (!project || project.payment_method !== 'SPACEREMIT') return false
+  const expected = Number(project.fulfillment_cost || 0)
+  const paid = Number(tx?.total_amount || 0)
+  if (String(tx?.currency || '').toUpperCase() !== 'USD' || !(expected > 0) || !Number.isFinite(paid) || Math.abs(paid - expected) >= 0.01) return false
   const now = new Date().toISOString()
   const status = (project.status || 'DRAFT') as ProjectStatus
   const nextStatus = status === 'DRAFT' || status === 'PAYMENT_PENDING' || status === 'PAST_DUE'
     ? 'PAYMENT_CONFIRMED'
     : status
-  await supabase.from('projects').update({
+  const { error: updateError } = await supabase.from('projects').update({
     payment_status: 'PAYMENT_CONFIRMED',
     payment_confirmed_at: now,
     spaceremit_payment_id: paymentId,
     status: nextStatus,
-  }).eq('id', project.id)
+  }).eq('id', project.id).eq('payment_status', 'PAYMENT_PENDING')
+  if (updateError) return false
   await supabase.from('audit_logs').insert({
     actor_id: project.user_id,
     actor_email: null,
@@ -56,20 +60,25 @@ async function confirmProject(supabase: ReturnType<typeof serviceClient>, paymen
 }
 
 /** Try to confirm an invoice paid with SpaceRemit. Returns true if matched. */
-async function confirmInvoice(supabase: ReturnType<typeof serviceClient>, paymentId: string) {
+async function confirmInvoice(supabase: ReturnType<typeof serviceClient>, paymentId: string, tx: any) {
   const { data: invoice } = await supabase
     .from('invoices')
     .select('*')
     .eq('spaceremit_payment_id', paymentId)
-    .neq('status', 'PAID')
+    .eq('status', 'PENDING')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
   if (!invoice) return false
-  await supabase
+  const expected = Number(invoice.amount || 0)
+  const paid = Number(tx?.total_amount || 0)
+  if (String(tx?.currency || '').toUpperCase() !== String(invoice.currency || 'USD').toUpperCase() || !(expected > 0) || !Number.isFinite(paid) || Math.abs(paid - expected) >= 0.01) return false
+  const { error: updateError } = await supabase
     .from('invoices')
     .update({ status: 'PAID', spaceremit_payment_id: paymentId })
     .eq('id', invoice.id)
+    .eq('status', 'PENDING')
+  if (updateError) return false
   if (invoice.project_id) {
     await supabase
       .from('projects')
@@ -142,8 +151,8 @@ export async function POST(request: NextRequest) {
 
   const supabase = serviceClient()
   const matched =
-    (await confirmProject(supabase, paymentId)) ||
-    (await confirmInvoice(supabase, paymentId)) ||
+    (await confirmProject(supabase, paymentId, tx)) ||
+    (await confirmInvoice(supabase, paymentId, tx)) ||
     (await confirmOrgPlan(supabase, paymentId))
 
   if (matched) {
