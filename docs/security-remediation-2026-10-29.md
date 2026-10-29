@@ -23,6 +23,6 @@
 ## Remaining configuration work
 1. Configure a matching Cloudflare Turnstile site key and `TURNSTILE_SECRET_KEY` before making Turnstile mandatory on public forms. No secrets belong in Git.
 2. Supabase Auth still reports leaked-password protection disabled; enable it in the Supabase Auth security settings.
-3. The `DODO_*` Vercel environment variables remain configured but are not used by current payment routes. The available Vercel connector does not expose an environment-variable delete action.
-4. CSP remains report-only until browser-level reports and preview behavior are checked. Enabling enforcement blindly may break hydration or checkout.
+3. The values for all eight `DODO_*` Vercel environment variables have been cleared across production, preview, and development. Their variable names remain because the available Vercel connector does not expose a delete action; remove the empty entries manually from Vercel when convenient.
+4. CSP remains report-only until browser-level reports and preview behavior are checked. PR #66 hardens the report endpoint with a 16 KiB body cap, per-client rate limiting, and query-string sanitization; it does not enable CSP enforcement.
 5. Supabase's performance advisor still reports 41 unindexed foreign keys; address these separately after the security rollout.
