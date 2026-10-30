@@ -26,7 +26,7 @@ assert.match(login, /breachStatus === 'unavailable'/)
 assert.match(login, /the full password is not sent to the breach-check service/)
 
 assert.match(reset, /checkPasswordBreach\(password\)/)
-assert.ok(reset.indexOf('checkPasswordBreach(password)') < reset.indexOf('auth.updateUser\(\{ password \}\)'))
+assert.ok(reset.indexOf('checkPasswordBreach(password)') < reset.indexOf('auth.updateUser({ password })'))
 assert.match(reset, /breachStatus === 'compromised'/)
 assert.match(reset, /breachStatus === 'unavailable'/)
 
