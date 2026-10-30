@@ -15,6 +15,7 @@ export async function checkPasswordBreach(password: string): Promise<PasswordBre
   if (!password || !globalThis.crypto?.subtle) return 'unavailable'
 
   let controller: AbortController | undefined
+  let timeout: ReturnType<typeof setTimeout> | undefined
   try {
     const digest = await globalThis.crypto.subtle.digest(
       'SHA-1',
@@ -27,20 +28,15 @@ export async function checkPasswordBreach(password: string): Promise<PasswordBre
     const suffix = hash.slice(5)
 
     controller = new AbortController()
-    const timeout = setTimeout(() => controller?.abort(), 6000)
-    let response: Response
-    try {
-      response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
-        method: 'GET',
-        headers: { 'Add-Padding': 'true' },
-        cache: 'no-store',
-        signal: controller.signal,
-      })
-    } finally {
-      clearTimeout(timeout)
-    }
-
+    timeout = setTimeout(() => controller?.abort(), 6000)
+    const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
+      method: 'GET',
+      headers: { 'Add-Padding': 'true' },
+      cache: 'no-store',
+      signal: controller.signal,
+    })
     if (!response.ok) return 'unavailable'
+
     const body = await response.text()
     for (const line of body.split(/\r?\n/)) {
       const separator = line.indexOf(':')
@@ -55,6 +51,7 @@ export async function checkPasswordBreach(password: string): Promise<PasswordBre
   } catch {
     return 'unavailable'
   } finally {
+    if (timeout) clearTimeout(timeout)
     controller?.abort()
   }
 }
