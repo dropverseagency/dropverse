@@ -64,14 +64,27 @@ export async function POST(request: NextRequest) {
         const reference = String(body.reference ?? '').trim().slice(0, 200)
         if (!projectId || !reference) return { error: 'PROJECT_AND_REFERENCE_REQUIRED' }
         const admin = adminClient()
-        const { data: project } = await admin.from('projects').select('id,title,assigned_freelancer_id,freelancer_payout_status,operations_status,payment_status').eq('id', projectId).maybeSingle()
-        if (!project || project.freelancer_payout_status !== 'releasable' || project.operations_status !== 'approved' || project.payment_status !== 'PAYMENT_CONFIRMED' || !project.assigned_freelancer_id) return { error: 'EARNING_NOT_RELEASABLE' }
-        await admin.from('project_earnings').update({ status: 'released', released_at: new Date().toISOString() }).eq('project_id', projectId).eq('status', 'releasable')
-        await admin.from('projects').update({ freelancer_payout_status: 'released' }).eq('id', projectId)
-        await admin.from('project_events').insert({ project_id: projectId, actor_id: ctx.userId, actor_kind: 'admin', event_type: 'freelancer_payout_released', metadata: { reference } })
-        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'project_earning_released', entity: 'projects', entityId: projectId, newValue: { reference } })
-        await createUserNotification({ userId: project.assigned_freelancer_id, type: 'project_payout_released', title: 'Project payout released', body: `Your payout for ${project.title} was marked as sent. Reference: ${reference}`, href: `/dashboard/projects/${projectId}`, entityType: 'project', entityId: projectId })
-        return { ok: true }
+        const { data: result, error: releaseError } = await admin.rpc('release_project_earning_atomic', {
+          p_project_id: projectId,
+          p_admin_id: ctx.userId,
+          p_reference: reference,
+        })
+        if (releaseError) {
+          if (releaseError.message.includes('EARNING_NOT_RELEASABLE') || releaseError.message.includes('PROJECT_EARNING_NOT_RELEASABLE')) {
+            return { error: 'EARNING_NOT_RELEASABLE' }
+          }
+          if (releaseError.message.includes('EARNING_ALREADY_RELEASED')) return { error: 'EARNING_ALREADY_RELEASED' }
+          console.error('[admin/mutate release_project_earning]', releaseError.message)
+          return { error: 'EARNING_RELEASE_FAILED' }
+        }
+        if (!result || result.ok !== true) return { error: 'EARNING_RELEASE_FAILED' }
+        const freelancerId = String(result.freelancerId || '')
+        const projectTitle = String(result.projectTitle || 'your project')
+        await audit({ actorId: ctx.userId, actorEmail: ctx.email, action: 'project_earning_released', entity: 'projects', entityId: projectId, newValue: { reference, alreadyReleased: Boolean(result.alreadyReleased) } })
+        if (!result.alreadyReleased && freelancerId) {
+          await createUserNotification({ userId: freelancerId, type: 'project_payout_released', title: 'Project payout released', body: `Your payout for ${projectTitle} was marked as sent. Reference: ${reference}`, href: `/dashboard/projects/${projectId}`, entityType: 'project', entityId: projectId })
+        }
+        return { ok: true, alreadyReleased: Boolean(result.alreadyReleased) }
       }
 
       case 'resolve_project_dispute': {
