@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { clientIp, limitAuth, rateLimitResponse } from '@/lib/rateLimit'
 import { verifyTurnstile } from '@/lib/turnstile'
+import { reportServerError } from '@/lib/opsAlerts'
 import { notifyAdminEvent } from '@/lib/agents/adminNotify'
 
 export const runtime = 'nodejs'
@@ -35,6 +36,13 @@ export async function POST(request: Request) {
   const ip = clientIp(request)
   const check = await verifyTurnstile(token, ip)
   if (!check.ok) {
+    if (check.reason === 'misconfigured' || check.reason === 'provider_http' || check.reason === 'provider_error') {
+      await reportServerError(new Error(`Turnstile verification failed: ${check.reason}`), {
+        source: 'turnstile-provider',
+        path: '/api/auth/guard',
+        method: 'POST',
+      })
+    }
     return NextResponse.json({ error: 'TURNSTILE_FAILED', message: 'Security check failed. Please try again.' }, { status: 400 })
   }
 
