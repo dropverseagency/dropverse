@@ -147,29 +147,25 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (status !== 'accepted' && status !== 'declined') {
       return NextResponse.json({ error: 'INVALID_ASSIGNMENT_DECISION' }, { status: 400 })
     }
-    const { data: respondedAssignment, error: assignmentError } = await client
-      .from('project_assignments')
-      .update({ status, responded_at: new Date().toISOString(), response_note: clean(body.note, 1000) || null })
-      .eq('project_id', id)
-      .eq('freelancer_id', user.id)
-      .eq('status', 'offered')
-      .select('id')
-      .maybeSingle()
-    if (assignmentError) return NextResponse.json({ error: 'ASSIGNMENT_RESPONSE_FAILED' }, { status: 500 })
-    if (!respondedAssignment) return NextResponse.json({ error: 'ASSIGNMENT_NO_LONGER_OPEN' }, { status: 409 })
-
-    const { data: updatedProject, error: projectUpdateError } = await client
-      .from('projects')
-      .update(status === 'accepted'
-        ? { assignment_status: 'accepted', operations_status: 'in_progress' }
-        : { assigned_freelancer_id: null, assignment_status: 'declined', operations_status: 'ready_to_assign', freelancer_payout_status: 'not_earned' })
-      .eq('id', id)
-      .eq('assigned_freelancer_id', user.id)
-      .eq('assignment_status', 'offered')
-      .select('id')
-      .maybeSingle()
-    if (projectUpdateError) return NextResponse.json({ error: 'PROJECT_ASSIGNMENT_RESPONSE_FAILED' }, { status: 500 })
-    if (!updatedProject) return NextResponse.json({ error: 'PROJECT_ASSIGNMENT_NO_LONGER_OPEN' }, { status: 409 })
+    const { data: responseResult, error: responseError } = await client.rpc('respond_project_assignment_atomic', {
+      p_project_id: id,
+      p_freelancer_id: user.id,
+      p_decision: status,
+      p_note: clean(body.note, 1000) || null,
+    })
+    if (responseError) {
+      if (responseError.message.includes('ASSIGNMENT_NO_LONGER_OPEN')) {
+        return NextResponse.json({ error: 'ASSIGNMENT_NO_LONGER_OPEN' }, { status: 409 })
+      }
+      if (responseError.message.includes('PROJECT_NOT_FOUND')) {
+        return NextResponse.json({ error: 'PROJECT_NOT_FOUND' }, { status: 404 })
+      }
+      console.error('[project operations] assignment response failed', responseError.message)
+      return NextResponse.json({ error: 'ASSIGNMENT_RESPONSE_FAILED' }, { status: 500 })
+    }
+    if (!responseResult || responseResult.ok !== true) {
+      return NextResponse.json({ error: 'ASSIGNMENT_RESPONSE_FAILED' }, { status: 500 })
+    }
 
     await event(id, user.id, 'freelancer', `assignment_${status}`)
     await createUserNotification({ userId: ctx.project.user_id, type: `assignment_${status}`, title: status === 'accepted' ? 'Freelancer accepted the project' : 'Freelancer declined the project', body: `${ctx.project.title}: the assigned freelancer ${status} the assignment.`, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
