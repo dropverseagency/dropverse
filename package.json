@@ -19,7 +19,8 @@
     "next": "15.5.28",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "nodemailer": "10.3.1"
+    "nodemailer": "10.3.1",
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
@@ -35,6 +36,7 @@
     "@types/nodemailer": "^6.4.17"
   },
   "overrides": {
-    "postcss": "8.5.23"
+    "postcss": "8.5.23",
+    "sharp": "0.35.5"
   }
 }
