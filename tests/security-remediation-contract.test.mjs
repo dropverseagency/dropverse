@@ -56,7 +56,7 @@ assert.match(projectOperations, /'payment_transaction_id'/)
 assert.match(projectOperations, /'tracking_token'/)
 assert.match(projectOperations, /'payment_method'/)
 assert.match(projectOperations, /'payment_provider'/)
-assert.match(projectOperations, /refund_reference: _refundReference/)
+assert.match(projectOperations, /delete safeDispute\.refund_reference/)
 assert.match(projectOperations, /'refundReference'/)
 
 assert.match(projectOperations, /INVALID_ASSIGNMENT_DECISION/)
