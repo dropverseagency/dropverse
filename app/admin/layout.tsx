@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { requireAdmin, AdminOnlyError, reportAdminError } from '@/lib/adminCore'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Server-side gate for every /admin page.
  * UI hiding is not the security boundary — requireAdmin uses getUser() + profiles.role.
