@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import Brand from '../../components/Brand'
 import { createClient } from '../../lib/supabase'
+import { checkPasswordBreach } from '../../lib/checkPasswordBreach'
 
 export default function ResetPasswordPage() {
   return <Suspense fallback={<main className="min-h-screen grid-bg" aria-busy="true" />}>
@@ -73,6 +74,15 @@ function ResetPasswordInner() {
     }
     setLoading(true)
     try {
+      const breachStatus = await checkPasswordBreach(password)
+      if (breachStatus === 'compromised') {
+        setError('This password has appeared in known data breaches. Choose a different password.')
+        return
+      }
+      if (breachStatus === 'unavailable') {
+        setError('We could not verify this password safely right now. Please try again in a moment.')
+        return
+      }
       const { error: updateError } = await createClient().auth.updateUser({ password })
       if (updateError) throw updateError
       setComplete(true)
