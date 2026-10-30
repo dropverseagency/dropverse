@@ -8,7 +8,7 @@ const migration = readFileSync(path.join(root, 'supabase/migrations/202610300254
 const config = readFileSync(path.join(root, 'next.config.ts'), 'utf8')
 
 assert.match(migration, /ALTER POLICY/)
-assert.match(migration, /regexp_replace\(new_qual, 'auth\\\\\.uid/)
+assert.ok(migration.includes("regexp_replace(new_qual, 'auth\\.uid\\(\\)'"))
 assert.match(migration, /DROP INDEX IF EXISTS public\.idx_referral_codes_code_unique/)
 assert.match(migration, /DROP INDEX IF EXISTS public\.idx_referrals_referred_user_unique/)
 assert.match(migration, /REVOKE ALL ON TABLE/)
