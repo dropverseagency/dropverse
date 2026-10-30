@@ -83,7 +83,7 @@ jobs:
           # Export custom triggers attached to auth.users (the trigger function itself is in the public schema dump).
           AUTH_TRIGGER_QUERY=$(cat <<'SQL'
           SELECT
-            'DROP TRIGGER IF EXISTS ' || quote_ident(t.tgname) || ' ON auth.users;' || E'\\n' ||
+            'DROP TRIGGER IF EXISTS ' || quote_ident(t.tgname) || ' ON auth.users;' || chr(10) ||
             pg_get_triggerdef(t.oid) || ';'
           FROM pg_trigger t
           JOIN pg_proc p ON p.oid = t.tgfoid
