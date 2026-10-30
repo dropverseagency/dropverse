@@ -53,7 +53,7 @@ function isExplicitServiceRequest(text: string, service: (typeof SERVICES)[Servi
   const employmentOnly = /\b(full[- ]time|part[- ]time|salary|job opening|career opportunity|internship|employee benefits|apply now|join our team|position available|job description)\b/i
   if (employmentOnly.test(normalized)) return false
 
-  const directIntent = /\b(looking for|in search of|seeking|need(?:s)?|want(?:s|ing)? to hire|hire|hiring|anyone know|anyone recommend|any recommendations for|recommend me)\b/i
+  const directIntent = /\\b(looking for|in search of|seeking)\\b|\\bneed(?:s)?\\s+(?:(?:a|an|someone|somebody|help with|services?|freelancer|agency|team)\\b|(?:video|ugc|graphic|social media|web)\\b)|\\b(?:want|wants|wanting) to hire\\b|\\b(?:hire|hiring)\\s+(?:a|an|someone|somebody|freelancer|agency|team)\\b|\\banyone (?:know|recommend)\\b|\\bany recommendations for\\b|\\brecommend me\\b/i
   return directIntent.test(normalized)
 }
 
