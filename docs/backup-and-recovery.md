@@ -5,7 +5,8 @@
 The daily GitHub Actions workflow creates an encrypted archive containing:
 
 - PostgreSQL schema and data for `public`, `dv`, and `ossol_memory`.
-- Supabase Auth user and identity rows (`auth.users`, `auth.identities`) so user UUIDs and password hashes can be preserved.
+- Supabase CLI migration history (`supabase_migrations.schema_migrations`).
+- Supabase Auth user and identity rows (`auth.users`, `auth.identities`) so user UUIDs and password hashes can be preserved, plus the custom `auth.users` trigger definition.
 - Storage bucket settings and the actual objects from every bucket.
 
 Active sessions and refresh tokens are intentionally not exported; users must sign in again after a recovery. Vercel environment variables, provider secrets, and deployment configuration are not part of the archive and must be retained separately in a secure password manager.
@@ -68,7 +69,10 @@ This runbook assumes a **new, empty Supabase project**. Do not run the data impo
    ```bash
    psql "$RESTORE_DB_URL" -v ON_ERROR_STOP=1 -f backup/database/schema.sql
    psql "$RESTORE_DB_URL" -v ON_ERROR_STOP=1 -f backup/auth/auth-data.sql
+   psql "$RESTORE_DB_URL" -v ON_ERROR_STOP=1 -f backup/auth/auth-users-triggers.sql
    psql "$RESTORE_DB_URL" -v ON_ERROR_STOP=1 -f backup/database/data.sql
+   psql "$RESTORE_DB_URL" -v ON_ERROR_STOP=1 -f backup/database/migration-history-schema.sql
+   psql "$RESTORE_DB_URL" -v ON_ERROR_STOP=1 -f backup/database/migration-history-data.sql
    ```
 
 4. Restore Storage buckets and objects using the new project's URL and service-role key:
