@@ -76,14 +76,17 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
   const visibleDisputes = ctx.actor === 'freelancer'
     ? (disputes.data || []).map((dispute) => {
-        const { refund_amount: _refundAmount, refund_reference: _refundReference, resolved_by: _resolvedBy, ...safeDispute } = dispute
+        const safeDispute: Record<string, unknown> = { ...dispute }
+        delete safeDispute.refund_amount
+        delete safeDispute.refund_reference
+        delete safeDispute.resolved_by
         return safeDispute
       })
     : disputes.data || []
 
   const visibleEvents = ctx.actor === 'freelancer'
     ? (events.data || []).map((item) => {
-        const metadata = { ...(item.metadata || {}) }
+        const metadata: Record<string, unknown> = { ...((item.metadata || {}) as Record<string, unknown>) }
         for (const key of ['paymentId', 'payment_id', 'transactionId', 'transaction_id', 'refundReference', 'refund_reference']) {
           delete metadata[key]
         }
