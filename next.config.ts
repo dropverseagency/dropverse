@@ -2,16 +2,20 @@ import type { NextConfig } from 'next'
 
 const cspDirectives = [
   "default-src 'self'",
-  // unsafe-inline/eval: Next.js hydration + Framer Motion; prefer nonces in a later pass
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://js.spaceremit.com https://*.spaceremit.com https://accounts.google.com",
+  // Keep inline scripts for the current Next.js app; avoid unsafe-eval in production.
+  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://js.spaceremit.com https://*.spaceremit.com https://accounts.google.com https://www.paypal.com https://*.paypal.com https://www.paypalobjects.com https://*.paypalobjects.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "img-src 'self' data: blob: https://*.supabase.co https://*.vercel.app https://lh3.googleusercontent.com",
+  "img-src 'self' data: blob: https://*.supabase.co https://*.vercel.app https://lh3.googleusercontent.com https://www.paypal.com https://*.paypal.com https://*.paypalobjects.com",
   "font-src 'self' https://fonts.gstatic.com data:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://challenges.cloudflare.com https://*.spaceremit.com https://api.spaceremit.com https://accounts.google.com",
-  "frame-src 'self' https://challenges.cloudflare.com https://*.spaceremit.com https://accounts.google.com https://www.google.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://challenges.cloudflare.com https://*.spaceremit.com https://api.spaceremit.com https://accounts.google.com https://www.paypal.com https://api-m.paypal.com https://www.sandbox.paypal.com https://*.paypal.com https://*.paypalobjects.com",
+  "frame-src 'self' https://challenges.cloudflare.com https://*.spaceremit.com https://accounts.google.com https://www.google.com https://www.paypal.com https://*.paypal.com https://*.paypalobjects.com",
+  "media-src 'self' data: blob: https://*.supabase.co https://*.vercel.app",
+  "worker-src 'self' blob:",
+  "object-src 'none'",
+  "manifest-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
-  "form-action 'self' https://accounts.google.com",
+  "form-action 'self' https://accounts.google.com https://www.paypal.com https://*.paypal.com",
   "report-uri /api/csp-report",
 ].join('; ')
 
