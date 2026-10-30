@@ -19,7 +19,7 @@ const cspDirectives = [
   "report-uri /api/csp-report",
 ].join('; ')
 
-const enforce = process.env.CSP_ENFORCE === 'true'
+const enforce = process.env.CSP_ENFORCE === 'true' || process.env.VERCEL_ENV === 'production'
 
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
