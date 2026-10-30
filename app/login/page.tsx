@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import Brand from '../../components/Brand'
 import ProviderButton from '../../components/ProviderButton'
 import { createClient } from '../../lib/supabase'
+import { checkPasswordBreach } from '../../lib/checkPasswordBreach'
 import { COUNTRIES, type Country } from '../../lib/countries'
 import { applyPendingReferral } from '../../lib/attributeReferralAction'
 import { FreelancerDetails, validPortfolioLinks } from '../../components/FreelancerDetails'
@@ -172,6 +173,15 @@ function LoginPageInner() {
           } catch {
             /* non-fatal */
           }
+        }
+
+        if (password.length < 8) throw new Error('Use at least 8 characters for your password.')
+        const breachStatus = await checkPasswordBreach(password)
+        if (breachStatus === 'compromised') {
+          throw new Error('This password has appeared in known data breaches. Choose a different password.')
+        }
+        if (breachStatus === 'unavailable') {
+          throw new Error('We could not verify this password safely right now. Please try again in a moment.')
         }
 
         const { data, error: signUpError } = await supabase.auth.signUp({
@@ -429,6 +439,11 @@ function LoginPageInner() {
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               />
             </label>
+            {mode === 'signup' ? (
+              <p className="-mt-2 text-xs leading-5 text-[#81948e]">
+                New passwords are checked against known breach data using a privacy-preserving hash prefix; the full password is not sent to the breach-check service.
+              </p>
+            ) : null}
             {mode === 'login' ? (
               <p className="-mt-1 text-right text-sm">
                 <Link href="/forgot-password" className="font-semibold text-[#d8b45a] hover:text-[#f0d98b]">Forgot password?</Link>
