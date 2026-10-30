@@ -81,6 +81,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'SP_VERIFY_FAILED' }, { status: 422 })
     }
 
+    const paymentStatus = String(spData.data.status || '').toUpperCase()
+    if (!['SUCCESS', 'CONFIRMED', 'COMPLETED'].includes(paymentStatus)) {
+      return NextResponse.json({ error: 'PAYMENT_NOT_COMPLETE' }, { status: 402 })
+    }
+
     const paid = Number(spData.data.total_amount || 0)
     const expected = Number(purchase.price_usd)
     if (spData.data.currency !== 'USD' || !Number.isFinite(paid) || Math.abs(paid - expected) >= 0.01) {
