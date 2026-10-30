@@ -10,6 +10,7 @@ import {
 import { notifyAdminEvent } from '@/lib/agents/adminNotify'
 import { createUserNotification } from '@/lib/userNotifications'
 import { payoutProfileStatus, profileIncompleteResponse } from '@/lib/payoutProfile'
+import { rateLimit, rateLimitResponse } from '@/lib/rateLimit'
 
 async function resolveUser(request: NextRequest) {
   const bearer = (request.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
@@ -39,6 +40,9 @@ export async function POST(request: NextRequest) {
       headers: { 'Content-Type': 'application/json' },
     })
   }
+
+  const requestLimit = await rateLimit(`payout-request:${user.id}`, { limit: 5, windowMs: 15 * 60 * 1000 })
+  if (!requestLimit.success) return rateLimitResponse(requestLimit, 'Too many payout requests. Please try again later.')
 
   try {
     const profile = await payoutProfileStatus(user.id)
@@ -91,7 +95,13 @@ export async function POST(request: NextRequest) {
   }
 
   const destination = typeof body.destination === 'string' ? body.destination.trim().slice(0, 200) : ''
-  if (method.id === 'paypal' && destination && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destination)) {
+  if (!destination) {
+    return new Response(JSON.stringify({ error: 'DESTINATION_REQUIRED', message: 'Add the payout destination before submitting your request.' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+  if (method.id === 'paypal' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destination)) {
     return new Response(JSON.stringify({ error: 'INVALID_DESTINATION', message: 'Enter a valid PayPal email address.' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },

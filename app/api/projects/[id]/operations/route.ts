@@ -46,7 +46,55 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     client.from('project_disputes').select('*').eq('project_id', id).order('created_at', { ascending: false }),
     client.from('project_events').select('*').eq('project_id', id).order('created_at', { ascending: false }).limit(100),
   ])
-  return NextResponse.json({ project: ctx.project, actor: ctx.actor, assignments: assignments.data || [], messages: messages.data || [], deliveries: deliveries.data || [], revisions: revisions.data || [], disputes: disputes.data || [], events: events.data || [] })
+
+  // Freelancers only need the delivery brief and their own payout information.
+  // Never expose seller margin, client contact details, or payment/portal secrets.
+  const visibleProject = { ...ctx.project }
+  if (ctx.actor === 'freelancer') {
+    for (const key of [
+      'user_id',
+      'organization_id',
+      'client_price',
+      'fulfillment_cost',
+      'seller_profit',
+      'client_contact_email',
+      'payment_transaction_id',
+      'spaceremit_payment_id',
+      'payment_method',
+      'payment_status',
+      'payment_provider',
+      'payment_confirmed_at',
+      'subscription_status',
+      'current_billing_period',
+      'next_billing_date',
+      'tracking_token',
+      'idempotency_key',
+    ]) {
+      delete visibleProject[key]
+    }
+  }
+
+  const visibleDisputes = ctx.actor === 'freelancer'
+    ? (disputes.data || []).map((dispute) => {
+        const safeDispute: Record<string, unknown> = { ...dispute }
+        delete safeDispute.refund_amount
+        delete safeDispute.refund_reference
+        delete safeDispute.resolved_by
+        return safeDispute
+      })
+    : disputes.data || []
+
+  const visibleEvents = ctx.actor === 'freelancer'
+    ? (events.data || []).map((item) => {
+        const metadata: Record<string, unknown> = { ...((item.metadata || {}) as Record<string, unknown>) }
+        for (const key of ['paymentId', 'payment_id', 'transactionId', 'transaction_id', 'refundReference', 'refund_reference']) {
+          delete metadata[key]
+        }
+        return { ...item, metadata }
+      })
+    : events.data || []
+
+  return NextResponse.json({ project: visibleProject, actor: ctx.actor, assignments: assignments.data || [], messages: messages.data || [], deliveries: deliveries.data || [], revisions: revisions.data || [], disputes: visibleDisputes, events: visibleEvents })
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -123,8 +171,29 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   } else if (body.type === 'respond_assignment') {
     if (ctx.actor !== 'freelancer') return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
     const status = body.decision
-    await client.from('project_assignments').update({ status, responded_at: new Date().toISOString(), response_note: clean(body.note, 1000) || null }).eq('project_id', id).eq('freelancer_id', user.id).eq('status', 'offered')
-    await client.from('projects').update(status === 'accepted' ? { assignment_status: 'accepted', operations_status: 'in_progress' } : { assigned_freelancer_id: null, assignment_status: 'declined', operations_status: 'ready_to_assign', freelancer_payout_status: 'not_earned' }).eq('id', id)
+    if (status !== 'accepted' && status !== 'declined') {
+      return NextResponse.json({ error: 'INVALID_ASSIGNMENT_DECISION' }, { status: 400 })
+    }
+    const { data: responseResult, error: responseError } = await client.rpc('respond_project_assignment_atomic', {
+      p_project_id: id,
+      p_freelancer_id: user.id,
+      p_decision: status,
+      p_note: clean(body.note, 1000) || null,
+    })
+    if (responseError) {
+      if (responseError.message.includes('ASSIGNMENT_NO_LONGER_OPEN')) {
+        return NextResponse.json({ error: 'ASSIGNMENT_NO_LONGER_OPEN' }, { status: 409 })
+      }
+      if (responseError.message.includes('PROJECT_NOT_FOUND')) {
+        return NextResponse.json({ error: 'PROJECT_NOT_FOUND' }, { status: 404 })
+      }
+      console.error('[project operations] assignment response failed', responseError.message)
+      return NextResponse.json({ error: 'ASSIGNMENT_RESPONSE_FAILED' }, { status: 500 })
+    }
+    if (!responseResult || responseResult.ok !== true) {
+      return NextResponse.json({ error: 'ASSIGNMENT_RESPONSE_FAILED' }, { status: 500 })
+    }
+
     await event(id, user.id, 'freelancer', `assignment_${status}`)
     await createUserNotification({ userId: ctx.project.user_id, type: `assignment_${status}`, title: status === 'accepted' ? 'Freelancer accepted the project' : 'Freelancer declined the project', body: `${ctx.project.title}: the assigned freelancer ${status} the assignment.`, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
   } else if (body.type === 'request_revision') {
