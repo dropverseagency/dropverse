@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { adminJson, requireAdmin } from '@/lib/adminCore'
+import { AdminOnlyError, requireAdmin, reportAdminError } from '@/lib/adminCore'
 
 /**
  * GET /api/admin/me
@@ -10,7 +10,11 @@ export async function GET() {
   try {
     const ctx = await requireAdmin()
     return NextResponse.json({ isAdmin: true, email: ctx.email })
-  } catch {
-    return NextResponse.json({ isAdmin: false, email: null }, { status: 401 })
+  } catch (error) {
+    if (error instanceof AdminOnlyError) {
+      return NextResponse.json({ isAdmin: false, email: null }, { status: 401 })
+    }
+    await reportAdminError(error, '/api/admin/me', 'GET')
+    return NextResponse.json({ isAdmin: false, email: null }, { status: 503 })
   }
 }

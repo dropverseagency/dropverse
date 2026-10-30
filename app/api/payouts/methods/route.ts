@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { adminClient, audit, sessionClient } from '@/lib/adminCore'
+import { reportServerError } from '@/lib/opsAlerts'
 import { methodById, type PayoutMethodId } from '@/lib/payoutConfig'
 import { payoutProfileStatus, profileIncompleteResponse } from '@/lib/payoutProfile'
 
@@ -55,6 +56,7 @@ export async function GET(request: NextRequest) {
     if (!profile.complete) return profileIncompleteResponse(profile.missing)
   } catch (error) {
     console.error('[payouts/methods GET] profile check failed', error)
+    await reportServerError(error, { source: 'payout-methods-get', path: '/api/payouts/methods', method: 'GET' })
     return new Response(JSON.stringify({ error: 'PAYOUT_DATA_UNAVAILABLE' }), { status: 500, headers: { 'Content-Type': 'application/json' } })
   }
 
@@ -81,6 +83,7 @@ export async function POST(request: NextRequest) {
     if (!profile.complete) return profileIncompleteResponse(profile.missing)
   } catch (error) {
     console.error('[payouts/methods POST] profile check failed', error)
+    await reportServerError(error, { source: 'payout-methods-post-profile', path: '/api/payouts/methods', method: 'POST' })
     return new Response(JSON.stringify({ error: 'PAYOUT_DATA_UNAVAILABLE' }), { status: 500, headers: { 'Content-Type': 'application/json' } })
   }
 
@@ -138,6 +141,7 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     console.error('[payouts/methods]', error)
+    await reportServerError(error, { source: 'payout-methods-save', path: '/api/payouts/methods', method: 'POST' })
     return new Response(JSON.stringify({ error: 'SAVE_FAILED', message: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

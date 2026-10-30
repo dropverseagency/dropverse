@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation'
-import { requireAdmin, AdminOnlyError } from '@/lib/adminCore'
+import { requireAdmin, AdminOnlyError, reportAdminError } from '@/lib/adminCore'
+
+export const dynamic = 'force-dynamic'
 
 /**
  * Server-side gate for every /admin page.
@@ -13,6 +15,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       if (e.code === 'NOT_AUTHENTICATED') redirect('/login?redirect=/admin')
       redirect('/dashboard')
     }
+    await reportAdminError(e, '/admin', 'GET')
     redirect('/login?redirect=/admin')
   }
   return <>{children}</>

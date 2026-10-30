@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { adminClient, sessionClient } from '@/lib/adminCore'
+import { reportServerError } from '@/lib/opsAlerts'
 import {
   DROPVERSE_PAYOUT_FEE_USD,
   PAYOUT_CURRENCY,
@@ -46,6 +47,7 @@ export async function GET(request: NextRequest) {
     if (!profile.complete) return profileIncompleteResponse(profile.missing)
   } catch (error) {
     console.error('[payouts/me] profile check failed', error)
+    await reportServerError(error, { source: 'payouts-me', path: '/api/payouts/me', method: 'GET' })
     return jsonError('PAYOUT_DATA_UNAVAILABLE')
   }
 
@@ -56,6 +58,7 @@ export async function GET(request: NextRequest) {
   })
   if (summaryError || !summary || typeof summary !== 'object') {
     console.error('[payouts/me] balance summary failed', summaryError)
+    await reportServerError(summaryError || new Error('Payout balance summary returned an invalid payload'), { source: 'payouts-me-summary', path: '/api/payouts/me', method: 'GET' })
     return jsonError('PAYOUT_DATA_UNAVAILABLE')
   }
 
@@ -68,6 +71,7 @@ export async function GET(request: NextRequest) {
 
   if (payoutsError || !payouts) {
     console.error('[payouts/me] payout history lookup failed', payoutsError)
+    await reportServerError(payoutsError || new Error('Payout history returned an invalid payload'), { source: 'payouts-me-history', path: '/api/payouts/me', method: 'GET' })
     return jsonError('PAYOUT_DATA_UNAVAILABLE')
   }
 

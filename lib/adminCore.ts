@@ -13,6 +13,7 @@ import { createClient as createServiceClient, createClient as createBrowserClien
 import { createServerClient } from '@supabase/ssr'
 import { cookies, headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
+import { reportOpsError } from '@/lib/opsAlerts'
 
 export const ADMIN_ROLE = 'admin'
 
@@ -124,6 +125,19 @@ export function jsonOk(body: unknown, init?: ResponseInit) {
   })
 }
 
+export async function reportAdminError(error: unknown, path: string, method: string) {
+  try {
+    await reportOpsError(adminClient(), error, {
+      source: 'admin-api',
+      path,
+      method,
+      routeType: 'route',
+    })
+  } catch (reportError) {
+    console.error('[admin] error alert failed', reportError instanceof Error ? reportError.message : 'unknown')
+  }
+}
+
 export async function adminJson(handler: (ctx: { userId: string; email: string | null }) => Promise<unknown> | unknown) {
   try {
     const ctx = await requireAdmin()
@@ -134,6 +148,7 @@ export async function adminJson(handler: (ctx: { userId: string; email: string |
       return jsonOk({ error: 'ADMIN_ONLY' }, { status: 403 })
     }
     console.error('[admin] request failed', e)
+    await reportAdminError(e, '/api/admin/*', 'unknown')
     return jsonOk({ error: 'INTERNAL_ERROR' }, { status: 500 })
   }
 }

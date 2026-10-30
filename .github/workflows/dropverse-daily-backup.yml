@@ -1,0 +1,121 @@
+name: DropVerse encrypted daily backup
+
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dropverse-encrypted-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check backup configuration
+        id: config
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ] || [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] || [ -z "$BACKUP_AGE_RECIPIENT" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Backup is not configured yet. Add the documented GitHub Actions secrets and BACKUP_AGE_RECIPIENT variable."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Supabase CLI
+        if: steps.config.outputs.configured == 'true'
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Install age
+        if: steps.config.outputs.configured == 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y age
+
+      - name: Export database, auth identities, and Storage objects
+        if: steps.config.outputs.configured == 'true'
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+          BACKUP_ROOT: backup
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${SUPABASE_DB_URL:?Add SUPABASE_DB_URL as a GitHub Actions secret}"
+          : "${SUPABASE_URL:?Add SUPABASE_URL as a GitHub Actions secret}"
+          : "${SUPABASE_SERVICE_ROLE_KEY:?Add SUPABASE_SERVICE_ROLE_KEY as a GitHub Actions secret}"
+          : "${BACKUP_AGE_RECIPIENT:?Add BACKUP_AGE_RECIPIENT as a GitHub Actions variable}"
+
+          mkdir -p backup/database backup/auth
+
+          # App schemas: public tables, private helper schema, and isolated memory schema.
+          supabase db dump --db-url "$SUPABASE_DB_URL" --schema public,dv,ossol_memory --file backup/database/schema.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" --schema public,dv,ossol_memory --data-only --use-copy --file backup/database/data.sql
+
+          # Preserve Supabase CLI migration history separately.
+          supabase db dump --db-url "$SUPABASE_DB_URL" --schema supabase_migrations --file backup/database/migration-history-schema.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" --schema supabase_migrations --data-only --use-copy --file backup/database/migration-history-data.sql
+
+          # Preserve auth user IDs/password hashes and identities; sessions/refresh tokens are intentionally excluded.
+          docker run --rm \
+            -e SUPABASE_DB_URL="$SUPABASE_DB_URL" \
+            -v "$PWD/backup/auth:/backup" \
+            postgres:17 \
+            sh -lc 'pg_dump --data-only --disable-triggers --no-owner --no-privileges --table=auth.users --table=auth.identities --file=/backup/auth-data.sql "$SUPABASE_DB_URL"'
+
+          # Export custom triggers attached to auth.users (the trigger function itself is in the public schema dump).
+          AUTH_TRIGGER_QUERY=$(cat <<'SQL'
+          SELECT
+            'DROP TRIGGER IF EXISTS ' || quote_ident(t.tgname) || ' ON auth.users;' || chr(10) ||
+            pg_get_triggerdef(t.oid) || ';'
+          FROM pg_trigger t
+          JOIN pg_proc p ON p.oid = t.tgfoid
+          JOIN pg_namespace n ON n.oid = p.pronamespace
+          WHERE t.tgrelid = 'auth.users'::regclass
+            AND NOT t.tgisinternal
+            AND n.nspname = 'public';
+          SQL
+          )
+          docker run --rm \
+            -e SUPABASE_DB_URL="$SUPABASE_DB_URL" \
+            -e AUTH_TRIGGER_QUERY="$AUTH_TRIGGER_QUERY" \
+            -v "$PWD/backup/auth:/backup" \
+            postgres:17 \
+            sh -lc 'psql "$SUPABASE_DB_URL" -XAt -v ON_ERROR_STOP=1 -c "$AUTH_TRIGGER_QUERY" > /backup/auth-users-triggers.sql'
+
+          # Storage API objects and bucket settings are outside the database dump.
+          node scripts/backup-supabase-storage.mjs
+
+          tar -czf dropverse-backup.tar.gz backup
+          age -r "$BACKUP_AGE_RECIPIENT" -o dropverse-backup.tar.gz.age dropverse-backup.tar.gz
+          sha256sum dropverse-backup.tar.gz.age > dropverse-backup.tar.gz.age.sha256
+          rm -f dropverse-backup.tar.gz
+          ls -lh dropverse-backup.tar.gz.age dropverse-backup.tar.gz.age.sha256
+
+      - name: Upload encrypted artifact only
+        if: steps.config.outputs.configured == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dropverse-encrypted-backup-${{ github.run_id }}
+          path: |
+            dropverse-backup.tar.gz.age
+            dropverse-backup.tar.gz.age.sha256
+          if-no-files-found: error
+          retention-days: 30

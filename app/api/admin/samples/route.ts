@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { adminClient, audit, requireAdmin, AdminOnlyError } from '@/lib/adminCore'
+import { adminClient, audit, requireAdmin, reportAdminError, AdminOnlyError } from '@/lib/adminCore'
 import { SAMPLE_COVER_BUCKET } from '@/lib/samples'
 
 export const runtime = 'nodejs'
@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: e.code }, { status: e.code === 'NOT_AUTHENTICATED' ? 401 : 403 })
     }
     console.error('[admin samples GET]', e)
+    await reportAdminError(e, '/api/admin/samples', 'GET')
     return NextResponse.json({ error: 'LOAD_FAILED' }, { status: 500 })
   }
 }
