@@ -127,13 +127,11 @@ export function jsonOk(body: unknown, init?: ResponseInit) {
 
 export async function reportAdminError(error: unknown, path: string, method: string) {
   try {
-    const hdrs = await headers()
     await reportOpsError(adminClient(), error, {
       source: 'admin-api',
-      path: path === '/api/admin/*' ? (hdrs.get('x-invoke-path') || hdrs.get('x-matched-path') || path) : path,
-      method: method === 'unknown' ? (hdrs.get('x-http-method') || method) : method,
+      path,
+      method,
       routeType: 'route',
-      requestId: hdrs.get('x-vercel-id') || hdrs.get('x-request-id') || undefined,
     })
   } catch (reportError) {
     console.error('[admin] error alert failed', reportError instanceof Error ? reportError.message : 'unknown')
