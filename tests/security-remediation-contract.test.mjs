@@ -17,6 +17,8 @@ const terms = read('app/api/legal/acceptance/route.ts')
 const cspReport = read('app/api/csp-report/route.ts')
 const leadPurchaseConfirm = read('app/api/leads/purchases/confirm/route.ts')
 const projectOperations = read('app/api/projects/[id]/operations/route.ts')
+const assignmentMigration = read('supabase/migrations/20261030020000_respond_project_assignment_atomic.sql')
+const payoutRequest = read('app/api/payouts/request/route.ts')
 
 assert.match(migration, /drop policy if exists "users create own payouts"/i)
 assert.match(migration, /revoke insert,update,delete on table public[.]payout_requests from public,anon,authenticated/i)
@@ -53,6 +55,14 @@ assert.match(projectOperations, /'client_contact_email'/)
 assert.match(projectOperations, /'payment_transaction_id'/)
 assert.match(projectOperations, /'tracking_token'/)
 assert.match(projectOperations, /INVALID_ASSIGNMENT_DECISION/)
+assert.match(projectOperations, /respond_project_assignment_atomic/)
+assert.match(assignmentMigration, /for update/i)
+assert.match(assignmentMigration, /assignment_status not in \('offered', 'reassigned'\)/)
+assert.match(assignmentMigration, /set status = 'reversed'/)
+assert.match(assignmentMigration, /grant execute on function public\.respond_project_assignment_atomic/)
+assert.match(payoutRequest, /if \(!destination\)/)
+assert.match(payoutRequest, /DESTINATION_REQUIRED/)
+assert.match(payoutRequest, /method\.id === 'paypal' && !/
 
 
 assert.match(terms, /item_id: String\(body\.itemId \|\| ''\)\.trim\(\)/)
