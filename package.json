@@ -7,7 +7,8 @@
     "build": "npm test && next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "prebuild": "node scripts/check-dependency-audit.mjs"
   },
   "dependencies": {
     "@paypal/react-paypal-js": "^10.6.0",
