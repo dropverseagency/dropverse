@@ -14,7 +14,7 @@ declare
   v_assignment_id uuid;
 begin
   if p_project_id is null or p_freelancer_id is null
-     or p_decision not in ('accepted', 'declined') then
+     or p_decision is null or p_decision not in ('accepted', 'declined') then
     raise exception 'INVALID_ASSIGNMENT_RESPONSE' using errcode = '22023';
   end if;
 
