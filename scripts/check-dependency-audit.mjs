@@ -5,6 +5,11 @@ const audit = spawnSync('npm', ['audit', '--json'], {
   maxBuffer: 10 * 1024 * 1024,
 })
 
+if (audit.error) {
+  console.error('Dependency audit command failed:', audit.error.message)
+  process.exit(1)
+}
+
 let report
 try {
   report = JSON.parse(audit.stdout || '{}')
@@ -14,7 +19,12 @@ try {
   process.exit(1)
 }
 
-const counts = report.metadata?.vulnerabilities || {}
+if (!report.metadata?.vulnerabilities) {
+  console.error('Dependency audit returned no vulnerability metadata.')
+  process.exit(1)
+}
+
+const counts = report.metadata.vulnerabilities
 console.log(`Build dependency audit: ${JSON.stringify(counts)}`)
 
 for (const [name, item] of Object.entries(report.vulnerabilities || {})) {
