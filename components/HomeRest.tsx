@@ -3,10 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ArrowDown, ArrowRight, ArrowUpRight, Check, Plus } from 'lucide-react'
-import Brand from './Brand'
-import { MARKET_FACTS } from '../lib/marketFacts'
-import { MarketCite } from './MarketCite'
+import { ArrowUpRight, Plus } from 'lucide-react'
 import HomeRestLower from './HomeRestLower'
 
 const fallbackServices = [
