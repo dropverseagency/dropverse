@@ -11,6 +11,7 @@ export const metadata: Metadata = {
 const tools = [
   { name: 'Margin calculator', description: 'Check profit, margin, and the price needed to reach your own margin target.', badge: 'Free', href: '/tools/margin-calculator' },
   { name: 'Delivery tracker', description: 'Keep each sold service, status, and delivery date in one place.', badge: 'Free, on this device', href: '/tools/delivery-tracker' },
+  { name: 'Client Request Finder', description: 'Discover public posts where people explicitly ask for video editing, UGC, design, social media, or web services. Get the original post link — not a phone or email list.', badge: 'Free · Early access', href: '/tools/client-finder' },
 ] as const
 
 const plannedTools = [
@@ -30,8 +31,8 @@ export default function ToolsPage() {
         <section className="max-w-3xl text-start" aria-labelledby="tools-title">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--dv-muted)]">TOOLS FOR DROP SERVICERS</p>
           <h1 id="tools-title" className="font-display mt-5 text-4xl font-extrabold leading-tight sm:text-5xl lg:text-6xl">Work tools for the people who sell the work.</h1>
-          <p className="mt-6 max-w-2xl text-base leading-7 text-[var(--dv-muted)] sm:text-lg sm:leading-8">A small set of tools that help you price work and keep track of delivery. Tools are built one at a time.</p>
-          <p className="mt-5 border-s-2 border-[var(--dv-line)] ps-4 text-sm font-medium text-[var(--dv-muted)]">Two free tools are live. Each one runs in your browser.</p>
+          <p className="mt-6 max-w-2xl text-base leading-7 text-[var(--dv-muted)] sm:text-lg sm:leading-8">A growing set of free tools that help you find clients, price work, and keep delivery on track.</p>
+          <p className="mt-5 border-s-2 border-[var(--dv-line)] ps-4 text-sm font-medium text-[var(--dv-muted)]">Three free tools are available. Client Request Finder is an early-access preview using public Bluesky posts.</p>
         </section>
 
         <section className="mt-16 sm:mt-20" aria-labelledby="free-tools-title">
