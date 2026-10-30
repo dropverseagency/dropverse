@@ -67,6 +67,8 @@ assert.doesNotMatch(health, /SUPABASE_SERVICE_ROLE_KEY[^\n]*json/)
 
 assert.match(backup, /age -r/)
 assert.match(backup, /pg_dump --data-only --disable-triggers/)
+assert.match(backup, /migration-history-schema\.sql/)
+assert.match(backup, /AUTH_TRIGGER_QUERY/)
 assert.match(backup, /auth\.users/)
 assert.match(backup, /backup-supabase-storage\.mjs/)
 assert.match(backup, /upload-artifact@v4/)
@@ -79,6 +81,7 @@ assert.match(storageBackup, /object\/authenticated/)
 assert.match(storageRestore, /x-upsert/)
 assert.match(recovery, /new, empty Supabase project/)
 assert.match(recovery, /age private key/)
+assert.match(recovery, /auth-users-triggers\.sql/)
 
 for (const script of ['scripts/backup-supabase-storage.mjs', 'scripts/restore-supabase-storage.mjs']) {
   const result = spawnSync(process.execPath, ['--check', path.join(root, script)], { encoding: 'utf8' })
