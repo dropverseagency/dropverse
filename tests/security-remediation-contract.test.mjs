@@ -19,6 +19,8 @@ const leadPurchaseConfirm = read('app/api/leads/purchases/confirm/route.ts')
 const projectOperations = read('app/api/projects/[id]/operations/route.ts')
 const assignmentMigration = read('supabase/migrations/20261030020000_respond_project_assignment_atomic.sql')
 const payoutRequest = read('app/api/payouts/request/route.ts')
+const adminMutation = read('app/api/admin/mutate/route.ts')
+const releaseMigration = read('supabase/migrations/20261030030000_atomic_project_earning_release.sql')
 
 assert.match(migration, /drop policy if exists "users create own payouts"/i)
 assert.match(migration, /revoke insert,update,delete on table public[.]payout_requests from public,anon,authenticated/i)
@@ -68,6 +70,13 @@ assert.match(assignmentMigration, /grant execute on function public\.respond_pro
 assert.match(payoutRequest, /if \(!destination\)/)
 assert.match(payoutRequest, /DESTINATION_REQUIRED/)
 assert.match(payoutRequest, /method\.id === 'paypal'/)
+assert.match(adminMutation, /release_project_earning_atomic/)
+assert.match(releaseMigration, /for update/i)
+assert.match(releaseMigration, /PROJECT_EARNING_NOT_RELEASABLE/)
+assert.match(releaseMigration, /EARNING_ALREADY_RELEASED/)
+assert.match(releaseMigration, /revoke all on function public\.release_project_earning_atomic/)
+assert.match(releaseMigration, /grant execute on function public\.release_project_earning_atomic/)
+
 
 
 assert.match(terms, /item_id: String\(body\.itemId \|\| ''\)\.trim\(\)/)
