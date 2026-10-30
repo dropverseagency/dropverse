@@ -46,7 +46,28 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     client.from('project_disputes').select('*').eq('project_id', id).order('created_at', { ascending: false }),
     client.from('project_events').select('*').eq('project_id', id).order('created_at', { ascending: false }).limit(100),
   ])
-  return NextResponse.json({ project: ctx.project, actor: ctx.actor, assignments: assignments.data || [], messages: messages.data || [], deliveries: deliveries.data || [], revisions: revisions.data || [], disputes: disputes.data || [], events: events.data || [] })
+
+  // Freelancers only need the delivery brief and their own payout information.
+  // Never expose seller margin, client contact details, or payment/portal secrets.
+  const visibleProject = { ...ctx.project }
+  if (ctx.actor === 'freelancer') {
+    for (const key of [
+      'user_id',
+      'organization_id',
+      'client_price',
+      'fulfillment_cost',
+      'seller_profit',
+      'client_contact_email',
+      'payment_transaction_id',
+      'spaceremit_payment_id',
+      'tracking_token',
+      'idempotency_key',
+    ]) {
+      delete visibleProject[key]
+    }
+  }
+
+  return NextResponse.json({ project: visibleProject, actor: ctx.actor, assignments: assignments.data || [], messages: messages.data || [], deliveries: deliveries.data || [], revisions: revisions.data || [], disputes: disputes.data || [], events: events.data || [] })
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -123,8 +144,33 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   } else if (body.type === 'respond_assignment') {
     if (ctx.actor !== 'freelancer') return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
     const status = body.decision
-    await client.from('project_assignments').update({ status, responded_at: new Date().toISOString(), response_note: clean(body.note, 1000) || null }).eq('project_id', id).eq('freelancer_id', user.id).eq('status', 'offered')
-    await client.from('projects').update(status === 'accepted' ? { assignment_status: 'accepted', operations_status: 'in_progress' } : { assigned_freelancer_id: null, assignment_status: 'declined', operations_status: 'ready_to_assign', freelancer_payout_status: 'not_earned' }).eq('id', id)
+    if (status !== 'accepted' && status !== 'declined') {
+      return NextResponse.json({ error: 'INVALID_ASSIGNMENT_DECISION' }, { status: 400 })
+    }
+    const { data: respondedAssignment, error: assignmentError } = await client
+      .from('project_assignments')
+      .update({ status, responded_at: new Date().toISOString(), response_note: clean(body.note, 1000) || null })
+      .eq('project_id', id)
+      .eq('freelancer_id', user.id)
+      .eq('status', 'offered')
+      .select('id')
+      .maybeSingle()
+    if (assignmentError) return NextResponse.json({ error: 'ASSIGNMENT_RESPONSE_FAILED' }, { status: 500 })
+    if (!respondedAssignment) return NextResponse.json({ error: 'ASSIGNMENT_NO_LONGER_OPEN' }, { status: 409 })
+
+    const { data: updatedProject, error: projectUpdateError } = await client
+      .from('projects')
+      .update(status === 'accepted'
+        ? { assignment_status: 'accepted', operations_status: 'in_progress' }
+        : { assigned_freelancer_id: null, assignment_status: 'declined', operations_status: 'ready_to_assign', freelancer_payout_status: 'not_earned' })
+      .eq('id', id)
+      .eq('assigned_freelancer_id', user.id)
+      .eq('assignment_status', 'offered')
+      .select('id')
+      .maybeSingle()
+    if (projectUpdateError) return NextResponse.json({ error: 'PROJECT_ASSIGNMENT_RESPONSE_FAILED' }, { status: 500 })
+    if (!updatedProject) return NextResponse.json({ error: 'PROJECT_ASSIGNMENT_NO_LONGER_OPEN' }, { status: 409 })
+
     await event(id, user.id, 'freelancer', `assignment_${status}`)
     await createUserNotification({ userId: ctx.project.user_id, type: `assignment_${status}`, title: status === 'accepted' ? 'Freelancer accepted the project' : 'Freelancer declined the project', body: `${ctx.project.title}: the assigned freelancer ${status} the assignment.`, href: `/dashboard/projects/${id}`, entityType: 'project', entityId: id })
   } else if (body.type === 'request_revision') {
