@@ -77,6 +77,45 @@ function leadScore(text: string) {
   return Math.min(score, 99)
 }
 
+const BLUESKY_SEARCH_HOSTS = ['https://api.bsky.app', 'https://public.api.bsky.app'] as const
+
+async function searchBlueskyPosts(query: string) {
+  const failures: string[] = []
+
+  for (const host of BLUESKY_SEARCH_HOSTS) {
+    const url = new URL(`${host}/xrpc/app.bsky.feed.searchPosts`)
+    url.searchParams.set('q', query)
+    url.searchParams.set('limit', '100')
+    url.searchParams.set('sort', 'latest')
+    url.searchParams.set('lang', 'en')
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'DropVerseClientFinder/1.0',
+        },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10_000),
+      })
+
+      if (response.ok) {
+        return await response.json() as { posts?: BlueskyPost[] }
+      }
+
+      failures.push(`${new URL(host).hostname}:HTTP_${response.status}`)
+
+      // Do not retry through another host after an explicit rate-limit response.
+      if (response.status === 429) break
+    } catch (error) {
+      const name = error instanceof Error ? error.name : 'UnknownError'
+      failures.push(`${new URL(host).hostname}:${name}`)
+    }
+  }
+
+  throw new Error(failures.join(',') || 'No Bluesky search host responded')
+}
+
 export async function POST(request: NextRequest) {
   const rate = await rateLimit(`client-finder:${clientIp(request)}`, { limit: 6, windowMs: 60_000 })
   if (!rate.success) return rateLimitResponse(rate, 'Search limit reached. Please wait a minute and try again.')
@@ -94,25 +133,19 @@ export async function POST(request: NextRequest) {
   }
 
   const service = SERVICES[serviceKey as ServiceKey]
-  const results = await Promise.allSettled(service.queries.map(async (query) => {
-    const url = new URL('https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts')
-    url.searchParams.set('q', query)
-    url.searchParams.set('limit', '100')
-    url.searchParams.set('sort', 'latest')
-    url.searchParams.set('lang', 'en')
-
-    const response = await fetch(url, {
-      headers: { Accept: 'application/json' },
-      cache: 'no-store',
-      signal: AbortSignal.timeout(12_000),
-    })
-    if (!response.ok) throw new Error(`Bluesky search returned ${response.status}`)
-    return await response.json() as { posts?: BlueskyPost[] }
-  }))
+  const results = await Promise.allSettled(
+    service.queries.map((query) => searchBlueskyPosts(query)),
+  )
 
   const successful = results.filter((result): result is PromiseFulfilledResult<{ posts?: BlueskyPost[] }> => result.status === 'fulfilled')
   if (!successful.length) {
-    console.error('[client-finder] all Bluesky searches failed')
+    const failures = results
+      .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+      .map((result) => result.reason instanceof Error ? result.reason.message : 'Unknown source error')
+    console.error('[client-finder] all Bluesky searches failed', {
+      service: serviceKey,
+      failures,
+    })
     return NextResponse.json(
       { error: 'SOURCE_UNAVAILABLE', message: 'The public search source is temporarily unavailable. Please try again shortly.' },
       { status: 502, headers: { 'Cache-Control': 'no-store' } },
