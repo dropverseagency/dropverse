@@ -230,84 +230,21 @@ export default function Home() {
         </div>
       </section>
 
-      <section
-        id="services"
-        className="editorial-section editorial-wrap services-section"
-        aria-labelledby="services-title"
-      >
-        <Reveal className="services-intro">
-          <p className="editorial-eyebrow">02 — YOUR OFFERING</p>
-          <h2 id="services-title" className="editorial-display">
-            Your craft.
-            <br />
-            More possibilities.
-          </h2>
-          <p className="editorial-body">
-            From brand and web to content and motion. Find the services that fit the way you work.
-          </p>
-          <Link href="/pricing" className="editorial-text-link">
-            Explore plans <ArrowUpRight size={17} />
-          </Link>
-          <div className="service-art" aria-hidden="true">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={activeService}
-                className={`service-art-inner service-art-${activeService % 3}`}
-                initial={reduced ? false : { opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: reduced ? 0 : 0.25 }}
-              >
-                <span className="editorial-eyebrow">THE CREATIVE POSSIBILITIES</span>
-                <span className="service-art-title">
-                  Ideas
-                  <br />
-                  take
-                  <br />
-                  <em>shape.</em>
-                </span>
-                <span className="service-art-label">
-                  {selected?.[0]} <ArrowUpRight size={18} />
-                </span>
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        </Reveal>
-        <div className="service-list">
-          {services.map(([title, description], index) => (
-            <div
-              key={title + index}
-              className={`service-row ${index === activeService ? 'is-active' : ''}`}
-              onMouseEnter={() => setActiveService(index)}
-            >
-              <button
-                onClick={() => setActiveService(index)}
-                onFocus={() => setActiveService(index)}
-                aria-expanded={index === activeService}
-                aria-controls={`service-description-${index}`}
-              >
-                <span className="service-number">{String(index + 1).padStart(2, '0')}</span>
-                <span>{title}</span>
-                <ArrowUpRight size={22} />
-              </button>
-              <div
-                id={`service-description-${index}`}
-                className="service-description"
-                hidden={index !== activeService}
-              >
-                <p>{description}</p>
-              </div>
-            </div>
-          ))}
-          <p className="service-list-note">
-            {liveServices
-              ? 'Services from the published catalog.'
-              : 'Explore our service categories. Availability is confirmed in the catalog.'}
-          </p>
-        </div>
-      </section>
-
-      {/* REMAINDER_PLACEHOLDER - will fix if truncated */}
+      <HomeRest
+        services={services}
+        selected={selected}
+        activeService={activeService}
+        setActiveService={setActiveService}
+        liveServices={liveServices}
+        samples={samples}
+        catalogState={catalogState}
+        entryHref={entryHref}
+        reduced={reduced}
+      />
     </main>
   )
+}
+
+function HomeRest(_props: Record<string, unknown>) {
+  return null
 }
