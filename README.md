@@ -36,7 +36,7 @@ Rollback: `supabase/rollbacks/20261017090000_protect_profiles_role_rollback.sql`
 
 ## Payments
 
-SpaceRemit (local). Paddle and Dodo routes return HTTP 410.
+SpaceRemit (local) and PayPal. Legacy Paddle checkout routes return HTTP 410. Dodo Payments has been fully removed.
 
 ## Rate limiting
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import Link from 'next/link'
 import Brand from '../../components/Brand'
 import { createClient } from '../../lib/supabase'
@@ -10,12 +10,43 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+
+  useEffect(() => {
+    if (!siteKey) return
+    if (document.querySelector('script[data-turnstile]')) return
+    const s = document.createElement('script')
+    s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+    s.async = true
+    s.dataset.turnstile = '1'
+    document.head.appendChild(s)
+  }, [siteKey])
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setLoading(true)
     setError(null)
     try {
+      const form = new FormData(event.currentTarget)
+      const turnstileToken =
+        typeof form.get('cf-turnstile-response') === 'string' && form.get('cf-turnstile-response')
+          ? String(form.get('cf-turnstile-response'))
+          : null
+
+      const guardRes = await fetch('/api/auth/guard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ turnstileToken }),
+      })
+      if (guardRes.status === 429) {
+        setError('Too many attempts. Please wait a minute and try again.')
+        return
+      }
+      if (!guardRes.ok) {
+        setError('Security check failed. Please try again.')
+        return
+      }
+
       const supabase = createClient()
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: `${window.location.origin}/reset-password`,
@@ -59,6 +90,9 @@ export default function ForgotPasswordPage() {
                   placeholder="you@example.com"
                 />
               </label>
+              {siteKey ? (
+                <div className="cf-turnstile" data-sitekey={siteKey} data-theme="dark" />
+              ) : null}
               {error ? <p role="alert" className="text-sm text-red-300">{error}</p> : null}
               <button type="submit" disabled={loading} className="btn-primary w-full rounded-xl py-3.5 text-sm font-semibold disabled:opacity-60">
                 {loading ? 'Sending…' : 'Send reset link'}
