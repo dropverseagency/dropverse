@@ -75,6 +75,11 @@ assert.match(payoutRequest, /rateLimitResponse\(requestLimit/ )
 assert.match(read('package.json'), /"overrides":/)
 assert.match(read('package.json'), /"postcss": "8\.5\.23"/)
 assert.match(read('.github/workflows/payouts-validation.yml'), /Blocking build:.*high\/critical dependency advisories/)
+assert.match(read('package.json'), /"prebuild": "node scripts\/check-dependency-audit\.mjs"/)
+assert.match(read('scripts/check-dependency-audit.mjs'), /counts\.critical/)
+assert.match(read('scripts/check-dependency-audit.mjs'), /counts\.high/)
+assert.match(read('scripts/check-dependency-audit.mjs'), /process\.exit\(1\)/)
+
 
 
 
