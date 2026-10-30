@@ -93,6 +93,7 @@ export default function ClientFinder() {
                 type="button"
                 onClick={() => setService(item.value)}
                 aria-pressed={service === item.value}
+                disabled={loading}
                 className={`rounded-2xl border p-4 text-start transition-colors ${service === item.value ? 'border-[var(--dv-gold)] bg-[var(--dv-surface-2)]' : 'border-[var(--dv-line)] bg-[var(--dv-deep)] hover:bg-[var(--dv-surface-2)]'}`}
               >
                 <span className="block font-semibold">{item.label}</span>
