@@ -153,13 +153,13 @@ export default function UserDashboardHome() {
         <div className="flex flex-wrap items-center gap-2">
           {activeOrg && (
             <div className="relative">
-              <button onClick={() => setSwitcherOpen((o) => !o)} className="flex items-center gap-2 rounded-full border border-[#2c403a] bg-[#0b2420] px-3 py-1.5 text-sm font-semibold">
+              <button onClick={() => setSwitcherOpen((o) => !o)} className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-sm font-semibold backdrop-blur">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#d8b45a] text-xs font-bold text-[#10221f]">{activeOrg.name.trim().charAt(0).toUpperCase()}</span>
                 <span className="max-w-[10rem] truncate">{activeOrg.name}</span>
                 <ChevronDown size={14} />
               </button>
               {switcherOpen && (
-                <div className="absolute left-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-[#1e3d36] bg-[#0a2926] shadow-xl">
+                <div className="absolute left-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-white/10 bg-[#0a2926]/90 shadow-xl backdrop-blur-md">
                   {orgs.map((o) => (
                     <button key={o.id} onClick={() => { setActiveOrgId(o.id); setSwitcherOpen(false) }} className={`flex w-full px-4 py-3 text-left text-sm hover:bg-white/5 ${o.id === activeOrgId ? 'text-[#e4c979]' : ''}`}>
                       {o.name}
@@ -184,7 +184,7 @@ export default function UserDashboardHome() {
       </div>
 
       {loading ? (
-        <div className="rounded-2xl border border-[#1e3d36] bg-[#0b2420] p-12 text-center text-sm text-[#718781]">Loading your workspace…</div>
+        <div className="dv-glass-card p-12 text-center text-sm text-[#718781]">Loading your workspace…</div>
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -194,7 +194,7 @@ export default function UserDashboardHome() {
             <Kpi label="Projects" value={String(projects.length)} hint={`${projectStats.paid} paid · ${projectStats.open} open`} />
           </div>
 
-          <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-[rgba(216,180,90,0.28)] bg-[rgba(216,180,90,0.06)] p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-5 flex flex-col gap-4 dv-glass-card-accent p-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-bold text-[#f0f4f2]">Request a payout</p>
               <p className="mt-1 text-xs text-[#81948e]">
@@ -216,7 +216,7 @@ export default function UserDashboardHome() {
           </div>
 
           <div className="mt-6 grid gap-4 lg:grid-cols-5">
-            <div className="rounded-2xl border border-[#1e3d36] bg-[#0b2420] p-5 lg:col-span-2">
+            <div className="dv-glass-card p-5 lg:col-span-2">
               <p className="text-xs font-bold uppercase tracking-[.14em] text-[#849792]">Referral link</p>
               {dashLink ? (
                 <>
@@ -227,7 +227,7 @@ export default function UserDashboardHome() {
                 </>
               ) : <p className="mt-3 text-sm text-[#81948e]">Loading…</p>}
             </div>
-            <div className="rounded-2xl border border-[#1e3d36] bg-[#0b2420] p-5 lg:col-span-3">
+            <div className="dv-glass-card p-5 lg:col-span-3">
               <p className="mb-2 text-xs font-bold uppercase tracking-[.14em] text-[#849792]">Performance</p>
               <MyCharts />
             </div>
@@ -243,7 +243,7 @@ export default function UserDashboardHome() {
                 No projects yet. <Link href="/dashboard/create-project" className="font-semibold text-[#d8b45a]">Create one</Link>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-[#1e3d36]">
+              <div className="dv-glass-card overflow-hidden">
                 {projects.slice(0, 10).map((p) => (
                   <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-[#1e3d36] px-4 py-3.5 last:border-b-0">
                     <div className="min-w-0">
@@ -263,9 +263,9 @@ export default function UserDashboardHome() {
           <section className="mt-8">
             <h2 className="mb-3 font-display text-lg font-bold text-white">Recent activity</h2>
             {!transactions.length ? (
-              <div className="rounded-2xl border border-[#1e3d36] bg-[#0b2420] p-6 text-sm text-[#81948e]">No activity yet.</div>
+              <div className="dv-glass-card p-6 text-sm text-[#81948e]">No activity yet.</div>
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-[#1e3d36]">
+              <div className="dv-glass-card overflow-hidden">
                 {transactions.map((t, i) => (
                   <div key={i} className="flex items-center justify-between gap-3 border-b border-[#1e3d36] px-4 py-3 last:border-b-0">
                     <div className="min-w-0">
@@ -285,7 +285,7 @@ export default function UserDashboardHome() {
 
       {selectedProject && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center">
-          <div className="w-full max-w-lg rounded-2xl border border-[#1e3d36] bg-[#0a2926] p-6">
+          <div className="w-full max-w-lg dv-glass-card p-6">
             <div className="flex justify-between gap-3">
               <h3 className="font-display text-xl font-bold text-white">{selectedProject.title}</h3>
               <button type="button" onClick={() => setSelectedProject(null)} className="rounded-full border border-white/10 p-2"><X size={16} /></button>
@@ -308,7 +308,7 @@ export default function UserDashboardHome() {
 
 function Kpi({ label, value, hint, accent }: { label: string; value: string; hint: string; accent?: boolean }) {
   return (
-    <div className={`rounded-2xl border p-4 ${accent ? 'border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.07)]' : 'border-[#1e3d36] bg-[#0b2420]'}`}>
+    <div className={accent ? 'dv-glass-card-accent p-4' : 'dv-glass-card p-4'}>
       <div className="text-xs uppercase tracking-[.14em] text-[#849792]">{label}</div>
       <div className="mt-2 font-display text-2xl font-extrabold text-[#e8efe9]">{value}</div>
       <div className="mt-0.5 text-[11px] text-[#81948e]">{hint}</div>
@@ -318,7 +318,7 @@ function Kpi({ label, value, hint, accent }: { label: string; value: string; hin
 
 function Action({ href, title, text }: { href: string; title: string; text: string }) {
   return (
-    <Link href={href} className="group rounded-2xl border border-[#1e3d36] bg-[#0b2420] p-4 transition hover:border-[rgba(216,180,90,0.3)]">
+    <Link href={href} className="group dv-glass-card block p-4">
       <div className="flex justify-between"><span className="font-display font-bold text-[#e8efe9]">{title}</span><ArrowRight size={14} className="text-[#6e817c] group-hover:text-[#d8b45a]" /></div>
       <p className="mt-1 text-xs text-[#849792]">{text}</p>
     </Link>

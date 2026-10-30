@@ -34,7 +34,7 @@ export const STATUS_STYLES: Record<string, string> = {
 }
 
 export function Badge({ status, label }: { status: string; label?: string }) {
-  const style = STATUS_STYLES[status] ?? 'bg-white/5 text-[#9aac b8] border-white/10'
+  const style = STATUS_STYLES[status] ?? 'bg-white/5 text-[#9aacb8] border-white/10'
   return (
     <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${style}`}>
       {label ?? status}
@@ -44,7 +44,7 @@ export function Badge({ status, label }: { status: string; label?: string }) {
 
 export function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-xl border border-white/5 bg-[rgba(255,255,255,0.02)] p-4">
+    <div className="dv-glass-card p-4">
       <div className="text-xs uppercase tracking-wider text-[#7f918c]">{label}</div>
       <div className="mt-1 text-2xl font-extrabold text-[#f0f4f2]">{value}</div>
       {sub ? <div className="mt-1 text-xs text-[#7f918c]">{sub}</div> : null}
@@ -54,7 +54,7 @@ export function StatCard({ label, value, sub }: { label: string; value: string; 
 
 export function Card({ title, className = '', children }: { title?: string; className?: string; children: React.ReactNode }) {
   return (
-    <section className={`rounded-2xl border border-white/10 bg-[#0c2420] shadow-[0_12px_40px_rgba(0,0,0,0.18)] ${className}`}>
+    <section className={`dv-glass-card ${className}`}>
       {title ? <h2 className="border-b border-white/10 px-4 py-3.5 text-sm font-bold tracking-wide text-white sm:px-5">{title}</h2> : null}
       <div className="p-4 sm:p-5">{children}</div>
     </section>
@@ -128,9 +128,6 @@ export function useAdminData<T = any>(section: string, deps: (string | number)[]
     return () => { cancelled = true }
   }, [section, ...deps])
 
-  // Live refresh: re-pull numbers whenever the tab regains focus / becomes
-  // visible, plus a gentle poll, so brand-new sign-ups / projects /
-  // commissions appear without a manual reload.
   useEffect(() => {
     const refetch = () => {
       const url = new URL('/api/admin/data', window.location.origin)
