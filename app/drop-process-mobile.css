@@ -1,0 +1,82 @@
+/* Mobile-native Drop Servicing Flow animation (2×2 grid).
+   Desktop animation stays in editorial.css. Loaded only as a supplement. */
+
+@keyframes drop-step-focus-mobile {
+  0%,
+  19%,
+  100% {
+    opacity: 0.48;
+    transform: scale(0.985);
+  }
+  4%,
+  15% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes drop-step-icon-glow {
+  0%,
+  19%,
+  100% {
+    border-color: rgba(247, 243, 232, 0.25);
+    box-shadow: none;
+    background: #071d19;
+    color: #d5ae4b;
+  }
+  4%,
+  15% {
+    border-color: rgba(213, 174, 75, 0.95);
+    box-shadow:
+      0 0 0 5px rgba(213, 174, 75, 0.14),
+      0 0 20px rgba(213, 174, 75, 0.5);
+    background: #0c2a24;
+    color: #f0d78a;
+  }
+}
+
+@keyframes drop-step-number-mobile {
+  0%,
+  19%,
+  100% {
+    color: rgba(247, 243, 232, 0.35);
+  }
+  4%,
+  15% {
+    color: #d5ae4b;
+  }
+}
+
+@keyframes drop-live-dot {
+  0%,
+  100% {
+    box-shadow: 0 0 0 4px rgba(213, 174, 75, 0.12);
+    opacity: 0.85;
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(213, 174, 75, 0.22);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 560px) {
+  /* Override the previous animation: none on steps */
+  .drop-process-steps li {
+    animation: drop-step-focus-mobile 6.4s ease-in-out infinite;
+    animation-delay: var(--step-delay);
+  }
+
+  .drop-process-steps li .drop-step-icon {
+    animation: drop-step-icon-glow 6.4s ease-in-out infinite;
+    animation-delay: var(--step-delay);
+  }
+
+  .drop-process-steps li .drop-step-number {
+    animation: drop-step-number-mobile 6.4s ease-in-out infinite;
+    animation-delay: var(--step-delay);
+  }
+
+  .drop-process-live i {
+    animation: drop-live-dot 1.6s ease-in-out infinite;
+  }
+}
