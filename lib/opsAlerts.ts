@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { notifyAdminChannels } from '@/lib/agents/notifyAdmin'
+import { createServiceClient } from '@/lib/supabaseService'
 
 export type OpsErrorContext = {
   source: string
@@ -87,6 +88,18 @@ export async function reportOpsError(
   } catch (reportError) {
     console.error(
       '[ops-alert] reporter failed',
+      reportError instanceof Error ? safeText(reportError.message, 180) : 'unknown',
+    )
+  }
+}
+
+/** Convenience wrapper for route handlers that do not already hold a service client. */
+export async function reportServerError(error: unknown, context: OpsErrorContext): Promise<void> {
+  try {
+    await reportOpsError(createServiceClient(), error, context)
+  } catch (reportError) {
+    console.error(
+      '[ops-alert] service-client reporting failed',
       reportError instanceof Error ? safeText(reportError.message, 180) : 'unknown',
     )
   }
