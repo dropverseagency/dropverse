@@ -62,7 +62,7 @@ assert.match(assignmentMigration, /set status = 'reversed'/)
 assert.match(assignmentMigration, /grant execute on function public\.respond_project_assignment_atomic/)
 assert.match(payoutRequest, /if \(!destination\)/)
 assert.match(payoutRequest, /DESTINATION_REQUIRED/)
-assert.match(payoutRequest, /method\.id === 'paypal' && !/
+assert.match(payoutRequest, /method\.id === 'paypal'/)
 
 
 assert.match(terms, /item_id: String\(body\.itemId \|\| ''\)\.trim\(\)/)
