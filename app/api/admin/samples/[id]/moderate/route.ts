@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { adminClient, audit, requireAdmin, AdminOnlyError } from '@/lib/adminCore'
+import { adminClient, audit, requireAdmin, reportAdminError, AdminOnlyError } from '@/lib/adminCore'
 import { notifyAdminEvent } from '@/lib/agents/adminNotify'
 import { createUserNotification } from '@/lib/userNotifications'
 
@@ -116,6 +116,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       return NextResponse.json({ error: e.code }, { status: e.code === 'NOT_AUTHENTICATED' ? 401 : 403 })
     }
     console.error('[admin samples moderate]', e)
+    await reportAdminError(e, '/api/admin/samples/[id]/moderate', 'POST')
     return NextResponse.json({ error: 'MODERATE_FAILED' }, { status: 500 })
   }
 }
