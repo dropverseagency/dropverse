@@ -72,6 +72,9 @@ assert.match(payoutRequest, /DESTINATION_REQUIRED/)
 assert.match(payoutRequest, /payout-request:\$\{user\.id\}/)
 assert.match(payoutRequest, /limit: 5, windowMs: 15 \* 60 \* 1000/)
 assert.match(payoutRequest, /rateLimitResponse\(requestLimit/ )
+assert.match(read('package.json'), /"overrides":/)
+assert.match(read('package.json'), /"postcss": "8\.5\.23"/)
+
 
 assert.match(payoutRequest, /method\.id === 'paypal'/)
 assert.match(adminMutation, /release_project_earning_atomic/)
