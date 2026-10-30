@@ -28,8 +28,9 @@ function safeDirectoryName(value) {
 }
 
 function resolveInside(root, objectPath) {
-  const resolved = path.resolve(root, ...String(objectPath).split('/'))
-  if (!resolved.startsWith(root + path.sep)) {
+  const absoluteRoot = path.resolve(root)
+  const resolved = path.resolve(absoluteRoot, ...String(objectPath).split('/'))
+  if (!resolved.startsWith(absoluteRoot + path.sep)) {
     throw new Error('Storage object path escaped the backup directory')
   }
   return resolved
