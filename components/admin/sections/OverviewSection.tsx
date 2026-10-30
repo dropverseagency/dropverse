@@ -7,7 +7,7 @@ import AnalyticsBoard from '@/components/admin/AnalyticsBoard'
 
 function GroupCard({ icon: Icon, label, value, sub, href }: { icon: any; label: string; value: string; sub?: string; href: string }) {
   return (
-    <Link href={href} className="flex min-w-0 flex-col gap-3 rounded-2xl border border-[rgba(216,180,90,0.16)] bg-[#0c2420] p-4 transition hover:border-[rgba(216,180,90,0.40)]">
+    <Link href={href} className="dv-glass-card flex min-w-0 flex-col gap-3 p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(216,180,90,0.16)] text-[#f0d98b]">
           <Icon size={18} />
