@@ -21,6 +21,7 @@ assert.match(migration, /DROP POLICY IF EXISTS "invitations accept anyone with t
 assert.match(migration, /REVOKE UPDATE ON TABLE public\.organization_invitations FROM PUBLIC, anon, authenticated/)
 assert.match(migration, /current_user IN \('anon', 'authenticated'\)/)
 assert.match(migration, /REVOKE TRUNCATE, TRIGGER, REFERENCES ON ALL TABLES/)
+assert.match(migration, /REVOKE MAINTAIN ON ALL TABLES/)
 assert.match(migration, /claim_ops_alert/)
 assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.claim_ops_alert\(text, integer\) TO service_role/)
 assert.match(migration, /idx_site_presence_last_seen_desc/)
