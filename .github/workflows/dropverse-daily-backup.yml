@@ -1,0 +1,78 @@
+name: DropVerse encrypted daily backup
+
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dropverse-encrypted-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Install age
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y age
+
+      - name: Export database, auth identities, and Storage objects
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+          BACKUP_ROOT: backup
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${SUPABASE_DB_URL:?Add SUPABASE_DB_URL as a GitHub Actions secret}"
+          : "${SUPABASE_URL:?Add SUPABASE_URL as a GitHub Actions secret}"
+          : "${SUPABASE_SERVICE_ROLE_KEY:?Add SUPABASE_SERVICE_ROLE_KEY as a GitHub Actions secret}"
+          : "${BACKUP_AGE_RECIPIENT:?Add BACKUP_AGE_RECIPIENT as a GitHub Actions variable}"
+
+          mkdir -p backup/database backup/auth
+
+          # App schemas: public tables, private helper schema, and isolated memory schema.
+          supabase db dump --db-url "$SUPABASE_DB_URL" --schema public,dv,ossol_memory --file backup/database/schema.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" --schema public,dv,ossol_memory --data-only --use-copy --file backup/database/data.sql
+
+          # Preserve auth user IDs/password hashes and identities; sessions/refresh tokens are intentionally excluded.
+          docker run --rm \
+            -e SUPABASE_DB_URL="$SUPABASE_DB_URL" \
+            -v "$PWD/backup/auth:/backup" \
+            postgres:17 \
+            sh -lc 'pg_dump --data-only --disable-triggers --no-owner --no-privileges --table=auth.users --table=auth.identities --file=/backup/auth-data.sql "$SUPABASE_DB_URL"'
+
+          # Storage API objects and bucket settings are outside the database dump.
+          node scripts/backup-supabase-storage.mjs
+
+          tar -czf dropverse-backup.tar.gz backup
+          age -r "$BACKUP_AGE_RECIPIENT" -o dropverse-backup.tar.gz.age dropverse-backup.tar.gz
+          sha256sum dropverse-backup.tar.gz.age > dropverse-backup.tar.gz.age.sha256
+          rm -f dropverse-backup.tar.gz
+          ls -lh dropverse-backup.tar.gz.age dropverse-backup.tar.gz.age.sha256
+
+      - name: Upload encrypted artifact only
+        uses: actions/upload-artifact@v4
+        with:
+          name: dropverse-encrypted-backup-${{ github.run_id }}
+          path: |
+            dropverse-backup.tar.gz.age
+            dropverse-backup.tar.gz.age.sha256
+          if-no-files-found: error
+          retention-days: 30

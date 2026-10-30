@@ -1,0 +1,62 @@
+name: DropVerse production health monitor
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dropverse-production-health
+  cancel-in-progress: true
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Check production app and database
+        id: healthcheck
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          status=$(curl --silent --show-error --location \
+            --connect-timeout 10 --max-time 25 \
+            --retry 2 --retry-delay 4 --retry-all-errors \
+            --output /tmp/dropverse-health.json \
+            --write-out '%{http_code}' \
+            https://dropverse10v.vercel.app/api/health)
+
+          if [ "$status" != "200" ] || ! jq -e '.status == "ok" and .checks.database == "ok"' /tmp/dropverse-health.json >/dev/null; then
+            echo "Production health check failed (HTTP $status)"
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          echo "Production app and database are healthy."
+
+      - name: Notify admin on Telegram
+        if: steps.healthcheck.outcome == 'failure'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_ADMIN_CHAT_ID" ]; then
+            echo "::warning::Telegram GitHub secrets are not configured; no external outage alert was sent."
+            exit 0
+          fi
+
+          message="DropVerse production health check FAILED. Inspect: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          payload=$(jq -n --arg chat "$TELEGRAM_ADMIN_CHAT_ID" --arg text "$message" '{chat_id:$chat,text:$text,disable_web_page_preview:true}')
+          curl --silent --show-error --fail \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data "$payload" \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" >/dev/null
+
+      - name: Mark failed health check
+        if: steps.healthcheck.outcome == 'failure'
+        run: exit 1

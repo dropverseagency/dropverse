@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const read = (file) => readFileSync(path.join(root, file), 'utf8')
+
+const migration = read('supabase/migrations/20261030063027_harden_admin_rls_and_ops_alerts.sql')
+const opsAlerts = read('lib/opsAlerts.ts')
+const instrumentation = read('instrumentation.ts')
+const health = read('app/api/health/route.ts')
+const backup = read('.github/workflows/dropverse-daily-backup.yml')
+const monitor = read('.github/workflows/dropverse-health-monitor.yml')
+const storageBackup = read('scripts/backup-supabase-storage.mjs')
+const storageRestore = read('scripts/restore-supabase-storage.mjs')
+const recovery = read('docs/backup-and-recovery.md')
+
+assert.match(migration, /DROP POLICY IF EXISTS "invitations accept anyone with token"/)
+assert.match(migration, /REVOKE UPDATE ON TABLE public\.organization_invitations FROM PUBLIC, anon, authenticated/)
+assert.match(migration, /current_user IN \('anon', 'authenticated'\)/)
+assert.match(migration, /REVOKE TRUNCATE, TRIGGER, REFERENCES ON ALL TABLES/)
+assert.match(migration, /claim_ops_alert/)
+assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.claim_ops_alert\(text, integer\) TO service_role/)
+assert.match(migration, /idx_site_presence_last_seen_desc/)
+assert.match(migration, /idx_page_views_created_at_desc/)
+
+assert.match(opsAlerts, /claim_ops_alert/)
+assert.match(opsAlerts, /p_cooldown_seconds: 900/)
+assert.match(opsAlerts, /Bearer \[redacted\]/)
+assert.match(opsAlerts, /notifyAdminChannels/)
+assert.match(instrumentation, /onRequestError/)
+assert.match(instrumentation, /reportOpsError/)
+assert.match(health, /\.from\('profiles'\)/)
+assert.match(health, /checks: \{ database: 'ok' \}/)
+assert.match(health, /Cache-Control/)
+assert.doesNotMatch(health, /SUPABASE_SERVICE_ROLE_KEY[^\n]*json/)
+
+assert.match(backup, /age -r/)
+assert.match(backup, /pg_dump --data-only --disable-triggers/)
+assert.match(backup, /auth\.users/)
+assert.match(backup, /backup-supabase-storage\.mjs/)
+assert.match(backup, /upload-artifact@v4/)
+assert.match(monitor, /\*\/15 \* \* \* \*/)
+assert.match(monitor, /api\/health/)
+assert.match(monitor, /TELEGRAM_BOT_TOKEN/)
+assert.match(storageBackup, /object\/authenticated/)
+assert.match(storageRestore, /x-upsert/)
+assert.match(recovery, /new, empty Supabase project/)
+assert.match(recovery, /age private key/)
+console.log('ops-monitoring-contract.test.mjs: ok')
