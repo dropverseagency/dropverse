@@ -111,7 +111,7 @@ export default function SiteHeader({
             </>
           ) : (
             <Link href="/login" className="px-4 py-2 text-sm text-[#d9e0dc]">
-              {auth.loading ? '' : 'Sign in'}
+              Sign in
             </Link>
           )}
           {signedIn ? (
