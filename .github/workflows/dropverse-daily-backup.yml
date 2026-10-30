@@ -20,17 +20,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check backup configuration
+        id: config
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ] || [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] || [ -z "$BACKUP_AGE_RECIPIENT" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Backup is not configured yet. Add the documented GitHub Actions secrets and BACKUP_AGE_RECIPIENT variable."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install Supabase CLI
+        if: steps.config.outputs.configured == 'true'
         uses: supabase/setup-cli@v1
         with:
           version: latest
 
       - name: Install age
+        if: steps.config.outputs.configured == 'true'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y age
 
       - name: Export database, auth identities, and Storage objects
+        if: steps.config.outputs.configured == 'true'
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -68,6 +86,7 @@ jobs:
           ls -lh dropverse-backup.tar.gz.age dropverse-backup.tar.gz.age.sha256
 
       - name: Upload encrypted artifact only
+        if: steps.config.outputs.configured == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: dropverse-encrypted-backup-${{ github.run_id }}
