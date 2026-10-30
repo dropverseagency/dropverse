@@ -60,6 +60,13 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       'client_contact_email',
       'payment_transaction_id',
       'spaceremit_payment_id',
+      'payment_method',
+      'payment_status',
+      'payment_provider',
+      'payment_confirmed_at',
+      'subscription_status',
+      'current_billing_period',
+      'next_billing_date',
       'tracking_token',
       'idempotency_key',
     ]) {
@@ -67,7 +74,24 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     }
   }
 
-  return NextResponse.json({ project: visibleProject, actor: ctx.actor, assignments: assignments.data || [], messages: messages.data || [], deliveries: deliveries.data || [], revisions: revisions.data || [], disputes: disputes.data || [], events: events.data || [] })
+  const visibleDisputes = ctx.actor === 'freelancer'
+    ? (disputes.data || []).map((dispute) => {
+        const { refund_amount: _refundAmount, refund_reference: _refundReference, resolved_by: _resolvedBy, ...safeDispute } = dispute
+        return safeDispute
+      })
+    : disputes.data || []
+
+  const visibleEvents = ctx.actor === 'freelancer'
+    ? (events.data || []).map((item) => {
+        const metadata = { ...(item.metadata || {}) }
+        for (const key of ['paymentId', 'payment_id', 'transactionId', 'transaction_id', 'refundReference', 'refund_reference']) {
+          delete metadata[key]
+        }
+        return { ...item, metadata }
+      })
+    : events.data || []
+
+  return NextResponse.json({ project: visibleProject, actor: ctx.actor, assignments: assignments.data || [], messages: messages.data || [], deliveries: deliveries.data || [], revisions: revisions.data || [], disputes: visibleDisputes, events: visibleEvents })
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
