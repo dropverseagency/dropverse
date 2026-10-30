@@ -88,7 +88,7 @@ This runbook assumes a **new, empty Supabase project**. Do not run the data impo
 
 ## Important limitations
 
-- The archive includes Auth users and identities but not active sessions or refresh tokens. All users will need to sign in again.
+- The archive includes Auth users and identities but not active sessions, refresh tokens, or MFA factor registrations. All users will need to sign in again, and users with MFA must enroll their factors again.
 - Storage files are downloaded through the Storage API; verify the first backup's object count against the Storage dashboard.
 - GitHub Actions is an off-site logical backup, not Supabase Point-in-Time Recovery. It does not provide continuous recovery to an arbitrary second.
 - Keep the age private key separately. Without it, the encrypted backup cannot be restored.
