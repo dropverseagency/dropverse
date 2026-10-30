@@ -7,6 +7,7 @@ import { ArrowDown, ArrowRight, ArrowUpRight, Check, Plus } from 'lucide-react'
 import Brand from './Brand'
 import { MARKET_FACTS } from '../lib/marketFacts'
 import { MarketCite } from './MarketCite'
+import HomeRestLower from './HomeRestLower'
 
 const fallbackServices = [
   ['Video Editing', 'Reels, TikTok, Shorts, ads & long-form content.'],
@@ -19,35 +20,6 @@ const fallbackServices = [
   ['Motion Graphics', 'Animated visuals, promos and high-impact content.'],
 ]
 
-const paths = [
-  {
-    title: 'Agencies',
-    label: 'A place for your team.',
-    text: 'Run client delivery from one workspace — samples, orders, and team roles without switching tools.',
-    href: '/pricing',
-    cta: 'Explore agency plans',
-  },
-  {
-    title: 'Solo operators',
-    label: 'Your next chapter.',
-    text: 'Sell digital services with proven sample formats, then fulfill and track projects in DropVerse.',
-    href: '/#services',
-    cta: 'Find your service',
-  },
-  {
-    title: 'Lead sellers & buyers',
-    label: 'Make new connections.',
-    text: 'List or purchase lead packs by niche and country. Sign in to buy or sell.',
-    href: '/leads',
-    cta: 'Explore the marketplace',
-  },
-]
-const steps = [
-  ['Set up your workspace', 'Create an account and organize services, samples, or lead packs.'],
-  ['Pitch with proof', 'Share work samples and clear scope when you talk to clients.'],
-  ['Deliver in one place', 'Track projects, status, and assets without tool-hopping.'],
-  ['Scale your agency', 'Add team roles, plans, and partner referrals as you grow.'],
-]
 const features = [
   ['Team collaboration', 'Shared workspaces, roles, and client-ready project views.'],
   ['Delivery systems', 'Reusable flows for recurring digital services.'],
@@ -191,6 +163,96 @@ export default function HomeRest({ entryHref, signedIn }: { entryHref: string; s
           </p>
         </div>
       </section>
+
+      <section id="about" className="workspace-section" aria-labelledby="workspace-title">
+        <div className="editorial-wrap">
+          <div className="workspace-top">
+            <Reveal>
+              <p className="editorial-eyebrow">03 — BEHIND THE WORK</p>
+              <h2 id="workspace-title" className="editorial-display">
+                Everything behind
+                <br />
+                the finished work.
+              </h2>
+              <p className="editorial-body">
+                Manage projects, collaborate with your team, and bring your services together. A little more
+                structure. A lot more room to create.
+              </p>
+              <Link href={entryHref} className="editorial-text-link">
+                Meet your workspace <ArrowUpRight size={17} />
+              </Link>
+            </Reveal>
+            <Reveal className="workspace-preview" delay={0.15}>
+              <div className="workspace-preview-top">
+                <span>
+                  <i /> Your workspace
+                </span>
+                <span className="preview-label">ILLUSTRATIVE PREVIEW</span>
+              </div>
+              <div className="workspace-tabs">
+                <span className="selected">Projects</span>
+                <span>Samples</span>
+                <span>Team</span>
+                <Plus size={15} />
+              </div>
+              <div className="workspace-table-wrap">
+                <table className="workspace-table">
+                  <thead>
+                    <tr>
+                      <th>Project</th>
+                      <th>Stage</th>
+                      <th>Delivery</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      ['Brand identity', 'In review', 'Oct 28', 'identity'],
+                      ['Campaign film', 'In progress', 'Nov 02', 'film'],
+                      ['Studio website', 'Ready', 'Nov 06', 'web'],
+                    ].map(([name, status, date, kind]) => (
+                      <tr key={name}>
+                        <td>
+                          <span className={`project-thumb ${kind}`} aria-hidden="true">
+                            {kind === 'identity' ? 'Aa' : kind === 'web' ? <ArrowUpRight size={19} /> : '▶'}
+                          </span>
+                          {name}
+                        </td>
+                        <td>
+                          <span className={`project-status ${kind}`}>
+                            <i />
+                            {status}
+                          </span>
+                        </td>
+                        <td>{date}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="workspace-preview-bottom">
+                <span>One place. Every part of the process.</span>
+                <ArrowUpRight size={16} />
+              </div>
+              <p className="preview-disclaimer">Sample projects shown for illustration.</p>
+            </Reveal>
+          </div>
+          <div className="workspace-features">
+            {features.map(([title, text], index) => (
+              <Reveal key={title} delay={index * 0.05}>
+                <span className="feature-index">0{index + 1} /</span>
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <HomeRestLower
+        entryHref={entryHref}
+        signedIn={signedIn}
+        samples={samples}
+      />
     </>
   )
 }
