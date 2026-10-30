@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -48,4 +49,9 @@ assert.match(storageBackup, /object\/authenticated/)
 assert.match(storageRestore, /x-upsert/)
 assert.match(recovery, /new, empty Supabase project/)
 assert.match(recovery, /age private key/)
+
+for (const script of ['scripts/backup-supabase-storage.mjs', 'scripts/restore-supabase-storage.mjs']) {
+  const result = spawnSync(process.execPath, ['--check', path.join(root, script)], { encoding: 'utf8' })
+  assert.equal(result.status, 0, `${script} syntax check failed: ${result.stderr}`)
+}
 console.log('ops-monitoring-contract.test.mjs: ok')
