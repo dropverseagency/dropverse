@@ -75,12 +75,17 @@ jobs:
             ['production dependencies', '/tmp/npm-audit-production.json'],
           ]) {
             const report = JSON.parse(fs.readFileSync(file, 'utf8'))
-            console.log(`AUDIT ${label}: ${JSON.stringify(report.metadata?.vulnerabilities || {})}`)
+            const counts = report.metadata?.vulnerabilities || {}
+            console.log(`AUDIT ${label}: ${JSON.stringify(counts)}`)
             for (const [name, item] of Object.entries(report.vulnerabilities || {})) {
               const via = (item.via || []).map((entry) =>
                 typeof entry === 'string' ? entry : `${entry.title || entry.name || 'advisory'} (${entry.url || 'no URL'})`
               )
               console.log(`AUDIT_DETAIL ${name}: severity=${item.severity}; direct=${item.isDirect}; range=${item.range}; fix=${JSON.stringify(item.fixAvailable)}; via=${via.join(' | ')}`)
+            }
+            if (Number(counts.critical || 0) > 0 || Number(counts.high || 0) > 0) {
+              console.error(`Blocking build: ${label} contains high/critical dependency advisories.`)
+              process.exitCode = 1
             }
           }
           NODE
