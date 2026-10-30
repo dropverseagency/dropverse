@@ -100,7 +100,7 @@ export default async function PaymentSuccessPage({
           {result.paid ? 'Payment confirmed.' : 'Payment submitted successfully.'}
         </h1>
         <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-[#9aaba6]">
-          Dodo Payments has received your payment. We will update the order after the payment confirmation webhook is processed.
+          Your payment has been received. We will update the order after payment confirmation is processed.
         </p>
         {transactionId && (
           <div className="mx-auto mt-7 max-w-md rounded-2xl border border-white/10 bg-white/[.03] px-4 py-3 text-left">
