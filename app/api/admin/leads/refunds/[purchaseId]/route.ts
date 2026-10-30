@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { adminClient, audit, requireAdmin } from '@/lib/adminCore'
+import { adminClient, audit, requireAdmin, reportAdminError } from '@/lib/adminCore'
 import { notifyAdminEvent } from '@/lib/agents/adminNotify'
 
 export const runtime = 'nodejs'
@@ -117,6 +117,7 @@ export async function POST(
     if (code === 'NOT_AUTHENTICATED') return NextResponse.json({ error: code }, { status: 401 })
     if (code === 'ADMIN_ONLY') return NextResponse.json({ error: code }, { status: 403 })
     console.error('[admin/leads/refund]', e)
+    await reportAdminError(e, '/api/admin/leads/refunds/[purchaseId]', 'POST')
     return NextResponse.json({ error: 'INTERNAL' }, { status: 500 })
   }
 }
