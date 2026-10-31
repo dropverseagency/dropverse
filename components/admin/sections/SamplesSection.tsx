@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { HoldToDeleteButton } from '@/components/ui/HoldToDeleteButton'
 
 type Sample = {
   id: string
@@ -135,7 +136,14 @@ export default function SamplesSection() {
                   <div className="flex flex-wrap items-start gap-2 sm:flex-col">
                     <button disabled={busyId === sample.id} onClick={() => moderate(sample, 'approve')} className="rounded-full bg-[#6fbf73] px-4 py-2 text-xs font-bold text-[#06221e] disabled:opacity-40">Approve & publish</button>
                     <button disabled={busyId === sample.id} onClick={() => moderate(sample, 'reject')} className="rounded-full border border-red-400/40 px-4 py-2 text-xs font-bold text-red-200 disabled:opacity-40">Reject</button>
-                    {sample.status === 'approved' ? <button disabled={busyId === sample.id} onClick={() => moderate(sample, 'unpublish')} className="rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-[#c5d0cb] disabled:opacity-40">Unpublish</button> : null}
+                    {sample.status === 'approved' ? (
+                      <HoldToDeleteButton
+                        disabled={busyId === sample.id}
+                        label="Hold to unpublish"
+                        holdMs={850}
+                        onConfirm={() => moderate(sample, 'unpublish')}
+                      />
+                    ) : null}
                   </div>
                 </div>
               ) : null}

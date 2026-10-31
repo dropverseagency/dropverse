@@ -3,13 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
-  ArrowRight,
-  CheckCircle2,
-  Clock,
   Info,
   Loader2,
-  Wallet,
-  AlertCircle,
   Landmark,
   Mail,
 } from 'lucide-react'
@@ -20,6 +15,7 @@ import {
   formatUsd,
   type PayoutMethodId,
 } from '../../../lib/payoutConfig'
+import { ReceiptCard } from '../../../components/ui/ReceiptCard'
 
 type Method = {
   id: PayoutMethodId
@@ -70,24 +66,6 @@ type SavedMethods = {
   preferredMethod: PayoutMethodId | null
   paypalEmail: string | null
   localDetails: string | null
-}
-
-function statusLabel(s: string) {
-  const map: Record<string, string> = {
-    pending: 'Pending',
-    approved: 'Processing',
-    paid: 'Paid',
-    cancelled: 'Cancelled',
-    failed: 'Failed',
-  }
-  return map[s] || s
-}
-
-function statusClass(s: string) {
-  if (s === 'paid') return 'text-[#8fd6a8] bg-[rgba(143,214,168,0.1)] border-[rgba(143,214,168,0.25)]'
-  if (s === 'pending' || s === 'approved') return 'text-[#e4c979] bg-[rgba(216,180,90,0.1)] border-[rgba(216,180,90,0.25)]'
-  if (s === 'cancelled' || s === 'failed') return 'text-[#e89a8d] bg-[rgba(232,154,141,0.1)] border-[rgba(232,154,141,0.25)]'
-  return 'text-[#9aa8a3] bg-white/5 border-white/10'
 }
 
 export default function PayoutsPage() {
@@ -429,9 +407,7 @@ export default function PayoutsPage() {
             <div className="mt-4 rounded-xl border border-white/10 bg-[#0a2926] p-5">
               {preferredMethod === 'paypal' ? (
                 <>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#7f918c]">
-                    PayPal email
-                  </label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#7f918c]">PayPal email</label>
                   <input
                     type="email"
                     value={paypalEmail}
@@ -439,15 +415,11 @@ export default function PayoutsPage() {
                     placeholder="you@example.com"
                     className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#071210] px-4 py-3 text-sm text-[#f0f4f2] outline-none focus:border-[rgba(216,180,90,0.45)]"
                   />
-                  <p className="mt-1.5 text-[11px] text-[#81948e]">
-                    Used for future withdrawals. You can save this with zero balance.
-                  </p>
+                  <p className="mt-1.5 text-[11px] text-[#81948e]">Used for future withdrawals. You can save this with zero balance.</p>
                 </>
               ) : (
                 <>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#7f918c]">
-                    Local payment details
-                  </label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#7f918c]">Local payment details</label>
                   <textarea
                     value={localDetails}
                     onChange={(e) => setLocalDetails(e.target.value)}
@@ -455,9 +427,7 @@ export default function PayoutsPage() {
                     placeholder="Bank name / wallet (Vodafone Cash, InstaPay…) / account holder / phone / IBAN or account number"
                     className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#071210] px-4 py-3 text-sm text-[#f0f4f2] outline-none focus:border-[rgba(216,180,90,0.45)]"
                   />
-                  <p className="mt-1.5 text-[11px] text-[#81948e]">
-                    Ops will use these details on scheduled payout dates. Editable anytime.
-                  </p>
+                  <p className="mt-1.5 text-[11px] text-[#81948e]">Ops will use these details on scheduled payout dates. Editable anytime.</p>
                 </>
               )}
 
@@ -468,53 +438,49 @@ export default function PayoutsPage() {
                 type="button"
                 disabled={savingMethod}
                 onClick={savePaymentMethods}
-                className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b] disabled:opacity-60"
+                className="mt-4 rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] disabled:opacity-60"
               >
-                {savingMethod ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                Save {preferredMethod === 'paypal' ? 'PayPal' : 'Local'} details
+                {savingMethod ? 'Saving…' : 'Save payment method'}
               </button>
             </div>
           </section>
 
-          {/* Remainder of page (request form + history) unchanged from main */}
           <section className="mt-8">
-            <h2 className="font-display text-lg font-bold text-[#e8edea]">Request a withdrawal</h2>
+            <h2 className="font-display text-lg font-bold text-[#e8edea]">Request a payout</h2>
             {!data.policy.withdrawalsEnabled ? (
-              <div className="mt-3 rounded-xl border border-white/10 bg-[rgba(255,255,255,0.02)] p-5 text-sm text-[#81948e]">
-                Withdrawals are not available yet. You can still register payment methods above.
-              </div>
-            ) : data.policy.requiresIdentityVerification && !data.policy.identityVerified ? (
-              <div className="mt-3 rounded-xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] p-5 text-sm text-[#c1cbc7]">
-                Withdrawal requests unlock after admin identity verification.
-              </div>
+              <p className="mt-2 text-sm text-[#81948e]">Withdrawals are not open yet. You can still register methods above.</p>
             ) : (
-              <div className="mt-3 rounded-xl border border-white/10 bg-[#0a2926] p-5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#7f918c]">Amount (USD)</label>
-                <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="mt-1.5 w-full max-w-xs rounded-xl border border-white/10 bg-[#071210] px-4 py-3 text-sm text-[#f0f4f2] outline-none focus:border-[rgba(216,180,90,0.45)]"
-                />
-                <p className="mt-2 text-xs text-[#81948e]">
-                  Fee {formatUsd(DROPVERSE_PAYOUT_FEE_USD)} · Estimated net {formatUsd(feePreview.estimatedNet)}
+              <div className="mt-3 space-y-3 rounded-xl border border-white/10 bg-[#0a2926] p-5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#7f918c]">
+                  Amount (USD)
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#071210] px-4 py-3 text-sm text-[#f0f4f2] outline-none focus:border-[rgba(216,180,90,0.45)]"
+                  />
+                </label>
+                <p className="text-xs text-[#81948e]">
+                  Fee {formatUsd(DROPVERSE_PAYOUT_FEE_USD)} · Est. net{' '}
+                  <span className="font-semibold text-[#e4c979]">{formatUsd(feePreview.estimatedNet)}</span>
                 </p>
-                {formErr && <p className="mt-3 text-sm text-[#e89a8d]">{formErr}</p>}
-                {formMsg && <p className="mt-3 text-sm text-[#8fd6a8]">{formMsg}</p>}
+                {formErr && <p className="text-sm text-[#e89a8d]">{formErr}</p>}
+                {formMsg && <p className="text-sm text-[#8fd6a8]">{formMsg}</p>}
                 <button
                   type="button"
-                  disabled={submitting}
                   onClick={() => {
                     const v = validateClient()
-                    if (v) { setFormErr(v); return }
-                    setConfirmOpen(true)
+                    if (v) setFormErr(v)
+                    else {
+                      setFormErr(null)
+                      setConfirmOpen(true)
+                    }
                   }}
-                  className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] disabled:opacity-60"
+                  className="rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f]"
                 >
-                  {submitting ? <Loader2 size={16} className="animate-spin" /> : <Wallet size={16} />}
-                  Request payout
+                  Continue
                 </button>
               </div>
             )}
@@ -522,20 +488,13 @@ export default function PayoutsPage() {
 
           <section className="mt-8">
             <h2 className="font-display text-lg font-bold text-[#e8edea]">History</h2>
+            <p className="mt-1 text-xs text-[#81948e]">Receipt-style record of every payout request.</p>
             {!data.history.length ? (
               <div className="mt-3 rounded-xl border border-white/10 bg-[rgba(255,255,255,0.02)] p-5 text-sm text-[#81948e]">No payout requests yet.</div>
             ) : (
-              <div className="mt-3 overflow-hidden rounded-xl border border-white/10">
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {data.history.map((row) => (
-                  <div key={row.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-white/5 px-4 py-3 last:border-b-0">
-                    <div>
-                      <p className="text-sm font-semibold text-[#f0f4f2]">{formatUsd(row.amount)} · {row.method || '—'}</p>
-                      <p className="text-xs text-[#81948e]">{new Date(row.requestedAt).toLocaleString()}</p>
-                    </div>
-                    <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${statusClass(row.status)}`}>
-                      {statusLabel(row.status)}
-                    </span>
-                  </div>
+                  <ReceiptCard key={row.id} row={row} />
                 ))}
               </div>
             )}
