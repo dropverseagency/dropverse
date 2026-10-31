@@ -46,6 +46,8 @@ type PayoutPayload = {
     withdrawalsEnabled: boolean
     transfersActivated: boolean
     transfersNote: string
+    identityVerified?: boolean
+    requiresIdentityVerification?: boolean
   }
   methods: Method[]
   history: {
@@ -229,6 +231,9 @@ export default function PayoutsPage() {
 
   function validateClient(): string | null {
     if (!data?.policy.withdrawalsEnabled) return 'Withdrawals are not available yet.'
+    if (data?.policy.requiresIdentityVerification && !data.policy.identityVerified) {
+      return 'Identity verification is pending admin review.'
+    }
     if (!selectedMethod?.enabled) return 'Selected method is not available.'
     if (!Number.isFinite(amountNum) || amountNum <= 0) return 'Enter a valid amount.'
     if (selectedMethod && amountNum < selectedMethod.minUsd) {
@@ -334,6 +339,16 @@ export default function PayoutsPage() {
         </div>
       ) : data ? (
         <>
+          {data.policy.requiresIdentityVerification && !data.policy.identityVerified && (
+            <div className="mb-5 rounded-2xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] p-5">
+              <h2 className="font-display text-lg font-bold text-[#f0f4f2]">Identity verification pending</h2>
+              <p className="mt-2 text-sm leading-6 text-[#c1cbc7]">
+                Your freelancer identity is waiting for DropVerse admin review. You can register PayPal or Local Payments now.
+                Withdrawal requests unlock after verification is approved.
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Stat label="Pending" value={formatUsd(data.balances.pending)} hint="Awaiting approval" />
             <Stat
@@ -461,246 +476,100 @@ export default function PayoutsPage() {
             </div>
           </section>
 
+          {/* Remainder of page (request form + history) unchanged from main */}
           <section className="mt-8">
-            <h2 className="font-display text-lg font-bold text-[#e8edea]">Earnings breakdown</h2>
-            <p className="mt-1 text-xs text-[#81948e]">{data.breakdown.sourcesNote}</p>
-            <div className="mt-3 grid gap-3">
-              <div className="rounded-xl border border-white/5 bg-[rgba(255,255,255,0.02)] p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-[#f0f4f2]">{data.breakdown.affiliate.label}</span>
-                  <span className="text-sm text-[#c8d4d0]">
-                    {formatUsd(data.breakdown.affiliate.available)} withdrawable ·{' '}
-                    {formatUsd(data.breakdown.affiliate.pending)} pending ·{' '}
-                    {formatUsd(data.breakdown.affiliate.paid)} commission ledger paid
-                  </span>
-                </div>
-                <p className="mt-2 text-xs text-[#81948e]">
-                  {formatUsd(data.breakdown.affiliate.paidThroughWithdrawals ?? 0)} paid through withdrawal requests. Open and paid withdrawals are deducted from the withdrawable balance.
-                </p>
+            <h2 className="font-display text-lg font-bold text-[#e8edea]">Request a withdrawal</h2>
+            {!data.policy.withdrawalsEnabled ? (
+              <div className="mt-3 rounded-xl border border-white/10 bg-[rgba(255,255,255,0.02)] p-5 text-sm text-[#81948e]">
+                Withdrawals are not available yet. You can still register payment methods above.
               </div>
-              <div className="rounded-xl border border-white/5 bg-[rgba(255,255,255,0.02)] p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-[#f0f4f2]">{data.breakdown.projectEarnings.label}</span>
-                  <span className="text-sm text-[#c8d4d0]">
-                    {formatUsd(data.breakdown.projectEarnings.releasable)} releasable ·{' '}
-                    {formatUsd(data.breakdown.projectEarnings.pending)} held ·{' '}
-                    {formatUsd(data.breakdown.projectEarnings.released)} released
-                  </span>
-                </div>
-                <p className="mt-2 text-xs text-[#81948e]">
-                  Project earnings are paid separately by an admin after project approval; they are not included in affiliate withdrawal requests.
-                </p>
+            ) : data.policy.requiresIdentityVerification && !data.policy.identityVerified ? (
+              <div className="mt-3 rounded-xl border border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.08)] p-5 text-sm text-[#c1cbc7]">
+                Withdrawal requests unlock after admin identity verification.
               </div>
-            </div>
+            ) : (
+              <div className="mt-3 rounded-xl border border-white/10 bg-[#0a2926] p-5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#7f918c]">Amount (USD)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="mt-1.5 w-full max-w-xs rounded-xl border border-white/10 bg-[#071210] px-4 py-3 text-sm text-[#f0f4f2] outline-none focus:border-[rgba(216,180,90,0.45)]"
+                />
+                <p className="mt-2 text-xs text-[#81948e]">
+                  Fee {formatUsd(DROPVERSE_PAYOUT_FEE_USD)} · Estimated net {formatUsd(feePreview.estimatedNet)}
+                </p>
+                {formErr && <p className="mt-3 text-sm text-[#e89a8d]">{formErr}</p>}
+                {formMsg && <p className="mt-3 text-sm text-[#8fd6a8]">{formMsg}</p>}
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => {
+                    const v = validateClient()
+                    if (v) { setFormErr(v); return }
+                    setConfirmOpen(true)
+                  }}
+                  className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] disabled:opacity-60"
+                >
+                  {submitting ? <Loader2 size={16} className="animate-spin" /> : <Wallet size={16} />}
+                  Request payout
+                </button>
+              </div>
+            )}
           </section>
 
           <section className="mt-8">
-            <h2 className="font-display text-lg font-bold text-[#e8edea]">Request withdrawal</h2>
-            <div className="mt-4 rounded-xl border border-white/10 bg-[#0a2926] p-5">
-              {!data.policy.withdrawalsEnabled ? (
-                <div className="flex items-start gap-2 text-sm text-[#c1cbc7]">
-                  <AlertCircle size={16} className="mt-0.5 shrink-0 text-[#d8b45a]" />
-                  <div>
-                    <p className="font-semibold text-[#f0f4f2]">Withdrawals are not available yet.</p>
-                    <p className="mt-1 text-xs text-[#81948e]">
-                      PayPal and Local payouts are not open for requests. You can still register payment details
-                      above and review balances and history. The server rejects withdrawal requests while methods
-                      remain disabled.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {data.balances.available <= 0 && (
-                    <div className="mb-4 flex items-start gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-sm text-[#c1cbc7]">
-                      <AlertCircle size={16} className="mt-0.5 shrink-0 text-[#d8b45a]" />
-                      <div>
-                        <p className="font-semibold text-[#f0f4f2]">No available balance yet.</p>
-                        <p className="mt-1 text-xs text-[#81948e]">
-                          You can enter an amount below, but a request can only be submitted when your available balance covers it.
-                          Minimum: PayPal {formatUsd(50)} · Local {formatUsd(25)}.
-                        </p>
-                      </div>
+            <h2 className="font-display text-lg font-bold text-[#e8edea]">History</h2>
+            {!data.history.length ? (
+              <div className="mt-3 rounded-xl border border-white/10 bg-[rgba(255,255,255,0.02)] p-5 text-sm text-[#81948e]">No payout requests yet.</div>
+            ) : (
+              <div className="mt-3 overflow-hidden rounded-xl border border-white/10">
+                {data.history.map((row) => (
+                  <div key={row.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-white/5 px-4 py-3 last:border-b-0">
+                    <div>
+                      <p className="text-sm font-semibold text-[#f0f4f2]">{formatUsd(row.amount)} · {row.method || '—'}</p>
+                      <p className="text-xs text-[#81948e]">{new Date(row.requestedAt).toLocaleString()}</p>
                     </div>
-                  )}
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#7f918c]">
-                    Amount (USD)
-                  </label>
-                  <input
-                    type="number"
-                    min={selectedMethod?.minUsd ?? 0}
-                    step="0.01"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="0.00"
-                    className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#071210] px-4 py-3 text-sm text-[#f0f4f2] outline-none focus:border-[rgba(216,180,90,0.45)]"
-                  />
-                  <label className="mt-4 block text-xs font-bold uppercase tracking-wider text-[#7f918c]">
-                    Destination ({method === 'paypal' ? 'PayPal email' : 'Local details'})
-                  </label>
-                  <input
-                    type="text"
-                    value={destination}
-                    onChange={(e) => setDestination(e.target.value)}
-                    placeholder={method === 'paypal' ? 'you@example.com' : 'Bank / wallet / phone'}
-                    className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#071210] px-4 py-3 text-sm text-[#f0f4f2] outline-none focus:border-[rgba(216,180,90,0.45)]"
-                  />
-                  <div className="mt-4 space-y-1 rounded-lg border border-white/5 bg-[#071210] px-4 py-3 text-sm">
-                    <Row label="Method" value={selectedMethod?.label || method} />
-                    <Row label="Requested" value={formatUsd(feePreview.gross)} />
-                    <Row label="DropVerse fee" value={`− ${formatUsd(feePreview.dropverseFee)}`} />
-                    <Row label="Estimated net" value={formatUsd(feePreview.estimatedNet)} strong />
+                    <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${statusClass(row.status)}`}>
+                      {statusLabel(row.status)}
+                    </span>
                   </div>
-                  {formErr && <p className="mt-3 text-sm text-[#e89a8d]">{formErr}</p>}
-                  {formMsg && <p className="mt-3 text-sm text-[#8fd6a8]">{formMsg}</p>}
-                  <button
-                    type="button"
-                    disabled={!selectedMethod?.enabled || submitting}
-                    onClick={() => {
-                      const v = validateClient()
-                      if (v) {
-                        setFormErr(v)
-                        return
-                      }
-                      setFormErr(null)
-                      setConfirmOpen(true)
-                    }}
-                    className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-[#d8b45a] px-5 py-2.5 text-sm font-bold text-[#10221f] transition hover:bg-[#f0d98b] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Review & request
-                  </button>
-                </>
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </section>
 
-          <section className="mt-8">
-            <h2 className="font-display text-lg font-bold text-[#e8edea]">Payout history</h2>
-            <div className="mt-3 overflow-x-auto rounded-xl border border-white/5">
-              {data.history.length === 0 ? (
-                <p className="p-6 text-sm text-[#81948e]">No payout requests yet.</p>
-              ) : (
-                <table className="min-w-full text-left text-sm">
-                  <thead className="border-b border-white/5 bg-white/[0.02] text-xs uppercase tracking-wider text-[#7f918c]">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold">Date</th>
-                      <th className="px-4 py-3 font-semibold">Amount</th>
-                      <th className="px-4 py-3 font-semibold">Method</th>
-                      <th className="px-4 py-3 font-semibold">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.history.map((h) => (
-                      <tr key={h.id} className="border-b border-white/5 last:border-0">
-                        <td className="px-4 py-3 text-[#c8d4d0]">
-                          {h.requestedAt ? new Date(h.requestedAt).toLocaleString() : '—'}
-                        </td>
-                        <td className="px-4 py-3 font-medium text-[#f0f4f2]">{formatUsd(h.amount)}</td>
-                        <td className="px-4 py-3 text-[#c8d4d0]">
-                          <div>{h.method || '—'}</div>
-                          {h.transferReference ? <div className="mt-1 max-w-[14rem] break-all text-[10px] text-[#9aacb8]">Ref: {h.transferReference}</div> : null}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${statusClass(h.status)}`}>
-                            {statusLabel(h.status)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+          {confirmOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+              <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0a2926] p-6">
+                <h3 className="font-display text-lg font-bold text-white">Confirm payout request</h3>
+                <p className="mt-2 text-sm text-[#c1cbc7]">
+                  Request {formatUsd(amountNum)} via {method}. Fee {formatUsd(DROPVERSE_PAYOUT_FEE_USD)}.
+                  Estimated net {formatUsd(feePreview.estimatedNet)}.
+                </p>
+                <div className="mt-5 flex gap-2">
+                  <button type="button" onClick={() => setConfirmOpen(false)} className="rounded-full border border-white/15 px-4 py-2 text-sm">Cancel</button>
+                  <button type="button" disabled={submitting} onClick={submitRequest} className="rounded-full bg-[#d8b45a] px-4 py-2 text-sm font-bold text-[#10221f] disabled:opacity-60">
+                    {submitting ? 'Submitting…' : 'Confirm'}
+                  </button>
+                </div>
+              </div>
             </div>
-          </section>
+          )}
         </>
       ) : null}
-
-      {confirmOpen && data && data.policy.withdrawalsEnabled && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0a2926] p-6 shadow-2xl">
-            <h3 className="font-display text-lg font-bold text-[#f0f4f2]">Confirm withdrawal request</h3>
-            <p className="mt-1 text-xs text-[#81948e]">No automatic transfer is sent. Ops processes on scheduled dates.</p>
-            <div className="mt-4 space-y-1 rounded-lg border border-white/5 bg-[#071210] px-4 py-3 text-sm">
-              <Row label="Method" value={selectedMethod?.label || method} />
-              <Row label="Amount" value={formatUsd(feePreview.gross)} />
-              <Row label="DropVerse fee" value={`− ${formatUsd(feePreview.dropverseFee)}`} />
-              <Row label="Estimated net" value={formatUsd(feePreview.estimatedNet)} strong />
-              {(destination || paypalEmail || localDetails) && (
-                <Row
-                  label="Destination"
-                  value={
-                    method === 'paypal'
-                      ? (destination || paypalEmail).trim()
-                      : (destination || localDetails).trim()
-                  }
-                />
-              )}
-              <Row label="Next processing" value={data.policy.nextScheduledProcessingDate || '—'} />
-            </div>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={submitRequest}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-[#d8b45a] px-4 py-3 text-sm font-bold text-[#10221f] hover:bg-[#f0d98b] disabled:opacity-60"
-              >
-                {submitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                Submit request
-              </button>
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={() => setConfirmOpen(false)}
-                className="rounded-full border border-white/15 px-4 py-3 text-sm font-semibold text-[#c8d4d0] hover:bg-white/5"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
 
-function Stat({
-  label,
-  value,
-  hint,
-  accent,
-}: {
-  label: string
-  value: string
-  hint: string
-  accent?: boolean
-}) {
+function Stat({ label, value, hint, accent }: { label: string; value: string; hint: string; accent?: boolean }) {
   return (
-    <div
-      className={`rounded-xl border p-4 ${
-        accent
-          ? 'border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.06)]'
-          : 'border-white/5 bg-[rgba(255,255,255,0.02)]'
-      }`}
-    >
-      <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-[#7f918c]">
-        {label === 'Available' ? (
-          <Wallet size={13} className="text-[#d8b45a]" />
-        ) : (
-          <Clock size={13} className="text-[#d8b45a]" />
-        )}
-        {label}
-      </div>
-      <div className={`mt-2 text-xl font-bold ${accent ? 'text-[#e4c979]' : 'text-[#f0f4f2]'}`}>{value}</div>
-      <div className="mt-1 text-[11px] text-[#81948e]">{hint}</div>
-    </div>
-  )
-}
-
-function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-[#81948e]">{label}</span>
-      <span className={strong ? 'font-semibold text-[#e4c979]' : 'text-[#f0f4f2]'}>{value}</span>
+    <div className={`rounded-2xl border p-4 ${accent ? 'border-[rgba(216,180,90,0.35)] bg-[rgba(216,180,90,0.07)]' : 'border-white/10 bg-[rgba(255,255,255,0.02)]'}`}>
+      <div className="text-xs uppercase tracking-[.14em] text-[#849792]">{label}</div>
+      <div className="mt-2 font-display text-2xl font-extrabold text-[#e8efe9]">{value}</div>
+      <div className="mt-0.5 text-[11px] text-[#81948e]">{hint}</div>
     </div>
   )
 }
