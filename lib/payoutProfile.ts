@@ -1,7 +1,20 @@
 import { adminClient } from './adminCore'
 import { missingPayoutProfileFields } from './profileCompletion'
 
-export async function payoutProfileStatus(userId: string) {
+export type PayoutProfileStatus = {
+  /** Fields the user can complete themselves (name, phone, username, niches, …). */
+  complete: boolean
+  missing: string[]
+  /**
+   * Admin-only KYC flag for freelancers.
+   * Not a user-completable onboarding field — must never be pushed into `missing`
+   * or the UI will loop users through /onboarding forever.
+   */
+  identityVerified: boolean
+  requiresIdentityVerification: boolean
+}
+
+export async function payoutProfileStatus(userId: string): Promise<PayoutProfileStatus> {
   const admin = adminClient()
   const { data: profile, error: profileError } = await admin
     .from('profiles')
@@ -13,31 +26,56 @@ export async function payoutProfileStatus(userId: string) {
   const roles = Array.isArray(profile?.user_types) ? profile.user_types : []
   const freelancer = profile?.user_type === 'freelancer' || roles.includes('freelancer')
   let niches: string[] = []
+  let identityVerified = true
+  let requiresIdentityVerification = false
+
   if (freelancer) {
-    const [{ data, error }, verification] = await Promise.all([admin
-      .from('freelancer_profiles')
-      .select('niches')
-      .eq('user_id', userId)
-      .maybeSingle(), admin.from('freelancer_verifications').select('identity_status').eq('user_id', userId).maybeSingle()])
+    requiresIdentityVerification = true
+    const [{ data, error }, verification] = await Promise.all([
+      admin.from('freelancer_profiles').select('niches').eq('user_id', userId).maybeSingle(),
+      admin.from('freelancer_verifications').select('identity_status').eq('user_id', userId).maybeSingle(),
+    ])
     if (error) throw error
     niches = Array.isArray(data?.niches) ? data.niches.map(String).filter(Boolean) : []
-    if (verification.error && !/does not exist|relation/i.test(verification.error.message || '')) throw verification.error
-    if (verification.data?.identity_status !== 'verified') niches.push('__identity_not_verified__')
+    if (verification.error && !/does not exist|relation/i.test(verification.error.message || '')) {
+      throw verification.error
+    }
+    identityVerified = verification.data?.identity_status === 'verified'
   }
 
-  const identityMissing = niches.includes('__identity_not_verified__')
-  const missing = missingPayoutProfileFields(profile, niches.filter((n) => n !== '__identity_not_verified__'))
-  if (identityMissing) missing.push('identity_verification')
-  return { complete: missing.length === 0, missing }
+  const missing = missingPayoutProfileFields(profile, niches)
+  return {
+    complete: missing.length === 0,
+    missing,
+    identityVerified,
+    requiresIdentityVerification,
+  }
 }
 
 export function profileIncompleteResponse(missing: string[]) {
-  return new Response(JSON.stringify({
-    error: 'PROFILE_INCOMPLETE',
-    message: 'Complete your profile before using payouts.',
-    missing,
-  }), {
-    status: 403,
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-  })
+  return new Response(
+    JSON.stringify({
+      error: 'PROFILE_INCOMPLETE',
+      message: 'Complete your profile before using payouts.',
+      missing,
+    }),
+    {
+      status: 403,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+    },
+  )
+}
+
+export function identityRequiredResponse() {
+  return new Response(
+    JSON.stringify({
+      error: 'IDENTITY_VERIFICATION_REQUIRED',
+      message:
+        'Identity verification is pending admin review. You can register payment methods now; withdrawal requests open after verification.',
+    }),
+    {
+      status: 403,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+    },
+  )
 }
