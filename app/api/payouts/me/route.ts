@@ -42,9 +42,12 @@ export async function GET(request: NextRequest) {
   const user = await resolveUser(request)
   if (!user) return jsonError('NOT_AUTHENTICATED', 401)
 
+  let profileStatus: Awaited<ReturnType<typeof payoutProfileStatus>>
   try {
-    const profile = await payoutProfileStatus(user.id)
-    if (!profile.complete) return profileIncompleteResponse(profile.missing)
+    profileStatus = await payoutProfileStatus(user.id)
+    // Only user-completable fields block the page. Identity verification is admin-only
+    // and must not trap freelancers in an onboarding loop.
+    if (!profileStatus.complete) return profileIncompleteResponse(profileStatus.missing)
   } catch (error) {
     console.error('[payouts/me] profile check failed', error)
     await reportServerError(error, { source: 'payouts-me', path: '/api/payouts/me', method: 'GET' })
@@ -58,7 +61,11 @@ export async function GET(request: NextRequest) {
   })
   if (summaryError || !summary || typeof summary !== 'object') {
     console.error('[payouts/me] balance summary failed', summaryError)
-    await reportServerError(summaryError || new Error('Payout balance summary returned an invalid payload'), { source: 'payouts-me-summary', path: '/api/payouts/me', method: 'GET' })
+    await reportServerError(summaryError || new Error('Payout balance summary returned an invalid payload'), {
+      source: 'payouts-me-summary',
+      path: '/api/payouts/me',
+      method: 'GET',
+    })
     return jsonError('PAYOUT_DATA_UNAVAILABLE')
   }
 
@@ -71,7 +78,11 @@ export async function GET(request: NextRequest) {
 
   if (payoutsError || !payouts) {
     console.error('[payouts/me] payout history lookup failed', payoutsError)
-    await reportServerError(payoutsError || new Error('Payout history returned an invalid payload'), { source: 'payouts-me-history', path: '/api/payouts/me', method: 'GET' })
+    await reportServerError(payoutsError || new Error('Payout history returned an invalid payload'), {
+      source: 'payouts-me-history',
+      path: '/api/payouts/me',
+      method: 'GET',
+    })
     return jsonError('PAYOUT_DATA_UNAVAILABLE')
   }
 
@@ -92,7 +103,6 @@ export async function GET(request: NextRequest) {
     requestedAt: p.requested_at,
     amount: Number(p.amount || 0),
     currency: PAYOUT_CURRENCY,
-    // Existing requests predate these persisted terms; don't invent historical fees.
     dropverseFee: p.dropverse_fee == null ? null : Number(p.dropverse_fee),
     providerFee: null as number | null,
     estimatedNet: p.estimated_net == null ? null : Number(p.estimated_net),
@@ -144,6 +154,8 @@ export async function GET(request: NextRequest) {
         transfersActivated: false,
         transfersNote:
           'Requests are recorded for admin review. Automatic provider transfers are not activated yet — status stays pending until operations processes the payout.',
+        identityVerified: profileStatus.identityVerified,
+        requiresIdentityVerification: profileStatus.requiresIdentityVerification,
       },
       methods: PAYOUT_METHODS.map((m) => ({
         id: m.id,

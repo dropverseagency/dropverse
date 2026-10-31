@@ -9,7 +9,11 @@ import {
 } from '@/lib/payoutConfig'
 import { notifyAdminEvent } from '@/lib/agents/adminNotify'
 import { createUserNotification } from '@/lib/userNotifications'
-import { payoutProfileStatus, profileIncompleteResponse } from '@/lib/payoutProfile'
+import {
+  identityRequiredResponse,
+  payoutProfileStatus,
+  profileIncompleteResponse,
+} from '@/lib/payoutProfile'
 import { rateLimit, rateLimitResponse } from '@/lib/rateLimit'
 import { reportServerError } from '@/lib/opsAlerts'
 
@@ -48,6 +52,10 @@ export async function POST(request: NextRequest) {
   try {
     const profile = await payoutProfileStatus(user.id)
     if (!profile.complete) return profileIncompleteResponse(profile.missing)
+    // Freelancer identity is admin-approved KYC — block only the actual request, not the page.
+    if (profile.requiresIdentityVerification && !profile.identityVerified) {
+      return identityRequiredResponse()
+    }
   } catch (error) {
     console.error('[payouts/request] profile check failed', error)
     await reportServerError(error, { source: 'payout-request-profile', path: '/api/payouts/request', method: 'POST' })
@@ -142,7 +150,11 @@ export async function POST(request: NextRequest) {
 
   if (error || !result || typeof result !== 'object') {
     console.error('[payouts/request] atomic reservation failed', error)
-    await reportServerError(error || new Error('Atomic payout reservation returned an invalid result'), { source: 'payout-request-reservation', path: '/api/payouts/request', method: 'POST' })
+    await reportServerError(error || new Error('Atomic payout reservation returned an invalid result'), {
+      source: 'payout-request-reservation',
+      path: '/api/payouts/request',
+      method: 'POST',
+    })
     return new Response(JSON.stringify({ error: 'SAVE_FAILED', message: 'Unable to reserve this payout. Please try again.' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
@@ -151,26 +163,37 @@ export async function POST(request: NextRequest) {
 
   if (result.ok !== true) {
     if (result.error === 'INSUFFICIENT_BALANCE') {
-      return new Response(JSON.stringify({
-        error: 'INSUFFICIENT_BALANCE',
-        message: 'Requested amount exceeds your available balance.',
-        available: Number(result.available ?? 0),
-      }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return new Response(
+        JSON.stringify({
+          error: 'INSUFFICIENT_BALANCE',
+          message: 'Requested amount exceeds your available balance.',
+          available: Number(result.available ?? 0),
+        }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
     }
     if (result.error === 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PARAMS') {
-      return new Response(JSON.stringify({
-        error: 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PARAMS',
-        message: 'This request key was already used with different payout terms. Generate a new key or retry with the original request details.',
-      }), {
-        status: 409,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return new Response(
+        JSON.stringify({
+          error: 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PARAMS',
+          message:
+            'This request key was already used with different payout terms. Generate a new key or retry with the original request details.',
+        }),
+        {
+          status: 409,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
     }
     console.error('[payouts/request] atomic reservation rejected', result.error)
-    await reportServerError(new Error(`Atomic payout reservation rejected: ${String(result.error).slice(0, 120)}`), { source: 'payout-request-rejected', path: '/api/payouts/request', method: 'POST' })
+    await reportServerError(new Error(`Atomic payout reservation rejected: ${String(result.error).slice(0, 120)}`), {
+      source: 'payout-request-rejected',
+      path: '/api/payouts/request',
+      method: 'POST',
+    })
     return new Response(JSON.stringify({ error: 'SAVE_FAILED' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
@@ -180,7 +203,11 @@ export async function POST(request: NextRequest) {
   const saved = result.request
   if (!saved || typeof saved.id !== 'string') {
     console.error('[payouts/request] atomic reservation returned an invalid result')
-    await reportServerError(new Error('Atomic payout reservation returned an invalid request payload'), { source: 'payout-request-invalid-result', path: '/api/payouts/request', method: 'POST' })
+    await reportServerError(new Error('Atomic payout reservation returned an invalid request payload'), {
+      source: 'payout-request-invalid-result',
+      path: '/api/payouts/request',
+      method: 'POST',
+    })
     return new Response(JSON.stringify({ error: 'SAVE_FAILED' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
